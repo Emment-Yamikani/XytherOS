@@ -62,6 +62,7 @@ clean:
 	@echo "Cleaning build artifacts..."
 	rm -f $(OBJS) $(ISO_DIR)/$(TARGET) $(ISO_IMAGE)
 	rm -rf $(ISO_DIR)/boot
+	rm -rf *.log xyther.asm
 
 # Build ISO Image
 iso: all
@@ -95,5 +96,5 @@ debug: iso
 	$(QUEUE_FLAGS) -smp $(CPU_COUNT) -m size=$(RAM_SIZE) -vga std \
     -chardev file,id=char0,path=serial.log -serial chardev:char0
 
-dump:
-	objdump -d $(ISO_DIR)/$(TARGET) -M intel > xyther.asm
+dump: $(ISO_DIR)/$(TARGET)
+	objdump -d $< -M intel > xyther.asm

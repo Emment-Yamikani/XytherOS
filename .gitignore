@@ -1,5 +1,8 @@
 iso
 *.log
+*.d
+*.o
 */*.log
 */*.d
 */*.o
+xyther.asm
