@@ -5,4 +5,5 @@ iso
 */*.log
 */*.d
 */*.o
+*.iso
 xyther.asm

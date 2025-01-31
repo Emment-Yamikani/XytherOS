@@ -1,18 +1,18 @@
 section .text
 
-global _PML4_
 global start32
 
-extern cga_init
 extern multiboot_info_process
 extern earlycons_init
 extern early_init
-extern x86_64_init
+extern setcls
+extern cpu_init
 
 ; Constants
-PGSZ    equ 0x1000
-DEVADDR equ 0xFE000000
-VMA     equ 0xFFFF800000000000
+PGSZ     equ 0x1000
+DEVADDR  equ 0xFE000000
+VMA      equ 0xFFFF800000000000
+CGA_BASE equ 0xFFFF8000000B8000
 
 [bits 32]
 start32:
@@ -182,6 +182,10 @@ start64:
     pop     rdi                 ; Restore multiboot info pointer
     pop     rcx                 ; Restore multiboot magic number
 
+    mov     rdi, bspcls
+    call    setcls
+    call    cpu_init
+
     ; Initialize SSE
     call    init_sse
 
@@ -235,35 +239,35 @@ init_sse:
 .enable_sse42:
     ; SSE4.2 is supported
     call    enable_sse
-    mov     rsi, sse_supported_msg ; Load success message
+    mov     rsi, sse42_supported_msg ; Load success message
     call    print_message
     ret
 
 .enable_sse41:
     ; SSE4.1 is supported
     call    enable_sse
-    mov     rsi, sse_supported_msg
+    mov     rsi, sse41_supported_msg
     call    print_message
     ret
 
 .enable_ssse3:
     ; SSSE3 is supported
     call    enable_sse
-    mov     rsi, sse_supported_msg
+    mov     rsi, ssse3_supported_msg
     call    print_message
     ret
 
 .enable_sse3:
     ; SSE3 is supported
     call    enable_sse
-    mov     rsi, sse_supported_msg
+    mov     rsi, sse3_supported_msg
     call    print_message
     ret
 
 .enable_sse2:
     ; SSE2 is supported
     call    enable_sse
-    mov     rsi, sse_supported_msg
+    mov     rsi, sse2_supported_msg
     call    print_message
     ret
 
@@ -294,7 +298,7 @@ enable_sse:
 print_message:
     ; Input: RSI = pointer to null-terminated string
     ; Output: Print the string to the VGA text buffer
-    mov     rdi, 0xFFFF8000000B8000        ; VGA text buffer address
+    mov     rdi, CGA_BASE       ; VGA text buffer address
     mov     ah, 0x0F            ; White text on black background
 .print_loop:
     lodsb                       ; Load next byte from RSI into AL
@@ -307,25 +311,27 @@ print_message:
 
 ; Data Section for Messages
 section .data
-sse_supported_msg db "SSE is supported and initialized.", 0
-no_sse_msg        db "Error: No SSE support detected. Halting.", 0
+sse_supported_msg       db "SSE is supported and initialized.", 0
+sse2_supported_msg      db "SSE2 is supported and initialized.", 0
+sse3_supported_msg      db "SSE3 is supported and initialized.", 0
+ssse3_supported_msg     db "SSSE3 is supported and initialized.", 0
+sse41_supported_msg     db "SSE4.1 is supported and initialized.", 0
+sse42_supported_msg     db "SSE4.2 is supported and initialized.", 0
+no_sse_msg              db "Error: No SSE support detected. Halting.", 0
 
 align 16
 section .bss
 align PGSZ
-_PML4_:
-    resb PGSZ
-PDPT:
-    resb PGSZ
-PDT:
-    resb PGSZ * 2
-PT:
-    resb PGSZ * 1024
-DEVPDT:
-    resb PGSZ
-DEVPT:
-    resb PGSZ * 16
+global _PML4_
+_PML4_: resb PGSZ
+PDPT:   resb PGSZ
+PDT:    resb PGSZ * 2
+PT:     resb PGSZ * 1024
+DEVPDT: resb PGSZ
+DEVPT:  resb PGSZ * 16
 
-stack:
-    resb 0x80000
-    .top:
+stack:  resb 0x80000
+.top:
+
+; Per-CPU Local storage for the Bootstrap Processor
+bspcls:    resb PGSZ

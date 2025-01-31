@@ -13,12 +13,13 @@ GRUBMKRESCUE:= grub-mkrescue
 CINCLUDE	:= $(KERNEL_DIR)/include
 
 # Compiler and Linker Flags
-CFLAGS      := -ffreestanding -O2 -Wall -Wextra -Wshadow -Wconversion -Wpedantic -Werror \
-               -fno-stack-protector -fno-exceptions -fno-pic -mno-red-zone -m64 -I$(CINCLUDE) \
-               -nostdlib -nostartfiles -nodefaultlibs -std=gnu99 -ffunction-sections -fdata-sections
+CFLAGS 		:= -ffreestanding -O2 -g -Wall -Wextra -Wshadow -Werror \
+       		   -fno-stack-protector -fno-exceptions -fno-pic -mno-red-zone -m64 -mcmodel=large \
+       		   -I$(CINCLUDE) -nostdlib -nostartfiles -nodefaultlibs -std=gnu99 \
+       		   -ffunction-sections -fdata-sections
 
-LDFLAGS     := -T kernel/linker.ld --gc-sections -nostdlib -static -m elf_x86_64 \
-			   -z max-page-size=0x1000
+LDFLAGS 	:= -T kernel/linker.ld --gc-sections -nostdlib -static -m elf_x86_64 \
+        	   -z max-page-size=0x1000
 
 ASFLAGS     := -f elf64
 
@@ -63,6 +64,7 @@ clean:
 	rm -f $(OBJS) $(ISO_DIR)/$(TARGET) $(ISO_IMAGE)
 	rm -rf $(ISO_DIR)/boot
 	rm -rf *.log xyther.asm
+	clear
 
 # Build ISO Image
 iso: all

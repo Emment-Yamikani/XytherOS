@@ -3,6 +3,8 @@
 #ifndef XYTHEROS_TYPES_H
 #define XYTHEROS_TYPES_H
 
+#include <stdint.h>
+
 /* Fixed-width integer types */
 typedef unsigned char      u8;
 typedef unsigned short     u16;
@@ -18,10 +20,13 @@ typedef signed long long   i64;
 typedef enum { false = 0, true = 1 } bool;
 
 /* Size types */
-typedef u64 size_t;
-typedef i64 ssize_t;
-typedef u64 uintptr_t;
-typedef i64 intptr_t;
+typedef i64     isize;
+typedef u64     usize;
+
+typedef int     tid_t;
+typedef int     pid_t;
+
+typedef struct thread_t thread_t;
 
 /* NULL pointer */
 #ifndef NULL
@@ -31,11 +36,5 @@ typedef i64 intptr_t;
 /* Memory alignment macros */
 #define ALIGN_UP(x, align)   (((x) + ((align) - 1)) & ~((align) - 1))
 #define ALIGN_DOWN(x, align) ((x) & ~((align) - 1))
-
-/* Common error codes */
-#define SUCCESS       0
-#define ERR_INVALID  -1
-#define ERR_NO_MEM   -2
-#define ERR_NOT_FOUND -3
 
 #endif /* XYTHEROS_TYPES_H */
