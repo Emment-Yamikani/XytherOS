@@ -73,6 +73,10 @@ extern u64 rdrax(void);
 
 extern u64 rdrflags(void);
 
+static inline bool is_intena(void) {
+    return (rdrflags() & 0x200) ? true : false;
+}
+
 extern void wrrflags(u64);
 
 extern u64 rdcr0(void);
@@ -110,3 +114,20 @@ extern u64 rdrsp(void);
 extern u64 rdrbp(void);
 
 extern void fninit(void);
+
+extern bool CmpXchg(volatile u64 *ptr, u64 expected, u64 new_value);
+
+extern u8 inb(u16 port);
+extern void outb(u16 port, u8 data);
+
+extern u16 inw(u16 port);
+extern void outw(u16 port, u16 data);
+
+extern u32 ind(u16 port);
+extern void outd(u16 port, u32 data);
+
+extern void cli(void);
+
+extern void sti(void);
+
+extern void hlt(void);

@@ -1,4 +1,5 @@
 [bits 64]
+section .text
 
 global rdrax
 rdrax:
@@ -109,7 +110,7 @@ loadtr:
 
 global invlpg
 invlpg:
-    invlpg      [rdi]
+    invlpg  [rdi]
     ret
 
 global wrxcr
@@ -150,6 +151,75 @@ rdrbp:
     ret
 
 global fninit
+; C prototype: void fninit(void);
 fninit:
     fninit
+    ret
+
+global cli
+; C prototype: void cli(void);
+cli:
+    cli
+    ret
+
+global sti
+; C prototype: void sti(void);
+sti:
+    sti
+    ret
+
+global hlt
+; C prototype: void hlt(void);
+hlt:
+    hlt
+    ret
+
+global cpu_pause
+cpu_pause:
+    pause
+    ret
+
+global outb
+; C prototype: void outb(uint16_t port, uint8_t data);
+outb:
+    mov dx, di
+    mov ax, si
+    out dx, al
+    ret
+
+global inb
+; C prototype: uint8_t inb(uint16_t port);
+inb:
+    mov dx, di
+    in  al, dx
+    ret
+
+global outw
+; C prototype: void outw(uint16_t port, uint16_t data);
+outw:
+    mov dx, di
+    mov ax, si
+    out dx, ax
+    ret
+
+global inw
+; C prototype: uint16_t inw(uint16_t port);
+inw:
+    mov dx, di
+    in  ax, dx
+    ret
+
+global outd
+; C prototype: void outd(uint16_t port, uint32_t data);
+outd:
+    mov dx, di
+    mov eax, esi
+    out dx, eax
+    ret
+
+global ind
+; C prototype: uint32_t ind(uint16_t port);
+ind:
+    mov dx, di
+    in  eax, dx
     ret

@@ -1,4 +1,5 @@
 #include <arch/cpu.h>
+#include <arch/x86_64/asm.h>
 #include <arch/x86_64/mmu.h>
 #include <arch/x86_64/msr.h>
 
@@ -12,6 +13,7 @@ void setcls(cpu_t *c) {
 }
 
 int cpu_init(void) {
+    cache_disable();
     tvinit();
     gdt_init();
     return 0;

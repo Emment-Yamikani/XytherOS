@@ -182,8 +182,11 @@ start64:
     pop     rdi                 ; Restore multiboot info pointer
     pop     rcx                 ; Restore multiboot magic number
 
+    ; Set the local storage for this core.
     mov     rdi, bspcls
     call    setcls
+
+    ; Initialize the GDT/IDT and trap vectors.
     call    cpu_init
 
     ; Initialize SSE
@@ -197,7 +200,6 @@ start64:
     ; Halt the CPU (end of initialization)
     cli
     hlt
-    jmp     $
 
 ; SSE Initialization Function
 global init_sse

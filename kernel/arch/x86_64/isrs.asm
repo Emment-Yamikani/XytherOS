@@ -174,6 +174,7 @@ _sim_trap:
     push    qword 0x10          ; Push data segment selector (DS)
     push    rsp                 ; Push stack pointer (SS:SP)
     pushfq                      ; Push flags register (RFLAGS)
+    cli
     push    qword 0x8           ; Push code segment selector (CS)
     push    rax                 ; Push return address (RIP)
     push    qword 0x0           ; Push dummy error code
