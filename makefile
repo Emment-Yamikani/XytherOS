@@ -4,6 +4,8 @@ ISO_DIR     := iso
 ISO_IMAGE   := xytheros.iso
 KERNEL_DIR  := kernel
 
+KERNEL_FLAGS:= -DDEBUG_BUILD -D__x86_64__
+
 # Toolchain Configuration
 CC          := x86_64-elf-gcc
 AS          := nasm
@@ -13,10 +15,9 @@ GRUBMKRESCUE:= grub-mkrescue
 CINCLUDE	:= $(KERNEL_DIR)/include
 
 # Compiler and Linker Flags
-CFLAGS 		:= -ffreestanding -O2 -g -Wall -Wextra -Wshadow -Werror \
-       		   -fno-stack-protector -fno-exceptions -fno-pic -mno-red-zone -m64 -mcmodel=large \
-       		   -I$(CINCLUDE) -nostdlib -nostartfiles -nodefaultlibs -std=gnu99 \
-       		   -ffunction-sections -fdata-sections
+CFLAGS 		:= -ffreestanding -O2 -g -Wall -Wextra -Werror $(KERNEL_FLAGS) -fno-stack-protector \
+			   -fno-exceptions -fno-pic -mno-red-zone -m64 -mcmodel=large -I$(CINCLUDE) -nostdlib \
+			   -nostartfiles -nodefaultlibs -std=gnu99 -ffunction-sections -fdata-sections
 
 LDFLAGS 	:= -T kernel/linker.ld --gc-sections -nostdlib -static -m elf_x86_64 \
         	   -z max-page-size=0x1000

@@ -69,6 +69,8 @@ extern void irq29(void);
 extern void irq30(void);
 extern void irq31(void);
 
+extern void cpu_pause(void);
+
 extern u64 rdrax(void);
 
 extern u64 rdrflags(void);
@@ -99,7 +101,7 @@ extern void loadgdt64();
 extern void loadidt();
 extern void loadtr();
 
-extern void invlpg(void);
+extern void invlpg(uintptr_t);
 
 extern void wrxcr(u64);
 

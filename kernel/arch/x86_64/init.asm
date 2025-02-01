@@ -26,7 +26,7 @@ start32:
     ; Save multiboot info (EAX = magic, EBX = multiboot info pointer)
     push    dword 0x0       ; Push a dummy value for alignment
     push    eax             ; Save multiboot magic number
-    push    dword 0xFFFF8000 ; Push a dummy value for alignment
+    push    dword 0xFFFF8000; Push a dummy value for alignment
     push    ebx             ; Save multiboot info pointer
 
     ; Initialize page tables
@@ -171,29 +171,34 @@ start64:
     jmp     rax
 
 .high64:
+    ; Set up stack and call initialization functions
+    mov     rsp, (stack.top - 0x10)
+    mov     rbp, stack.top
+
+    ; Set the local storage for this core.
+    mov     rdi, bspcls
+    xor     rax, rax
+    mov     rcx, 200
+    stosq
+    mov     rdi, bspcls
+    call    setcls
+
+    ; Initialize SSE
+    call    init_sse
+
+    ; Initialize the GDT/IDT and trap vectors.
+    call    cpu_init
+
+    pop     rdi                 ; Restore multiboot info pointer
+    pop     rcx                 ; Restore multiboot magic number
+    ; Call kernel initialization functions
+    call    multiboot_info_process
+
     ; Unmap lower-half identity mapping
     mov     rdi, _PML4_
     mov     qword [rdi], 0      ; Unmap PML4E0
     invlpg  [0]                 ; Invalidate TLB entry for address 0
 
-    ; Set up stack and call initialization functions
-    mov     rsp, (stack.top - 0x10)
-    mov     rbp, stack.top
-    pop     rdi                 ; Restore multiboot info pointer
-    pop     rcx                 ; Restore multiboot magic number
-
-    ; Set the local storage for this core.
-    mov     rdi, bspcls
-    call    setcls
-
-    ; Initialize the GDT/IDT and trap vectors.
-    call    cpu_init
-
-    ; Initialize SSE
-    call    init_sse
-
-    ; Call kernel initialization functions
-    ;call    multiboot_info_process
     ;call    earlycons_init
     call    early_init
 
@@ -332,8 +337,8 @@ PT:     resb PGSZ * 1024
 DEVPDT: resb PGSZ
 DEVPT:  resb PGSZ * 16
 
-stack:  resb 0x80000
-.top:
-
 ; Per-CPU Local storage for the Bootstrap Processor
 bspcls:    resb PGSZ
+
+stack:  resb 0x80000
+.top:

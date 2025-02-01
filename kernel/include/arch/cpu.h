@@ -3,20 +3,29 @@
 #include <core/types.h>
 #include <arch/x86_64/mmu.h>
 
-typedef struct {
-    u64     flags;
+typedef struct cpu_t {
+    u64         flags;
 
-    isize   ncli;
-    bool    intena;
+    isize       ncli;
+    bool        intena;
 
-    idt_t   idt;
-    gdt_t   gdt;
-    tss_t   tss;
+    usize       timer_ticks;
+
+    thread_t    *thread;
+
+    idt_t       idt;
+    gdt_t       gdt;
+    tss_t       tss;
 } cpu_t;
+
+#define NCPU    8
 
 extern cpu_t *getcls(void);
 extern void setcls(cpu_t *);
 
 extern int getcpuid(void);
 
+extern int cpu_online(void);
+
 #define cpu     (getcls())
+#define current (cpu->thread)

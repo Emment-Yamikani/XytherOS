@@ -310,3 +310,7 @@ __get_cpuid_count (unsigned int __leaf, unsigned int __subleaf,
   __cpuid_count (__leaf, __subleaf, *__eax, *__ebx, *__ecx, *__edx);
   return 1;
 }
+
+static inline void cpuid(unsigned int leaf, unsigned int subleaf, unsigned int *eax, unsigned int *ebx, unsigned int *ecx, unsigned int *edx) {
+    __get_cpuid_count(leaf, subleaf, eax, ebx, ecx, edx);
+}

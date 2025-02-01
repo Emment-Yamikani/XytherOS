@@ -175,6 +175,7 @@ hlt:
     ret
 
 global cpu_pause
+; C prototype: void cpu_pause(void);
 cpu_pause:
     pause
     ret

@@ -3,6 +3,7 @@
 
 #include <core/defs.h>
 #include <core/types.h>
+#include <lib/printk.h>
 
 extern tid_t gettid(void);
 extern pid_t getpid(void);

@@ -10,6 +10,10 @@
 
 typedef unsigned long atomic_t;
 
+#define compiler_barrier()  asm volatile("" ::: "memory")
+
+#define memory_barrier()    __sync_synchronize()
+
 // Atomic read and write operations
 #define atomic_read(ptr)               ({ __atomic_load_n((ptr), __ATOMIC_SEQ_CST); })
 #define atomic_write(ptr, val)         ({ __atomic_store_n((ptr), (val), __ATOMIC_SEQ_CST); })
@@ -55,4 +59,4 @@ typedef unsigned long atomic_t;
 
 // Atomic compare and exchange
 // Returns 'true' if the operation was successful (i.e., the exchange was performed)
-#define atomic_cmpxchg(ptr, __exp__, __des__)  ({ __atomic_compare_exchange_n((ptr), &(__exp__), (__des__), 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST); })
+#define atomic_cmpxchg(ptr, __exp__, __des__)  ({ __atomic_compare_exchange_n((ptr), (__exp__), (__des__), 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST); })

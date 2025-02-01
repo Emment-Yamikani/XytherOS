@@ -81,6 +81,11 @@
 #define PAGEMASK                (PGMASK)
 #define PGSZ2M                  (0x200000ull)
 #define PGSZ2MASK               (PGSZ2M -1)
+
+/* Memory alignment macros */
+#define ALIGN_UP(x, align)      (((x) + ((align) - 1)) & ~((align) - 1))
+#define ALIGN_DOWN(x, align)    ((x) & ~((align) - 1))
+
 #define __ALIGN(x, s)           (AND((uintptr_t)(x), NOT((size_t)(s) - 1)))
 #define ALIGN16(x)              (AND((uintptr_t)(x), NOT(0xf)))
 #define ALIGN4K(x)              (AND((uintptr_t)(x), NOT(PGMASK)))
