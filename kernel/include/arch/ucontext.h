@@ -1,9 +1,9 @@
 #pragma once
 
+#include <arch/x86_64/mmu.h>
 #include <core/types.h>
 #include <core/defs.h>
 #include <sys/_signal.h>
-#include <arch/x86_64/mmu.h>
 
 #define x86_64_tf_isuser(tf)    ({((tf)->errno & 0x4) ? 1 : 0; })
 

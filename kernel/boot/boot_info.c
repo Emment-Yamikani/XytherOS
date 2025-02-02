@@ -1,6 +1,5 @@
 #include <boot/boot.h>
 #include <core/assert.h>
-#include <core/defs.h>
 #include <string.h>
 
 bootinfo_t bootinfo = {0};

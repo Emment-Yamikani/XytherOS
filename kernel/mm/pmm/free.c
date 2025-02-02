@@ -1,53 +1,44 @@
 #include <arch/paging.h>
 #include <bits/errno.h>
+#include <core/debug.h>
 #include <mm/zone.h>
 #include <sys/thread.h>
 
-static page_t *address_get_page(uintptr_t addr) {
-    int    err   = 0;
-    page_t *page = NULL;
-    zone_t *zone = NULL;
-
-     assert(!(err = getzone_byaddr(addr, PGSZ, &zone)),
-        "Couldn't get zone by page(%p). error: %d\n", addr, err
-    );
-
-    page = &zone->pages[(addr - zone->start) / PGSZ];
-    if (!atomic_read(&page->refcnt) ||
-            !bitmap_test(&zone->bitmap, page - zone->pages, 1)) {
-        assert(0, "Page(%p): couldn't take a reference to the page handle.\n", addr);
-    }
-
-    zone_unlock(zone);
-    return page;
-}
-
-void page_free_n(page_t *page, usize order) {
+static void do_page_free_n(page_t *page, uintptr_t addr, usize order) {
     int     err     = 0;
     usize   pos     = 0;
     zone_t  *zone   = NULL;
     usize   npage   = BS(order);
 
-    page_assert(page);
-
     assert(order <= 64, "Requested order(%d) is greater than 64.\n", order);
 
-    assert(!(err = getzone_bypage(page, &zone)),
-        "Couldn't get zone by page(%p). error: %d\n", page, err
-    );
+    if (page == NULL) {
+        assert_eq(err = getzone_byaddr(addr, npage * PGSZ, &zone), 0,
+            "Couldn't get zone by addr(%p). error: %d\n", addr, err    
+        );
+
+        page = &zone->pages[(addr - zone->start) / PGSZ];
+        if (!atomic_read(&page->refcnt) ||
+                !bitmap_test(&zone->bitmap, page - zone->pages, 1)) {
+            assert(0, "Page(%p): couldn't take a reference to the page handle.\n", addr);
+        }
+    } else {
+        assert(!(err = getzone_bypage(page, &zone)),
+            "Couldn't get zone by page[%p]. error: %d\n", page, err
+        );
+    }
 
     zone_assert_isnotkernel(zone, page);
 
     if (page_end(page, npage, zone) >= zone_end(zone)) {
-        printk("%s@%s:%d: [Warning] Out of ZONE deallocation.\nNo page was deallocated.",
-            __func__, __FILE__, __LINE__);
+        debug("Out of ZONE deallocation.\nNo page was deallocated.\n");
         zone_unlock(zone);
         return;
     }
 
     for (pos = page - zone->pages; npage != 0; --npage, ++page, ++pos) {
         assert(atomic_read(&page->refcnt),
-            "Double free detected for page(%p).\n", page_addr(page, zone)
+            "Double free detected for page[%p].\n", page_addr(page, zone)
         );
 
         /// page still has some references to it.
@@ -55,9 +46,9 @@ void page_free_n(page_t *page, usize order) {
         if (atomic_dec_fetch(&page->refcnt))
             continue;
 
-        if ((err = bitmap_unset(&zone->bitmap, pos, 1))) {
-            assert(err == 0, "Bitmap free failed. error: %d\n", err);
-        }
+        assert_eq(err = bitmap_unset(&zone->bitmap, pos, 1), 0,
+            "Bitmap unset failed for page[%p]. error: %d\n", page_addr(page, zone) , err
+        );
 
         page_resetflags(page);
         page_setswappable(page);
@@ -71,16 +62,16 @@ void page_free_n(page_t *page, usize order) {
     zone_unlock(zone);
 }
 
+void page_free_n(page_t *page, usize order) {
+    do_page_free_n(page, 0, order);
+}
+
 void page_free(page_t *page) {
-    page_free_n(page, 0);
+    do_page_free_n(page, 0, 0);
 }
 
 void __page_free_n(uintptr_t addr, usize order) {
-    page_t  *page   = NULL;
-
-    assert(addr, "Invalid physical address.");
-    page = address_get_page(addr);
-    page_free_n(page, order);
+    do_page_free_n(NULL, addr, order);
 }
 
 void __page_free(uintptr_t addr) {

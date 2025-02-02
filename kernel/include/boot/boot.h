@@ -1,9 +1,9 @@
 #pragma once
 
 
+#include <arch/cpu.h>
 #include <boot/multiboot.h>
 #include <core/types.h>
-#include <arch/cpu.h>
 
 #define NMODS   32
 #define NMMAP   32 + NCPU

@@ -26,9 +26,13 @@ int cpu_online(void) {
     return atomic_read(&n_online);
 }
 
-int cpu_init(void) {
+void cpu_init(void) {
     cache_disable();
-    tvinit();
+    idt_init();
     gdt_init();
-    return 0;
+}
+
+void bsp_init(void) {
+    tvinit();
+    cpu_init();
 }

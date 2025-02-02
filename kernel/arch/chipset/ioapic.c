@@ -1,11 +1,10 @@
+#include <arch/firmware/acpi.h>
+#include <arch/x86_64/asm.h>
+#include <arch/traps.h>
 #include <bits/errno.h>
-#include <mm/kalloc.h>
 #include <core/defs.h>
 #include <core/types.h>
-#include <lib/printk.h>
-#include <arch/x86_64/asm.h>
-#include <arch/firmware/acpi.h>
-#include <arch/traps.h>
+#include <mm/kalloc.h>
 #include <sync/spinlock.h>
 
 typedef struct {

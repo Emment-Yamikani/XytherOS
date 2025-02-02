@@ -6,7 +6,7 @@ extern multiboot_info_process
 extern earlycons_init
 extern early_init
 extern setcls
-extern cpu_init
+extern bsp_init
 
 ; Constants
 PGSZ     equ 0x1000
@@ -187,7 +187,7 @@ start64:
     call    init_sse
 
     ; Initialize the GDT/IDT and trap vectors.
-    call    cpu_init
+    call    bsp_init
 
     pop     rdi                 ; Restore multiboot info pointer
     pop     rcx                 ; Restore multiboot magic number

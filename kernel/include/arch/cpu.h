@@ -1,7 +1,7 @@
 #pragma once
 
-#include <core/types.h>
 #include <arch/x86_64/mmu.h>
+#include <core/types.h>
 
 typedef struct cpu_t {
     u64         flags;
@@ -13,7 +13,6 @@ typedef struct cpu_t {
 
     thread_t    *thread;
 
-    idt_t       idt;
     gdt_t       gdt;
     tss_t       tss;
 } cpu_t;

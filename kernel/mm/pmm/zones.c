@@ -1,7 +1,6 @@
 #include <arch/paging.h>
 #include <bits/errno.h>
 #include <boot/boot.h>
-#include <core/defs.h>
 #include <core/debug.h>
 #include <mm/zone.h>
 #include <string.h>
@@ -171,7 +170,6 @@ static int zone_enumerate(zone_t *zone, usize *memsz) {
         size = bitmap_u64s * sizeof(usize);
         size += zone->npages * sizeof(page_t);
         size = NPAGE(size) * PGSZ;
-
         bitmap_array = boot_alloc(size, PGSZ);
 
         if ((err = bitmap_init(&zone->bitmap, bitmap_array, zone->npages)))
@@ -328,9 +326,7 @@ int physical_memory_init(void) {
         }
     }
 
-    arch_map_i(
-        bootinfo.fb.addr,
-        V2LO(bootinfo.fb.addr),
+    arch_map_i(bootinfo.fb.addr, V2LO(bootinfo.fb.addr),
         bootinfo.fb.size, PTE_KRW | PTE_WTCD
     );
 

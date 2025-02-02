@@ -1,7 +1,7 @@
+#include <arch/x86_64/asm.h>
 #include <core/defs.h>
 #include <core/types.h>
 #include <dev/cga.h>
-#include <arch/x86_64/asm.h>
 #include <string.h>
 
 static int      cga_pos     = 0;

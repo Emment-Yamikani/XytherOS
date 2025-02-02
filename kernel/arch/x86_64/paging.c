@@ -1,12 +1,13 @@
-#include <mm/mem.h>
 #include <arch/cpu.h>
-#include <bits/errno.h>
-#include <string.h>
-#include <sys/thread.h>
 #include <arch/traps.h>
 #include <arch/x86_64/asm.h>
 #include <arch/x86_64/paging.h>
 #include <arch/x86_64/lapic.h>
+#include <bits/errno.h>
+#include <core/debug.h>
+#include <mm/mem.h>
+#include <string.h>
+#include <sys/thread.h>
 
 #define x86_64_CLR(t) ({           \
     for (int i = 0; i < NPTE; ++i) \
@@ -297,7 +298,7 @@ done:
     /** Deallocate this page frame
      * if it was allocated at the time of mapping.*/
     if (_isalloc(pa)) {
-        // printk("%s:%ld: %s: [NOTE]: Freeing frame{0x%p}...\n", __FILE__, __LINE__, __func__, PGROUND(pa));
+        debug("[NOTE]: Freeing frame{0x%p}...\n", PGROUND(pa));
         pmman.free(PGROUND(pa));
     }
 }

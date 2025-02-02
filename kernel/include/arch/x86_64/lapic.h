@@ -1,5 +1,6 @@
 #pragma once
 
+#include <arch/traps.h>
 #include <core/types.h>
 
 #define IPI_ALL         (-2) // broadcast to all.

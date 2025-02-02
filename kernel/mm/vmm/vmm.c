@@ -2,7 +2,6 @@
 #include <bits/errno.h>
 #include <boot/boot.h>
 #include <core/debug.h>
-#include <core/defs.h>
 #include <lib/printk.h>
 #include <string.h>
 #include <mm/mem.h>

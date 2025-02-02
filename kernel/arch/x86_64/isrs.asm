@@ -60,6 +60,8 @@ ISR_NOERR 29
 ISR_NOERR 30
 ISR_NOERR 31
 ISR_NOERR 128                  ; Syscall interrupt
+ISR_NOERR 129                  ; panic interrupt
+
 
 ; Define IRQs (0-31, mapped to interrupts 32-63)
 IRQ 0, 32
@@ -94,6 +96,7 @@ IRQ 28, 60
 IRQ 29, 61
 IRQ 30, 62
 IRQ 31, 63
+IRQ 32, 64
 
 ; Common handler for ISRs and IRQs
 global trapret

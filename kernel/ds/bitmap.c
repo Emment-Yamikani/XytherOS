@@ -529,9 +529,9 @@ int bitmap_toggle(bitmap_t *bitmap, usize pos, usize nbits) {
     bitmap_lock(bitmap);
 
     for (usize i = 0; i < nbits; i++) {
-        usize bit_pos = pos + i;
+        usize bit_pos    = pos + i;
+        usize bit_index  = bit_pos % BITS_PER_USIZE;
         usize unit_index = bit_pos / BITS_PER_USIZE;
-        usize bit_index = bit_pos % BITS_PER_USIZE;
         bitmap->bm_map[unit_index] ^= (1UL << bit_index);
     }
 

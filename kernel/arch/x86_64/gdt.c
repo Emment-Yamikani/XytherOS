@@ -122,6 +122,7 @@ void tvinit(void) {
     setgate(IRQ(29), 0, irq29, (SEG_KCODE64 << 3), DPL_KRN, 0);
     setgate(IRQ(30), 0, irq30, (SEG_KCODE64 << 3), DPL_KRN, 0);
     setgate(IRQ(31), 0, irq31, (SEG_KCODE64 << 3), DPL_KRN, 0);
+    setgate(IRQ(32), 0, irq32, (SEG_KCODE64 << 3), DPL_KRN, 0);
 
     setgate(T_LEG_SYSCALL, 1, isr128, (SEG_KCODE64 << 3), DPL_USR, 0);
 }

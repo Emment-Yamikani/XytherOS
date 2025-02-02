@@ -1,8 +1,8 @@
 #include <arch/paging.h>
 #include <bits/errno.h>
-#include <sys/thread.h>
 #include <mm/zone.h>
 #include <string.h>
+#include <sys/thread.h>
 
 static int zero_fill_page(zone_t *zone, page_t *page, int whence) {
     int         err     = 0;

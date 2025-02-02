@@ -1,9 +1,8 @@
-#include <mm/kalloc.h>
-#include <mm/mmap.h>
-#include <mm/mem.h>
 #include <arch/paging.h>
 #include <lib/printk.h>
-
+#include <mm/kalloc.h>
+#include <mm/mem.h>
+#include <mm/mmap.h>
 
 void vmr_dump(vmr_t *r, int i) {
     printk("memory %4d: [0x%08p : 0x%08p] %13ld [%7s] [%s%s%s%s] [%s-%s] refs: %ld|\n", i,
@@ -26,7 +25,7 @@ void mmap_dump_list(mmap_t mmap) {
            (mmap.vmr_tail ? mmap.vmr_tail->end : 0), mmap.used_space / 1024, mmap.refs);
     
     printk("\n%-8s %28s %29s %8s %7s %4s %7s\n", "Mapping", "Range", "Size(KiB)", "Type", "Mode", "Exp", "Refs");
-    printk("_________ ____________________________________________ _____________ _________ ______ _____ _______\n");
+    printk("___________________________________________________________________________________________________\n");
     
     if (mmap.vmr_head == NULL) {
         mmap_getholesize(&mmap, 0, &holesz);

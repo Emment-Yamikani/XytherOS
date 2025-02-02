@@ -1,11 +1,9 @@
 #pragma once
 
-#include <fs/icache.h>
-#include <stdint.h>
-#include <stddef.h>
-#include <core/types.h>
-#include <mm/gfp.h>
 #include <core/assert.h>
+#include <core/types.h>
+#include <fs/icache.h>
+#include <mm/gfp.h>
 
 #define MAX_PAGE_ORDER      64
 

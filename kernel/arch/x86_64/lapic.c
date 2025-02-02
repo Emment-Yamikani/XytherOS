@@ -1,12 +1,12 @@
+#include <arch/traps.h>
 #include <arch/x86_64/lapic.h>
 #include <arch/x86_64/msr.h>
-#include <core/defs.h>
-#include <lib/printk.h>
 #include <arch/x86_64/paging.h>
 #include <bits/errno.h>
-#include <arch/traps.h>
-#include <sys/thread.h>
+#include <core/defs.h>
 #include <dev/timer.h>
+#include <lib/printk.h>
+#include <sys/thread.h>
 
 #define LAPIC_BASE    ((volatile uint32_t *)V2HI(PGROUND(rdmsr(IA32_APIC_BASE))))
 

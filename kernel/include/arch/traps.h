@@ -17,6 +17,7 @@
 #define LAPIC_SPURIOUS  IRQ(19)
 #define LAPIC_TIMER     IRQ(20)
 #define TLB_SHTDWN      IRQ(31)
+#define T_PANIC         IRQ(32)
 
 #define LAPIC_IPI       IRQ(32)
 
