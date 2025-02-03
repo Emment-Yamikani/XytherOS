@@ -81,7 +81,7 @@ iso: all
 	@echo "ISO image created: $(ISO_IMAGE)"
 
 CPU_COUNT 	:= 2
-RAM_SIZE	:= 32M
+RAM_SIZE	:= 128M
 QUEUE_FLAGS := -no-reboot -no-shutdown -parallel none
 
 # Run in QEMU
@@ -100,4 +100,5 @@ debug: iso
     -chardev file,id=char0,path=serial.log -serial chardev:char0
 
 dump: $(ISO_DIR)/$(TARGET)
-	objdump -d $< -M intel > xyther.asm
+	objdump -d $< -M intel -j .trampoline -j .text > xyther.asm
+

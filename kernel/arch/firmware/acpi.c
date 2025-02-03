@@ -2,7 +2,7 @@
 #include <arch/firmware/acpi.h>
 #include <arch/firmware/bios.h>
 #include <bits/errno.h>
-#include <stdint.h>
+#include <core/debug.h>
 #include <string.h>
 
 static xsdt_t   *XSDT = NULL;
@@ -65,15 +65,6 @@ acpiSDT_t *acpi_parse_xsdt(xsdt_t *xsdt, const char *sign) {
     return NULL;
 }
 
-acpiSDT_t *acpi_enumerate(const char *sign) {
-    acpiSDT_t *sdt = NULL;
-    sdt = XSDT ? acpi_parse_xsdt(XSDT, sign) :
-        RSDT ? acpi_parse_rsdt(RSDT, sign) : NULL;
-    if (sdt && acpi_validate_table((void *)sdt, sdt->length))
-        return sdt;
-    return NULL;
-}
-
 int acpi_init(void) {
     size_t size = 0;
 
@@ -89,5 +80,27 @@ int acpi_init(void) {
         RSDT = (rsdt_t *)V2HI(RSDP->rsdp.rsdtaddr);
     else
         XSDT = (xsdt_t *)V2HI(RSDP->xsdtaddr);
+
     return 0;
+}
+
+acpiSDT_t *acpi_enumerate(const char *sign) {
+    int       err  = 0;
+    acpiSDT_t *sdt = NULL;
+
+    sdt = XSDT ? acpi_parse_xsdt(XSDT, sign) :
+          RSDT ? acpi_parse_rsdt(RSDT, sign) : NULL;
+
+    if (sdt == NULL) {
+        assert_eq(err = acpi_init(), 0,
+            "Error[%d]: Failed to retrieve ACPI headers.", err
+        );
+        // try again.
+        sdt = XSDT ? acpi_parse_xsdt(XSDT, sign) :
+              RSDT ? acpi_parse_rsdt(RSDT, sign) : NULL;
+    }
+
+    if (sdt && acpi_validate_table((void *)sdt, sdt->length))
+        return sdt;
+    return NULL;
 }

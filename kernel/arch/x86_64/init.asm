@@ -7,6 +7,7 @@ extern earlycons_init
 extern early_init
 extern setcls
 extern bsp_init
+extern bootothers
 
 ; Constants
 PGSZ     equ 0x1000
@@ -194,6 +195,8 @@ start64:
     ; Call kernel initialization functions
     call    multiboot_info_process
 
+    call    bootothers          ; Start other cores.
+
     ; Unmap lower-half identity mapping
     mov     rdi, _PML4_
     mov     qword [rdi], 0      ; Unmap PML4E0
@@ -287,18 +290,15 @@ init_sse:
 
 ; Enable SSE in CR0 and CR4
 enable_sse:
-    ; Enable SSE in CR0 (Clear EM bit, Set MP bit)
-    mov     rax, cr0
-    and     rax, ~(1 << 2)      ; Clear EM bit (bit 2)
-    or      rax, 1 << 1         ; Set MP bit (bit 1)
-    mov     cr0, rax
-
-    ; Enable SSE in CR4 (Set OSFXSR and OSXMMEXCPT bits)
-    mov     rax, cr4
-    or      rax, (1 << 9)       ; Set OSFXSR bit (bit 9)
-    or      rax, (1 << 10)      ; Set OSXMMEXCPT bit (bit 10)
-    mov     cr4, rax
-
+    fninit                   ; Initialize FPU
+    mov rax, cr0
+    and rax, ~(1 << 2)       ; Clear EM
+    or  rax, (1 << 1)        ; Set MP
+    mov cr0, rax
+    
+    mov rax, cr4
+    or  rax, (3 << 9)        ; OSFXSR | OSXMMEXCPT
+    mov cr4, rax
     ret
 
 ; Print Message Function (VGA Text Mode)
@@ -340,5 +340,5 @@ DEVPT:  resb PGSZ * 16
 ; Per-CPU Local storage for the Bootstrap Processor
 bspcls:    resb PGSZ
 
-stack:  resb 0x80000
+stack:  resb 0x4000
 .top:

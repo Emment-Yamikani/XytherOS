@@ -4,8 +4,7 @@
 #include <core/defs.h>
 
 /*header for a acpi v1.0*/
-typedef struct
-{
+typedef struct {
     char signature[8]; //signature
     uint8_t checksum;
     char oemid[6];
@@ -14,8 +13,7 @@ typedef struct
 } __packed rsdp_t;
 
 /*header for acpi v2.0*/
-typedef struct
-{
+typedef struct {
     rsdp_t rsdp;
     uint32_t length;
     uint64_t xsdtaddr;
@@ -23,8 +21,7 @@ typedef struct
     uint8_t revsd[3];
 } __packed rsdp20_t;
 
-typedef struct
-{
+typedef struct {
     char signature[4];
     uint32_t length;
     uint8_t revno; //revision number
@@ -36,8 +33,7 @@ typedef struct
     uint32_t creator_revno;
 } __packed acpiSDT_t;
 
-typedef struct
-{
+typedef struct {
     acpiSDT_t hdr;
     uint32_t sdt[];
 } __packed rsdt_t;
@@ -47,14 +43,12 @@ typedef struct {
     acpiSDT_t *sdt[];
 } __packed xsdt_t;
 
-typedef struct
-{
+typedef struct {
     acpiSDT_t madt;
     uint32_t lapic_addr;
     uint32_t flags;
     uint8_t apics[];
 } __packed acpiMADT_t;
-
 
 typedef struct {
     acpiSDT_t   hdr;
@@ -111,8 +105,12 @@ typedef struct {
     uint32_t    X_GPE1_BLK[3];
 } __packed acpiFADT_t;
 
-#define ACPI_APIC   0
-#define ACPI_IOAPIC 1
+#define ACPI_MADT_LAPIC     0
+
+#define ACPI_LAPIC_ENABLED  1
+#define ACPI_IOAPIC         1
+
+
 
 int acpi_mp(void);
 void *acpi_findrsdp(void);

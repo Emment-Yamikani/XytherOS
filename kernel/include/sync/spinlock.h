@@ -5,10 +5,9 @@
 #include <sync/preempt.h>
 #include <lib/printk.h>
 
-typedef struct spinlock_t {
-    bool    guard;
-    bool    locked;
-    tid_t   owner_id;
+typedef struct spinlock_t_t {
+    uint    locked;
+    tid_t   owner;
     bool    is_thread;
 
     int     line;
@@ -19,7 +18,7 @@ typedef struct spinlock_t {
     .line = 0,                         \
     .file = NULL,                      \
     .locked = false,                   \
-    .owner_id = -1,                    \
+    .owner = -1,                       \
     .is_thread = false,                \
 })
 
@@ -27,110 +26,56 @@ typedef struct spinlock_t {
 
 #define spin_assert(lk) assert(lk, "No spinlock.\n")
 
-#define spin_lock(lk) ({                                                                         \
-    compiler_barrier(); /* Prevent compiler reordering */                                        \
-    spin_assert(lk);                                                                             \
-    pushcli(); /* Disable interrupts */                                                          \
-    for (;;)                                                                                     \
-    { /* Infinite loop until lock is acquired */                                                 \
-        bool expected = false;                                                                   \
-        /* Acquire the guard flag atomically */                                                  \
-        while (!atomic_cmpxchg(&(lk)->guard, &expected, true))                                   \
-        {                                                                                        \
-            popcli();    /* Re-enable interrupts while waiting */                                \
-            cpu_pause(); /* Pause to reduce CPU contention */                                    \
-            pushcli();   /* Disable interrupts again */                                          \
-        }                                                                                        \
-        /* Check if the lock is available */                                                     \
-        if (!(lk)->locked)                                                                       \
-        {                                                                                        \
-            break; /* Lock is free, proceed to acquire it */                                     \
-        }                                                                                        \
-        /* Check if the lock is already held by the current thread/CPU */                        \
-        bool self = (lk)->is_thread ? (lk)->owner_id == gettid() : (lk)->owner_id == getcpuid(); \
-        assert(!self, "Spinlock already held by this thread/CPU.\n");                            \
-        /* Release the guard flag and retry */                                                   \
-        atomic_clear(&(lk)->guard);                                                              \
-    }                                                                                            \
-    /* Update lock metadata */                                                                   \
-    (lk)->line = __LINE__;                                                                       \
-    (lk)->file = __FILE__;                                                                       \
-    (lk)->is_thread = (current != NULL);                                                         \
-    (lk)->owner_id = (current != NULL) ? gettid() : getcpuid();                                  \
-    (lk)->locked = true;        /* Mark the lock as acquired */                                  \
-    atomic_clear(&(lk)->guard); /* Release the guard flag (includes memory barrier) */           \
-    compiler_barrier();                                                                          \
-})
+// Check whether this cpu/thread is holding the lock.
+// Interrupts must be off.
+static inline int holding(spinlock_t *lk) {
+    int self;
+    self = lk->is_thread ? lk->owner == gettid() : lk->owner == getcpuid();
+    return lk->locked && self;
+}
 
-#define spin_assert_locked(lk) ({                                                                \
-    compiler_barrier(); /* Prevent compiler reordering */                                        \
-    pushcli();                                                                                   \
-    spin_assert(lk);                                                                             \
-    bool expected = false;                                                                       \
-    /* Temporarily acquire the guard flag to check state */                                      \
-    while (!atomic_cmpxchg(&(lk)->guard, &expected, true))                                       \
-    {                                                                                            \
-        popcli();                                                                                \
-        cpu_pause();                                                                             \
-        pushcli();                                                                               \
-    }                                                                                            \
-    /* Check if the lock is held */                                                              \
-    bool is_locked = (lk)->locked;                                                               \
-    /* Check if the current thread/CPU is the owner */                                           \
-    bool is_owner = (lk)->is_thread ? (lk)->owner_id == gettid() : (lk)->owner_id == getcpuid(); \
-    /* Release the guard flag */                                                                 \
-    atomic_clear(&(lk)->guard);                                                                  \
-    /* Assert ownership */                                                                       \
-    assert(is_locked &&is_owner, "Spinlock not held by current thread/CPU.\n");                  \
-    popcli();                                                                                    \
-    compiler_barrier();                                                                          \
-})
+// Acquire the lock.
+// Loops (spins) until the lock is acquired.
+static inline void spin_lock(spinlock_t *lk) {
+    pushcli(); // disable interrupts to avoid deadlock.
+    assert(!holding(lk), "spinlock already held by this cpu/thread\n");
 
-#define spin_islocked(lk) ({                                                                   \
-    compiler_barrier(); /* Prevent compiler reordering */                                      \
-    pushcli();                                                                                 \
-    spin_assert(lk);                                                                           \
-    bool is_locked = false;                                                                    \
-    bool by_self = false;                                                                      \
-    bool expected = false;                                                                     \
-    /* Acquire the guard flag to read the lock state */                                        \
-    while (!atomic_cmpxchg(&(lk)->guard, &expected, true))                                     \
-    {                                                                                          \
-        popcli();                                                                              \
-        cpu_pause();                                                                           \
-        pushcli();                                                                             \
-    }                                                                                          \
-    is_locked = (lk)->locked;                                                                  \
-    is_locked = (lk)->locked;                                                                  \
-    if (is_locked)                                                                             \
-        by_self = (lk)->is_thread ? (lk)->owner_id == gettid() : (lk)->owner_id == getcpuid(); \
-    /* Release the guard flag */                                                               \
-    atomic_clear(&(lk)->guard);                                                                \
-    popcli();                                                                                  \
-    compiler_barrier();                                                                        \
-    is_locked &&by_self; /* Return the lock state */                                           \
-})
+    while (__sync_lock_test_and_set(&lk->locked, 1) != 0)
+        ;
 
-#define spin_unlock(lk) ({                                 \
-    compiler_barrier(); /* Prevent compiler reordering */  \
-    pushcli();                                             \
-    spin_assert_locked(lk);                                \
-    bool expected = false;                                 \
-    /* Acquire the guard flag atomically */                \
-    while (!atomic_cmpxchg(&(lk)->guard, &expected, true)) \
-    {                                                      \
-        popcli();                                          \
-        cpu_pause();                                       \
-        pushcli();                                         \
-    }                                                      \
-    /* Mark the lock as released */                        \
-    (lk)->locked = false;                                  \
-    /* Clear owner metadata */                             \
-    (lk)->is_thread = false;                               \
-    (lk)->owner_id = -1;                                   \
-    /* Release the guard flag (includes memory barrier) */ \
-    atomic_clear(&(lk)->guard);                            \
-    popcli(); /* Reverse pushcli() done in spin_lock() */  \
-    popcli(); /* Re-enable interrupts */                   \
-    compiler_barrier();                                    \
-})
+    __sync_synchronize();
+
+    lk->file      = __FILE__;
+    lk->line      = __LINE__;
+    lk->is_thread = current ? true : false;
+    lk->owner     = current ? gettid() : getcpuid();
+}
+
+// Release the lock.
+static inline void spin_unlock(spinlock_t *lk) {
+    pushcli();
+    assert(holding(lk), "spinlock not held by this cpu/thread\n");
+
+    lk->line      = 0;
+    lk->file      = NULL;
+    lk->owner     = -1;
+    lk->is_thread = false;
+
+    __sync_synchronize();
+
+    __sync_lock_release(&lk->locked);
+
+    popcli();
+    popcli();
+}
+
+static inline bool spin_islocked(spinlock_t *lk) {
+    pushcli();
+    int state = holding(lk);
+    popcli();
+    return (bool)state;
+}
+
+static inline void spin_assert_locked(spinlock_t *lk) {
+    assert_eq(spin_islocked(lk), true, "Caller must hold lock.\n");
+}

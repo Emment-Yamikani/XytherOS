@@ -2,10 +2,15 @@
 
 #include <dev/hpet.h>
 #include <dev/rtc.h>
+#include <core/types.h>
 
 #ifndef SYS_HZ
 #define SYS_HZ 100
 #endif
+
+extern void pit_init(void);
+extern void pit_intr(void);
+extern void pit_wait(double s);
 
 #define time_after(unknown, known)        ((long)(known) - (long)(unknown) < 0)
 #define time_before(unknown, known)       ((long)(unknown) - (long)(known) < 0)
@@ -87,3 +92,11 @@ extern int jiffies_getres(struct timespec *res);
 extern int jiffies_gettime(struct timespec *tp);
 
 extern int jiffies_settime(const struct timespec *tp);
+
+typedef enum {
+    TIMER_PIT   = 0,
+    TIMER_RTC   = 1,
+    TIMER_HPET  = 2,
+} timerid_t;
+
+extern void timer_wait(timerid_t timer, double sec);

@@ -112,8 +112,8 @@ int lapic_init(void) {
     return 0;
 }
 
-static void microdelay(int us __unused) {
-    //timer_wait(CLK_PIT, us_TO_s(us));
+static void microdelay(int us) {
+    timer_wait(TIMER_PIT, us_TO_s(us));
 }
 
 void lapic_recalibrate(long hz) {
@@ -122,7 +122,7 @@ void lapic_recalibrate(long hz) {
     __unused double s = HZ_TO_s(hz);
 
     ICR = -1;
-    //timer_wait(CLK_PIT, s);
+    timer_wait(TIMER_PIT, s);
     LVT_TMR = MASKED;
     ticks = ((uint32_t)-1) - CCR;
 

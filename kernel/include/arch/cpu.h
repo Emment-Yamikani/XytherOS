@@ -4,6 +4,8 @@
 #include <core/types.h>
 
 typedef struct cpu_t {
+    int         apicID;
+
     u64         flags;
 
     isize       ncli;
@@ -19,12 +21,19 @@ typedef struct cpu_t {
 
 #define NCPU    8
 
+#define CPU_ENABLED 0x1
+#define CPU_ONLINE  0x2
+
+#define AP_STACK_SIZE   0x4000
+
 extern cpu_t *getcls(void);
 extern void setcls(cpu_t *);
 
 extern int getcpuid(void);
 
 extern int cpu_online(void);
+
+extern int ncpu(void);
 
 #define cpu     (getcls())
 #define current (cpu->thread)

@@ -29,21 +29,27 @@ typedef unsigned long atomic_t;
 
 #define atomic_fetch_sub(ptr, val)     ({ __atomic_fetch_sub((ptr), (val), __ATOMIC_SEQ_CST); })
 #define atomic_sub_fetch(ptr, val)     ({ __atomic_sub_fetch((ptr), (val), __ATOMIC_SEQ_CST); })
+#define atomic_sub(ptr, val)           atomic_fetch_sub(ptr, val)
 
 #define atomic_fetch_add(ptr, val)     ({ __atomic_fetch_add((ptr), (val), __ATOMIC_SEQ_CST); })
 #define atomic_add_fetch(ptr, val)     ({ __atomic_add_fetch((ptr), (val), __ATOMIC_SEQ_CST); })
+#define atomic_add(ptr, val)           atomic_fetch_add(ptr, val)
 
 #define atomic_fetch_and(ptr, val)     ({ __atomic_fetch_and((ptr), (val), __ATOMIC_SEQ_CST); })
 #define atomic_and_fetch(ptr, val)     ({ __atomic_and_fetch((ptr), (val), __ATOMIC_SEQ_CST); })
+#define atomic_and(ptr, val)           atomic_fetch_and(ptr, val)
 
 #define atomic_fetch_xor(ptr, val)     ({ __atomic_fetch_xor((ptr), (val), __ATOMIC_SEQ_CST); })
 #define atomic_xor_fetch(ptr, val)     ({ __atomic_xor_fetch((ptr), (val), __ATOMIC_SEQ_CST); })
+#define atomic_xor(ptr, val)           atomic_fetch_xor(ptr, val)
 
 #define atomic_fetch_or(ptr, val)      ({ __atomic_fetch_or((ptr), (val), __ATOMIC_SEQ_CST); })
 #define atomic_or_fetch(ptr, val)      ({ __atomic_or_fetch((ptr), (val), __ATOMIC_SEQ_CST); })
+#define atomic_or(ptr, val)        atomic_fetch_or(ptr, val)
 
 #define atomic_fetch_nand(ptr, val)    ({ __atomic_fetch_nand((ptr), (val), __ATOMIC_SEQ_CST); })
 #define atomic_nand_fetch(ptr, val)    ({ __atomic_nand_fetch((ptr), (val), __ATOMIC_SEQ_CST); })
+#define atomic_nand(ptr, val)          atomic_fetch_nand(ptr, val)
 
 // Atomic increment and decrement operations
 #define atomic_fetch_inc(ptr)          ({ atomic_fetch_add((ptr), 1); })
