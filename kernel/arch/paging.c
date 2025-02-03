@@ -1,6 +1,7 @@
 #include <arch/cpu.h>
 #include <arch/paging.h>
 #include <bits/errno.h>
+#include <mm/mem.h>
 
 void arch_dumptable(pte_t *table) {
     x86_64_dumptable(table);
@@ -118,4 +119,27 @@ void arch_tlbshootdown(uintptr_t pdbr, uintptr_t vaddr) {
 #if defined (__x86_64__)
     x86_64_tlb_shootdown(pdbr, vaddr);
 #endif
+}
+
+void arch_pagefree(uintptr_t vaddr, usize sz) {
+    arch_unmap_n(vaddr, sz);
+    vmman.free(vaddr);
+}
+
+int arch_pagealloc(usize sz, uintptr_t *addr) {
+    int err = 0;
+    uintptr_t va;
+
+    if (!addr) return -EINVAL;
+
+    if (!(va = vmman.alloc(sz)))
+        return -ENOMEM;
+    
+    if ((err = arch_map_n(va, sz, PTE_KRW | PTE_WT))) {
+        vmman.free(va);
+        return err;
+    }
+
+    *addr = va;
+    return 0;
 }

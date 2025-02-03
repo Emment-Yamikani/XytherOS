@@ -26,6 +26,17 @@ typedef struct spinlock_t_t {
 
 #define spin_assert(lk) assert(lk, "No spinlock.\n")
 
+static inline void spinlock_init(spinlock_t *lk) {
+    spin_assert(lk);
+    *lk = (spinlock_t){
+        .line = 0,
+        .file = NULL,
+        .locked = false,
+        .owner = -1,
+        .is_thread = false,
+    };
+}
+
 // Check whether this cpu/thread is holding the lock.
 // Interrupts must be off.
 static inline int holding(spinlock_t *lk) {

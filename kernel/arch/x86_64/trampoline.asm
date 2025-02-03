@@ -75,17 +75,17 @@ long_mode:
     mov  rdx, 0xffff800000000000
     add  rax, rdx
     jmp  rax
-
+;
 
 init_sse:
     fninit                   ; Initialize FPU
     mov rax, cr0
-    and rax, ~(1 << 2)       ; Clear EM
-    or rax, (1 << 1)         ; Set MP
+    and rax, ~(1 << 2)       ; Clear CR0.EM
+    or rax, (1 << 1)         ; Set CR0.MP
     mov cr0, rax
     
     mov rax, cr4
-    or rax, (3 << 9)         ; OSFXSR | OSXMMEXCPT
+    or rax, (3 << 9)         ; CR4.OSFXSR | CR4.OSXMMEXCPT
     mov cr4, rax
     ret
 

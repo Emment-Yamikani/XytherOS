@@ -86,6 +86,8 @@ typedef struct page {
 #define page_addr(page, zone)       ({ (zone)->start + (page_index(page, zone) * PGSZ); })
 #define page_end(page, npage, zone) ({ page_addr(page, zone) + (npage * PGSZ); })
 
+usize get_page_order(usize size_in_bytes);
+
 void page_free_n(page_t *page, usize order);
 void __page_free_n(uintptr_t paddr, usize order);
 

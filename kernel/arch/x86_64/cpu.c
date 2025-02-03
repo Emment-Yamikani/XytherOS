@@ -8,12 +8,14 @@
 #include <boot/boot.h>
 #include <core/debug.h>
 #include <cpuid.h>
+#include <mm/mem.h>
 #include <string.h>
 #include <sync/atomic.h>
 
 static cpu_t *cpus[NCPU] = {NULL};
 static volatile atomic_t cpus_count  = 1;
 static volatile atomic_t cpus_online = 0;
+static volatile atomic_t ap_continue = 0;
 
 cpu_t *getcls(void) {
     return (cpu_t *)rdmsr(IA32_GS_BASE);
@@ -54,8 +56,14 @@ void bsp_init(void) {
 static void ap_start(void) {
     setcls(cpus[getcpuid()]);
     cpu_init();
-    debug("\n");
+    while (!atomic_read(&ap_continue)) {
+        asm volatile ("pause");
+    }
     loop() asm volatile ("pause");
+}
+
+void ap_signal(void) {
+    atomic_write(&ap_continue, 1);
 }
 
 void bootothers(void) {
@@ -68,7 +76,7 @@ void bootothers(void) {
     /* Locate ACPI MADT table */
     acpiMADT_t *madt;
     assert((madt = (acpiMADT_t *)acpi_enumerate("APIC")),
-           "Error: Failed to locate MADT table\n");
+        "Error: Failed to locate MADT table\n");
 
     /* Process MADT entries for APICs */
     for (char *entry = (char *)madt->apics; 
@@ -93,15 +101,13 @@ void bootothers(void) {
 
         /* Initialize CPU structure */
         assert((cpus[lapic->apic_id] = (cpu_t *)boot_alloc(sizeof(cpu_t), PGSZ)),
-               "Failed to allocate CPU structure\n");
+            "Failed to allocate CPU structure\n");
         
         memset(cpus[lapic->apic_id], 0, sizeof(cpu_t));
         cpus[lapic->apic_id]->flags |= CPU_ENABLED;
         cpus[lapic->apic_id]->apicID = lapic->apic_id;
         atomic_inc(&cpus_count);
     }
-
-    printk("Discovered %d processor cores\n", ncpu());
 
     /* Startup Application Processors */
     for (int i = 0; i < ncpu(); ++i) {
@@ -111,7 +117,7 @@ void bootothers(void) {
         /* Allocate AP boot stack */
         uintptr_t stack;
         assert((stack = (uintptr_t)boot_alloc(AP_STACK_SIZE, PGSZ)),
-               "Failed to allocate AP stack\n");
+            "Failed to allocate AP stack\n");
 
         /* Configure trampoline data */
         enum TrampolineFields {

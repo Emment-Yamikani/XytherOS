@@ -180,7 +180,7 @@ start64:
     mov     rdi, bspcls
     xor     rax, rax
     mov     rcx, 200
-    stosq
+    rep     stosq
     mov     rdi, bspcls
     call    setcls
 
@@ -305,8 +305,13 @@ enable_sse:
 print_message:
     ; Input: RSI = pointer to null-terminated string
     ; Output: Print the string to the VGA text buffer
+    xor     eax, eax
     mov     rdi, CGA_BASE       ; VGA text buffer address
     mov     ah, 0x0F            ; White text on black background
+    mov     ecx, 2000
+    rep     stosw
+    mov     rdi, CGA_BASE       ; VGA text buffer address
+
 .print_loop:
     lodsb                       ; Load next byte from RSI into AL
     test    al, al              ; Check for null terminator

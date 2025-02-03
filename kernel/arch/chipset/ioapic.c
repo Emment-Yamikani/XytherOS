@@ -101,18 +101,18 @@ int ioapic_init(void) {
     entry = (char *)MADT->apics;
 
     for (int i = 0; entry < ((char *)MADT + MADT->madt.length); entry += entry[1]) {
-        if (*entry != 1)
+        if (*entry != ACPI_IOAPIC)
             continue;
         
         if (!(ioapic = kcalloc(1, sizeof *ioapic)))
             return -ENOMEM;
 
-        ioapics[i++] = ioapic;
-        ioapic->lock = SPINLOCK_INIT();
-        ioapic->ioapic_id = entry[2];
-        ioapic->flags = IOAPIC_ENABLED;
-        ioapic->int_base = *((uint32_t *)(&entry[8]));
-        ioapic->base_addr = (uint32_t *)V2HI(*((uint32_t *)(&entry[4])));
+        ioapics[i++]        = ioapic;
+        ioapic->ioapic_id   = entry[2];
+        ioapic->flags       = IOAPIC_ENABLED;
+        ioapic->int_base    = *((uint32_t *)(&entry[8]));
+        ioapic->base_addr   = (uint32_t *)V2HI(*((uint32_t *)(&entry[4])));
+        spinlock_init(&ioapic->lock);
 
         ver_data = read_ioapic(ioapic, VER);
         ioapic->version = (ver_data & 0xFF);

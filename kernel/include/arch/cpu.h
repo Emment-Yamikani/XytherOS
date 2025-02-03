@@ -34,6 +34,7 @@ extern int getcpuid(void);
 extern int cpu_online(void);
 
 extern int ncpu(void);
+extern void ap_signal(void);
 
 #define cpu     (getcls())
 #define current (cpu->thread)

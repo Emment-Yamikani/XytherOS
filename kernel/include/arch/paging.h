@@ -98,17 +98,17 @@ extern void arch_unmap_n(uintptr_t vaddr, usize sz);
 int arch_mprotect(uintptr_t vaddr, usize sz, int flags);
 
 /**
+ * 
+*/
+extern int arch_lazycpy(uintptr_t dst, uintptr_t src);
+
+/**
  * @brief 
  * 
  * @param vaddr 
  * @param sz 
  */
 extern void arch_pagefree(uintptr_t vaddr, usize sz);
-
-/**
- * 
-*/
-extern int arch_lazycpy(uintptr_t dst, uintptr_t src);
 
 /**
  * @brief 

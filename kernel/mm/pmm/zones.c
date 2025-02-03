@@ -100,7 +100,7 @@ static int zone_enumerate(zone_t *zone, usize *memsz) {
 
     zone_assert_locked(zone);
 
-    debug("Initializing zone %s: remaining memory size %lu KiB.\n", str_zone[zone - zones], *memsz);
+    // debug("Initializing zone %s: remaining memory size %lu KiB.\n", str_zone[zone - zones], *memsz);
 
     switch (zone - zones) {
     case ZONEi_DMA:
@@ -186,8 +186,8 @@ static int zone_enumerate(zone_t *zone, usize *memsz) {
 
     *memsz -= B2KiB(zone->size);
 
-    debug("Initialized zone %s[%p: %X]: remaining memory size %lu KiB.\n",
-          str_zone[zone - zones], zone->start, zone->size, *memsz);
+    // debug("Initialized zone %s[%p: %X]: remaining memory size %lu KiB.\n",
+    //       str_zone[zone - zones], zone->start, zone->size, *memsz);
 
     return 0;
 }
@@ -280,7 +280,7 @@ int zones_init(void) {
     zone_t      *zone   = NULL;
     usize       memsz   = bootinfo.total;
 
-    printk("Initializing memory zones...\n");
+    // printk("Initializing memory zones...\n");
 
     // Initialize zones.
     for (zone = zones; zone < &zones[NZONE]; ++zone) {
@@ -294,7 +294,7 @@ int zones_init(void) {
             return err;
     }
 
-    printk("Memory zones initialized.\n");
+    // printk("Memory zones initialized.\n");
     return 0;
 }
 

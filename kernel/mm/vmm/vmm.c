@@ -250,6 +250,7 @@ static int freevmr_get(size_t size, node_t **ppn) {
 }
 
 static int vmm_init(void) {
+    int err = 0;
     node_t *node = NULL;
 
     if (atomic_read(&initialized))
@@ -257,13 +258,24 @@ static int vmm_init(void) {
     
     vm_lock();
 
+    assert_eq(err = physical_memory_init(), 0,
+        "Error[%d]: initializing physical memory manager.\n", err
+    );
+
     /**
      * @brief Reserve virtual memory for the heap.
      * This is set to be 2x the size of RAM.
      * At least for now, till such a time when a more
      * robust way reserving memory is implemented.*/
     kheap_size = KiB(bootinfo.total) * 2;
-    nodes = (node_t *)boot_alloc(NNODES * sizeof (node_t), PGSZ);
+
+    u64 order = get_page_order(NNODES * sizeof(node_t));
+    void *addr;
+    assert_eq(err = pmman.get_pages(GFP_NORMAL, order, &addr), 0,
+        "Error[%d]: initializing physical memory manager.\n", err
+    );
+    
+    nodes = (node_t *)V2HI(addr);
 
     memset(nodes, 0, sizeof nodes);
 
@@ -283,8 +295,8 @@ static int vmm_init(void) {
 
     freevmr_put(node);
 
-    vm_unlock();
     atomic_write(&initialized, 1);
+    vm_unlock();
     return 0;
 }
 

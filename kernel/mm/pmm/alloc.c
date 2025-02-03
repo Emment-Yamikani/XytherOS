@@ -4,6 +4,29 @@
 #include <string.h>
 #include <sys/thread.h>
 
+/**
+ * Calculate the page order required to cover a memory size.
+ *
+ * @param size_in_bytes  The memory size in bytes.
+ * @return               The order such that 2^order pages (each of size PAGE_SIZE)
+ *                       cover at least size_in_bytes.
+ */
+usize get_page_order(usize size_in_bytes) {
+    usize order = 0;
+    usize pages_needed;
+
+    // Calculate the number of pages needed, rounding up.
+    pages_needed = (size_in_bytes + PGSZ - 1) / PGSZ;
+
+    // Find the smallest order such that 2^order >= pages_needed.
+    while ((1UL << order) < pages_needed) {
+        order++;
+    }
+
+    return order;
+}
+
+
 static int zero_fill_page(zone_t *zone, page_t *page, int whence) {
     int         err     = 0;
     void        *vaddr  = NULL;

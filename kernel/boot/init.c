@@ -1,5 +1,6 @@
 #include <core/debug.h>
 #include <mm/mem.h>
+#include <arch/chipset.h>
 #include <boot/boot.h>
 
 void early_init(void) {
@@ -8,16 +9,11 @@ void early_init(void) {
     assert_eq(err = vmman.init(), 0,
         "Error[%d]: initializing virtual memory manager.\n", err);
 
-    assert_eq(err = physical_memory_init(), 0,
-        "Error[%d]: initializing physical memory manager.\n", err);
+    pic_init();
+    assert_eq(err = ioapic_init(), 0,
+        "Error[%d]: initializing IOAPIC.\n", err
+    );
 
-    uintptr_t p;
-    printk("alloc: %p\n", pmman.alloc());
-    printk("alloc: %p\n", p = pmman.alloc());
-
-    printk("alloc: %p\n", pmman.alloc());
-    pmman.free(p);
-
-    printk("alloc: %p\n", pmman.alloc());
-    loop();
+    ap_signal();
+    loop() asm volatile ("pause");
 }

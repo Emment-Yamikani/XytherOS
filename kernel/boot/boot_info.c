@@ -6,7 +6,7 @@ bootinfo_t bootinfo = {0};
 
 void boot_mmap_dump(void) {
     for (u32 i = 0; i < bootinfo.mmapcnt; ++i) {
-        printk("mmap(%d): addr: %p, type: %d, size: %10lX(Hex) Bytes\n",
+        printk("mmap[%2d]: addr: %p, type: %d, size: %10lX(Hex) Bytes\n",
             i,
             bootinfo.mmap[i].addr,
             bootinfo.mmap[i].type,
