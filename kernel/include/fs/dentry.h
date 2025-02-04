@@ -1,6 +1,6 @@
 #pragma once
 
-#include <core/spinlock.h>
+#include <sync/spinlock.h>
 #include <core/types.h>
 #include <ds/stack.h>
 #include <fs/inode.h>

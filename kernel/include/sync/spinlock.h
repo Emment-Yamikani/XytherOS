@@ -90,3 +90,11 @@ static inline bool spin_islocked(spinlock_t *lk) {
 static inline void spin_assert_locked(spinlock_t *lk) {
     assert_eq(spin_islocked(lk), true, "Caller must hold lock.\n");
 }
+
+static inline bool spin_test_and_lock(spinlock_t *lk) {
+    bool locked;
+    if ((locked = !spin_islocked(lk))) {
+        spin_lock(lk);
+    }
+    return locked;
+}

@@ -179,7 +179,7 @@ start64:
     ; Set the local storage for this core.
     mov     rdi, bspcls
     xor     rax, rax
-    mov     rcx, 200
+    mov     rcx, 0x200
     rep     stosq
     mov     rdi, bspcls
     call    setcls

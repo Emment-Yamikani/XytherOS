@@ -9,7 +9,7 @@ typedef struct cpu_t {
     u64         flags;
 
     isize       ncli;
-    bool        intena;
+    isize       intena;
 
     usize       timer_ticks;
 

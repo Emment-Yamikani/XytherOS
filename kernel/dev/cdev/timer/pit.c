@@ -37,21 +37,47 @@ void pit_intr(void) {
     jiffies_update();
 }
 
-void pit_wait(double s) {
-    uint8_t data = 0;
-    uint16_t freq = (uint16_t) (1. / s);
-    uint16_t counter = 1193182 / freq;
+/* 
+ * Wait for a specified number of seconds using the PIT channel 2 in one-shot mode.
+ * 
+ * @param seconds: Duration to wait (in seconds).
+ */
+void pit_wait(double seconds) {
+    uint8_t port_data;
+    uint16_t frequency;
+    uint16_t counter;
 
-    data = (inb(0x61) & 0xfd) | 1;
-    outb(0x61, data);
+    // Calculate the frequency in Hz (inverse of the wait time).
+    // Ensure that 'seconds' is not zero to avoid division by zero.
+    frequency = (uint16_t)(1.0 / seconds);
 
+    // Compute the counter value for the PIT given the base frequency (1,193,182 Hz).
+    counter = 1193182 / frequency;
+
+    // Configure port 0x61: Clear bit 1 (mask with 0xFD) and set bit 0.
+    port_data = (inb(0x61) & 0xFD) | 0x01;
+    outb(0x61, port_data);
+
+    // Set up PIT channel 2:
+    //   - CH(2): selects channel 2.
+    //   - LOHI: indicates that the counter value will be sent as two bytes (low then high).
+    //   - ONESHOT: configures the channel in one-shot mode.
     outb(CMDPORT, CH(2) | LOHI | ONESHOT);
+
+    // Send the counter value in two parts: low byte first, then high byte.
     outb(COUNTER(2), (uint8_t)counter);
-    inb(0x60);
+    // A dummy read from port 0x60 (often used to create a short delay or acknowledge an interrupt).
+    (void)inb(0x60);
     outb(COUNTER(2), (uint8_t)(counter >> 8));
 
-    data = inb(0x61) & 0xfe;
-    outb(0x61, data);
-    outb(0x61, data | 1);
-    while (!(inb(0x61) & 0x20));
+    // Toggle the control bits on port 0x61:
+    // Clear bit 0, then set it again.
+    port_data = inb(0x61) & 0xFE;
+    outb(0x61, port_data);
+    outb(0x61, port_data | 0x01);
+
+    // Wait until the PIT channel 2 indicates that the time interval has elapsed.
+    // The loop polls port 0x61 until bit 5 (0x20) is set.
+    while (!(inb(0x61) & 0x20))
+        ;
 }

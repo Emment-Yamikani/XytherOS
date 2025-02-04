@@ -87,7 +87,7 @@ typedef     struct queue            queue_t;
 
 typedef     enum   tstate_t         tstate_t;
 typedef     void*                   (*thread_entry_t)(void *);
-typedef     struct arch_thread_t  arch_thread_t;
+typedef     struct __arch_thread_t  arch_thread_t;
 
 /*          Signal related          */
 
