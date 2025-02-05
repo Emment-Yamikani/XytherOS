@@ -52,10 +52,12 @@ typedef struct queue {
  */
 #define queue_foreach(type, item, queue)                                          \
     queue_assert_locked(queue);                                                   \
-    for (type item = (queue) ? (queue)->head ? (queue)->head->data : NULL : NULL, \
-              *node = (typeof(node))((queue) ? (queue)->head : NULL);             \
-         node != NULL; node = (typeof(node))((queue_node_t *)node)->next,         \
-              item = (type)(node ? ((queue_node_t *)node)->data : NULL))
+    queue_node_t *item##_node = (queue) ? (queue)->head : NULL;                   \
+    for (type item = (queue) ? (queue)->head ? (queue)->head->data : NULL : NULL; \
+         item##_node != NULL; item##_node = item##_node->next,                    \
+              item = (type)(item##_node ? item##_node->data : NULL))
+
+int queue_init(queue_t *queue);
 
 // @brief free memory allocated via queue_alloc()
 void queue_free(queue_t *q);

@@ -4,6 +4,14 @@
 #include <mm/kalloc.h>
 #include <string.h>
 
+int queue_init(queue_t *queue) {
+    if (queue == NULL)
+        return -EINVAL;
+    memset(queue, 0, sizeof *queue);
+    queue->q_lock = SPINLOCK_INIT();
+    return 0;
+}
+
 int queue_alloc(queue_t **pqp) {
     queue_t *q = NULL;
 
@@ -13,10 +21,8 @@ int queue_alloc(queue_t **pqp) {
     if ((q = kmalloc(sizeof *q)) == NULL)
         return -ENOMEM;
 
-    memset(q, 0, sizeof *q);
-    q->q_lock = SPINLOCK_INIT();
+    queue_init(q);
     *pqp = q;
-
     return 0;
 }
 
