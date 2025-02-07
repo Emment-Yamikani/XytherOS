@@ -97,7 +97,7 @@ int queue_contains(queue_t *q, void *data, queue_node_t **pnp) {
     return -ENOENT;
 }
 
-int enqueue(queue_t *q, void *data, int unique, queue_node_t **pnp) {
+int enqueue(queue_t *q, void *data, queue_uniqueness_t uniqueness, queue_node_t **pnp) {
     int err = 0;
     queue_node_t *node = NULL;
     queue_assert_locked(q);
@@ -105,7 +105,7 @@ int enqueue(queue_t *q, void *data, int unique, queue_node_t **pnp) {
     if (q == NULL)
         return -EINVAL;
 
-    if (unique){
+    if (uniqueness == QUEUE_ENFORCE_UNIQUE){
         if ((err = queue_contains(q, data, NULL)) == 0)
             return -EEXIST;
     }
@@ -134,14 +134,14 @@ int enqueue(queue_t *q, void *data, int unique, queue_node_t **pnp) {
     return 0;
 }
 
-int enqueue_head(queue_t *q, int unique, void *data, queue_node_t **pnp) {
+int enqueue_head(queue_t *q, queue_uniqueness_t uniqueness, void *data, queue_node_t **pnp) {
     int err = 0;
     queue_node_t *node = NULL;
     queue_assert_locked(q);
     if (q == NULL)
         return -EINVAL;
 
-    if (unique) {
+    if (uniqueness == QUEUE_ENFORCE_UNIQUE) {
         if ((err = queue_contains(q, data, NULL)) == 0)
             return -EEXIST;
     }

@@ -1,5 +1,6 @@
 #include <arch/paging.h>
 #include <bits/errno.h>
+#include <core/debug.h>
 #include <mm/kalloc.h>
 #include <string.h>
 #include <sys/thread.h>
@@ -205,9 +206,12 @@ int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, int flag
         if ((err = arch_uthread_init(&thread->t_arch, entry, arg)))
             goto error;
 
-        if ((err = thread_join_group(thread))) {
+        queue_lock(current->t_group);
+        if ((err = thread_join_group(current, thread))) {
+            queue_unlock(current->t_group);
             goto error;
         }
+        queue_unlock(current->t_group);
     } else {
         // allocate the thread struct and kernel struct.
         if ((err = thread_alloc(t_attr.stacksz, flags, &thread)))
@@ -223,8 +227,12 @@ int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, int flag
             if ((err = thread_create_group(thread)))
                 goto error;
         } else {
-            if ((err = thread_join_group(thread)))
+            queue_lock(current->t_group);
+            if ((err = thread_join_group(current, thread))) {
+                queue_unlock(current->t_group);
                 goto error;
+            }
+            queue_unlock(current->t_group);
         }
 
     }
@@ -246,7 +254,6 @@ int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, int flag
     return 0;
 error:
     printk("%s:%d: Failed to create thread, err: %d\n", __FILE__, __LINE__, err);
-    if (thread)
-        thread_free(thread);
+    if (thread) { todo("impl thread_free()\n"); };
     return err;
 }

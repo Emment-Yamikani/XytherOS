@@ -5,6 +5,11 @@
 
 struct queue;
 
+typedef enum {
+    QUEUE_ALLOW_DUPLICATES = 0,
+    QUEUE_ENFORCE_UNIQUE = 1
+} queue_uniqueness_t;
+
 typedef struct queue_node {
     struct queue_node   *prev;
     void                *data;
@@ -50,11 +55,18 @@ typedef struct queue {
  * @brief Iterates over a queue's node.
  * caller must have held queue->q_lock prior to calling this macro.
  */
-#define queue_foreach(type, item, queue)                                          \
-    queue_assert_locked(queue);                                                   \
-    queue_node_t *item##_node = (queue) ? (queue)->head : NULL;                   \
-    for (type item = (queue) ? (queue)->head ? (queue)->head->data : NULL : NULL; \
-         item##_node != NULL; item##_node = item##_node->next,                    \
+#define queue_foreach(type, item, queue)                        \
+    queue_assert_locked(queue);                                 \
+    queue_node_t *item##_node = (queue) ? (queue)->head : NULL; \
+    for (type item = item##_node ? item##_node->data : NULL;    \
+         item##_node != NULL; item##_node = item##_node->next,  \
+              item = (type)(item##_node ? item##_node->data : NULL))
+
+#define queue_foreach_reverse(type, item, queue)                \
+    queue_assert_locked(queue);                                 \
+    queue_node_t *item##_node = (queue) ? (queue)->tail : NULL; \
+    for (type item = item##_node ? item##_node->data : NULL;    \
+         item##_node != NULL; item##_node = item##_node->prev,  \
               item = (type)(item##_node ? item##_node->data : NULL))
 
 int queue_init(queue_t *queue);
@@ -123,7 +135,7 @@ int dequeue_tail(queue_t *q, void **pdp);
  * @param pnp if non-null, returned pointer to the node holding this data.
  * @return int 0 on success or error code otherwise.
  */
-int enqueue(queue_t *q, void *data, int unique, queue_node_t **pnp);
+int enqueue(queue_t *q, void *data, queue_uniqueness_t uniqueness, queue_node_t **pnp);
 
 /**
  * @brief Same as enqueue(), except the data is enqueued
@@ -136,7 +148,7 @@ int enqueue(queue_t *q, void *data, int unique, queue_node_t **pnp);
  * @param pnp if non-null, returned pointer to the node holding this data.
  * @return int 0 on success or error code otherwise.
  */
-int enqueue_head(queue_t *q, int unique, void *data, queue_node_t **pnp);
+int enqueue_head(queue_t *q, queue_uniqueness_t uniqueness, void *data, queue_node_t **pnp);
 
 /**
  * @brief Removes a data item from the queue

@@ -196,7 +196,7 @@ typedef struct thread_t {
     file_ctx_t      *t_fctx;        /**< File context. */
     mmap_t          *t_mmap;        /**< Memory mapping for the process. */
     queue_t         *t_group;       /**< Thread group queue. */
-    sig_desc_t      *t_signal;      /**< Per-process signal descriptor. */
+    sig_desc_t      *t_signals;     /**< Per-process signal descriptor. */
 } __aligned(16) thread_t;
 
 /* Thread creation flags */
@@ -379,16 +379,18 @@ typedef struct thread_t {
     state;                                 \
 })
 
+#define thread_in_state(t, s)       (thread_get_state(t) == (s))
+
 #define current_get_state()         thread_get_state(current)
 
 /* Convenience state-checking macros */
-#define thread_isembryo(t)          (thread_get_state(t) == T_EMBRYO)
-#define thread_isready(t)           (thread_get_state(t) == T_READY)
-#define thread_isrunning(t)         (thread_get_state(t) == T_RUNNING)
-#define thread_issleep(t)           (thread_get_state(t) == T_SLEEP)
-#define thread_isstopped(t)         (thread_get_state(t) == T_STOPPED)
-#define thread_iszombie(t)          (thread_get_state(t) == T_ZOMBIE)
-#define thread_isterminated(t)      (thread_get_state(t) == T_TERMINATED)
+#define thread_isembryo(t)          (thread_in_state(t, T_EMBRYO))
+#define thread_isready(t)           (thread_in_state(t, T_READY))
+#define thread_isrunning(t)         (thread_in_state(t, T_RUNNING))
+#define thread_issleep(t)           (thread_in_state(t, T_SLEEP))
+#define thread_isstopped(t)         (thread_in_state(t, T_STOPPED))
+#define thread_iszombie(t)          (thread_in_state(t, T_ZOMBIE))
+#define thread_isterminated(t)      (thread_in_state(t, T_TERMINATED))
 
 #define current_isembryo()          thread_isembryo(current)
 #define current_isready()           thread_isready(current)
@@ -453,11 +455,14 @@ extern tid_t    gettid(void);
 
 extern tid_t    thread_gettid(thread_t *thread);
 extern tid_t    thread_self(void);
+extern int      thread_schedule(thread_t *thread);
 extern void     thread_exit(uintptr_t exit_code);
 extern int      thread_alloc(usize stack_size, int flags, thread_t **ptp);
 extern int      thread_enqueue(queue_t *queue, thread_t *thread, queue_node_t **pnp);
 extern thread_t *thread_dequeue(queue_t *queue);
-extern int      thread_queue_peek(queue_t *queue, tid_t tid, thread_t **ptp);
+extern int      thread_create_group(thread_t *thread);
+extern int      thread_join_group(thread_t *other, thread_t *thread);
+extern int      thread_queue_peek(queue_t *queue, tid_t tid, tstate_t state, thread_t **ptp);
 extern int      thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, int flags, thread_t **ptp);
 
 extern pid_t    fork(void);

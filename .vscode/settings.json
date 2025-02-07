@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "*.h": "c",
-        "cstdint": "c"
+        "cstdint": "c",
+        "*.tcc": "c"
     }
 }

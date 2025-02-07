@@ -14,6 +14,12 @@ extern pid_t getpid(void);
 #define debug(fmt, ...) // No-op in release builds
 #endif
 
+#ifdef DEBUG_BUILD
+#define todo(fmt, ...) panic("TODO: %s:%d: cpu[%d]: tid[%d:%d]: ret[%p] " fmt, __func__, __LINE__, getcpuid(), getpid(), gettid(), __retaddr(0), ##__VA_ARGS__)
+#else
+#define todo(fmt, ...) // No-op in release builds
+#endif
+
 #define debugloc() ({                 \
     debug("[ncli: %d]\n", cpu->ncli); \
 })
