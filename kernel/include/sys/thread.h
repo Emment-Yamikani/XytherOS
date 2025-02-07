@@ -49,7 +49,7 @@ typedef enum tstate_t {
 } tstate_t;
 
 extern const char *t_states[];
-extern char *tget_state(const tstate_t st);
+extern const char *tget_state(const tstate_t st);
 
 /**
  * @brief Process state enumeration.
@@ -151,6 +151,8 @@ typedef struct {
     uintptr_t       ti_exit_code;   /**< Exit code when the thread terminates. */
 } thread_info_t;
 
+void thread_info_dump(thread_info_t *info);
+
 /**
  * @brief Process information structure.
  */
@@ -185,7 +187,7 @@ typedef struct thread_t {
     thread_info_t   t_info;         /**< General thread information. */
     sleep_attr_t    t_sleep;        /**< Sleep-related information. */
     cond_t          t_event;        /**< Condition variable for thread events. */
-    queue_t         t_queues;       /**< Queue node used by various thread queues. */
+    queue_t         t_queues;       /**< Queue used by various thread queues. */
     sigset_t        t_sigmask;      /**< Signal mask for the thread. */
     queue_t         t_sigqueue[NSIG]; /**< Per-thread signal queues. */
     spinlock_t      t_lock;         /**< Lock protecting the thread structure. */
@@ -454,16 +456,20 @@ builtin_thread_t __used_section(.__builtin_thrds) \
 extern tid_t    gettid(void);
 
 extern tid_t    thread_gettid(thread_t *thread);
+extern pid_t    thread_getpid(thread_t *thread);
 extern tid_t    thread_self(void);
+
+extern int      thread_reap(thread_t *thread, thread_info_t *info, void **retval);
 extern int      thread_schedule(thread_t *thread);
 extern void     thread_exit(uintptr_t exit_code);
-extern int      thread_alloc(usize stack_size, int flags, thread_t **ptp);
-extern int      thread_enqueue(queue_t *queue, thread_t *thread, queue_node_t **pnp);
+extern int      thread_alloc(usize stack_size, int cflags, thread_t **ptp);
 extern thread_t *thread_dequeue(queue_t *queue);
+extern int      thread_remove_queue(thread_t *thread, queue_t *queue);
+extern int      thread_enqueue(queue_t *queue, thread_t *thread, queue_node_t **pnp);
 extern int      thread_create_group(thread_t *thread);
 extern int      thread_join_group(thread_t *other, thread_t *thread);
 extern int      thread_queue_peek(queue_t *queue, tid_t tid, tstate_t state, thread_t **ptp);
-extern int      thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, int flags, thread_t **ptp);
+extern int      thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, int cflags, thread_t **ptp);
 
 extern pid_t    fork(void);
 extern void     exit(int exit_code);

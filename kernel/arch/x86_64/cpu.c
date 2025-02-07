@@ -11,6 +11,7 @@
 #include <mm/mem.h>
 #include <string.h>
 #include <sync/atomic.h>
+#include <sync/preempt.h>
 
 static cpu_t *cpus[NCPU] = {NULL};
 static volatile atomic_t cpus_count  = 1;
@@ -26,10 +27,24 @@ void setcls(cpu_t *c) {
     wrmsr(IA32_KERNEL_GS_BASE, (uintptr_t)c);
 }
 
+thread_t *get_current(void) {
+    disable_preemption();
+    thread_t *thread = cpu ? cpu->thread : NULL;
+    enable_preemption();
+    return thread;
+}
+
 int getcpuid(void) {
     u32 a = 0, b = 0, c = 0, d = 0;
     cpuid(0x1, 0, &a, &b, &c, &d);
     return ((b >> 24) & 0xFF);
+}
+
+void disable_preemption(void) {
+    pushcli();
+}
+void enable_preemption(void) {
+    popcli();
 }
 
 int cpu_online(void) {

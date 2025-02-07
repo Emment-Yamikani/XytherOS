@@ -26,6 +26,7 @@ typedef struct cpu_t {
 
 #define AP_STACK_SIZE   0x4000
 
+// acce
 extern cpu_t *getcls(void);
 extern void setcls(cpu_t *);
 
@@ -36,5 +37,12 @@ extern int cpu_online(void);
 extern int ncpu(void);
 extern void ap_signal(void);
 
+// access with interrupts disabled.
 #define cpu     (getcls())
-#define current (cpu->thread)
+
+extern thread_t *get_current(void);
+
+extern void disable_preemption(void);
+extern void enable_preemption(void);
+
+#define current (get_current())

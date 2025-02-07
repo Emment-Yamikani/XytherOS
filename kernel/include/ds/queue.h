@@ -42,6 +42,7 @@ typedef struct queue {
 #define queue_lock(q)           ({ queue_assert(q); spin_lock(&(q)->q_lock); })
 #define queue_unlock(q)         ({ queue_assert(q); spin_unlock(&(q)->q_lock); })
 #define queue_islocked(q)       ({ queue_assert(q); spin_islocked(&(q)->q_lock); })
+#define queue_test_and_lock(q)  ({ queue_assert(q); spin_test_and_lock(&(q)->q_lock); })
 #define queue_assert_locked(q)  ({ queue_assert(q); spin_assert_locked(&(q)->q_lock); })
 
 // initialize a queue at runtime with this macro.
@@ -55,19 +56,21 @@ typedef struct queue {
  * @brief Iterates over a queue's node.
  * caller must have held queue->q_lock prior to calling this macro.
  */
-#define queue_foreach(type, item, queue)                        \
-    queue_assert_locked(queue);                                 \
-    queue_node_t *item##_node = (queue) ? (queue)->head : NULL; \
-    for (type item = item##_node ? item##_node->data : NULL;    \
-         item##_node != NULL; item##_node = item##_node->next,  \
-              item = (type)(item##_node ? item##_node->data : NULL))
+#define queue_foreach(queue, type, item)                                            \
+    queue_assert_locked(queue);                                                     \
+    for (queue_node_t *item##_node = (queue) ? (queue)->head : NULL,                \
+                      *next_##item##_node = item##_node ? item##_node->next : NULL; \
+                      item##_node != NULL; item##_node = next_##item##_node,        \
+                      next_##item##_node = item##_node ? item##_node->next : NULL)  \
+        for (type item = (type)item##_node->data; item##_node != NULL; item##_node = NULL)
 
-#define queue_foreach_reverse(type, item, queue)                \
-    queue_assert_locked(queue);                                 \
-    queue_node_t *item##_node = (queue) ? (queue)->tail : NULL; \
-    for (type item = item##_node ? item##_node->data : NULL;    \
-         item##_node != NULL; item##_node = item##_node->prev,  \
-              item = (type)(item##_node ? item##_node->data : NULL))
+#define queue_foreach_reverse(queue, type, item)                                   \
+    queue_assert_locked(queue);                                                     \
+    for (queue_node_t *item##_node = (queue) ? (queue)->tail : NULL,               \
+                      *prev##item##_node = item##_node ? item##_node->prev : NULL; \
+                      item##_node != NULL; item##_node = prev##item##_node,        \
+                      prev##item##_node = item##_node ? item##_node->prev : NULL)  \
+        for (type item = (type)item##_node->data; item##_node != NULL; item##_node = NULL)
 
 int queue_init(queue_t *queue);
 

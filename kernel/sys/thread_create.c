@@ -134,7 +134,7 @@ int thread_alloc(usize stack_size, int flags, thread_t **ptp) {
  *
  * @return 0 on success, or a negative error code on failure.
  */
-int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, int flags, thread_t **ptp) {
+int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, int cflags, thread_t **ptp) {
     int             err     = 0;
     thread_attr_t   t_attr  = {0};
     thread_t        *thread = NULL;
@@ -143,28 +143,28 @@ int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, int flag
     if (attr)
         t_attr = *attr;
     else {
-        if (flags & THREAD_CREATE_USER)
+        if (cflags & THREAD_CREATE_USER)
             t_attr = UTHREAD_ATTR_DEFAULT;
         else
             t_attr = KTHREAD_ATTR_DEFAULT;
     }
 
-    flags |= current == NULL  ? THREAD_CREATE_GROUP : 0;
+    cflags |= current == NULL  ? THREAD_CREATE_GROUP : 0;
 
     // create a self detatching thread.
-    flags |= t_attr.detachstate ? THREAD_CREATE_DETACHED : 0;
+    cflags |= t_attr.detachstate ? THREAD_CREATE_DETACHED : 0;
 
-    if (flags & THREAD_CREATE_USER) {
+    if (cflags & THREAD_CREATE_USER) {
         uc_stack_t  uc_stack = {0};
         vmr_t       *ustack  = NULL;
 
         if (!current || !current_isuser())
             return -EINVAL;
 
-        if (flags & THREAD_CREATE_GROUP)
+        if (cflags & THREAD_CREATE_GROUP)
             return -EINVAL;
 
-        if ((err = thread_alloc(KSTACK_SIZE, flags, &thread)))
+        if ((err = thread_alloc(KSTACK_SIZE, cflags, &thread)))
             return err;
 
         mmap_lock(current->t_mmap);
@@ -214,7 +214,7 @@ int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, int flag
         queue_unlock(current->t_group);
     } else {
         // allocate the thread struct and kernel struct.
-        if ((err = thread_alloc(t_attr.stacksz, flags, &thread)))
+        if ((err = thread_alloc(t_attr.stacksz, cflags, &thread)))
             return err;
 
         // Initialize the kernel execution context.
@@ -222,7 +222,7 @@ int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, int flag
             goto error;
 
         // Do we want to create a new thread group?
-        if (flags & THREAD_CREATE_GROUP) {
+        if (cflags & THREAD_CREATE_GROUP) {
             // If so create a thread group and make thread the main thread.
             if ((err = thread_create_group(thread)))
                 goto error;
@@ -241,7 +241,7 @@ int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, int flag
     thread->t_info.ti_entry  = entry;
 
     // schedule the newly created thread?
-    if (flags & THREAD_CREATE_SCHED) {
+    if (cflags & THREAD_CREATE_SCHED) {
         if ((err = thread_schedule(thread)))
             goto error;
     }

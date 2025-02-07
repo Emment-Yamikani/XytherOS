@@ -3,6 +3,7 @@ TARGET      := boot/xyther.elf
 ISO_DIR     := iso
 ISO_IMAGE   := xytheros.iso
 KERNEL_DIR  := kernel
+KERNEL_LINKER_SCRIPT:= kernel.ld
 
 KERNEL_FLAGS:= -DDEBUG_BUILD -D__x86_64__
 
@@ -19,7 +20,7 @@ CFLAGS 		:= -ffreestanding -O2 -g -Wall -Wextra -Werror $(KERNEL_FLAGS) -fno-sta
 			   -fno-exceptions -fno-pic -mno-red-zone -m64 -mcmodel=large -I$(CINCLUDE) -nostdlib \
 			   -nostartfiles -nodefaultlibs -std=gnu99 -ffunction-sections -fdata-sections
 
-LDFLAGS 	:= -T kernel/linker.ld --gc-sections -nostdlib -static -m elf_x86_64 \
+LDFLAGS 	:= -T $(KERNEL_DIR)/$(KERNEL_LINKER_SCRIPT) --gc-sections -nostdlib -static -m elf_x86_64 \
         	   -z max-page-size=0x1000
 
 ASFLAGS     := -f elf64
@@ -81,7 +82,7 @@ iso: all
 	@echo "ISO image created: $(ISO_IMAGE)"
 
 CPU_COUNT 	:= 2
-RAM_SIZE	:= 128M
+RAM_SIZE	:= 2048M
 QUEUE_FLAGS := -no-reboot -no-shutdown -parallel none
 
 # Run in QEMU
