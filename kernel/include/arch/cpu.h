@@ -41,6 +41,7 @@ extern void ap_signal(void);
 #define cpu     (getcls())
 
 extern thread_t *get_current(void);
+extern void set_current(thread_t *thread);
 
 extern void disable_preemption(void);
 extern void enable_preemption(void);

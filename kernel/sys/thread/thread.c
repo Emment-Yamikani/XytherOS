@@ -1,4 +1,5 @@
 #include <core/debug.h>
+#include <sys/schedule.h>
 #include <sys/thread.h>
 
 const char *tget_state(tstate_t state) {
@@ -14,6 +15,10 @@ const char *tget_state(tstate_t state) {
     if (state < T_EMBRYO || state > T_TERMINATED)
         return "UnknownState";
     return states[state];
+}
+
+const char *get_tstate(void) {
+    return tget_state(current_get_state());
 }
 
 tid_t thread_gettid(thread_t *thread) {
@@ -39,8 +44,7 @@ tid_t thread_self(void) {
 int thread_schedule(thread_t *thread) {
     if (thread == NULL)
         return -EINVAL;
-    todo("Under construction\n");
-    return 0;
+    return sched_enqueue(thread);
 }
 
 int thread_enqueue(queue_t *queue, thread_t *thread, queue_node_t **pnp) {
@@ -244,6 +248,6 @@ void thread_info_dump(thread_info_t *info) {
         tget_state(info->ti_state),
         info->ti_errno,
         info->ti_flags,
-        info->ti_exit_code
+        info->ti_exit
     );
 }

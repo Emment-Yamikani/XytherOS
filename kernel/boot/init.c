@@ -2,6 +2,7 @@
 #include <mm/mem.h>
 #include <arch/chipset.h>
 #include <boot/boot.h>
+#include <sys/schedule.h>
 #include <sys/thread.h>
 
 extern __noreturn void kthread_main(void);
@@ -19,16 +20,12 @@ void early_init(void) {
 
     ap_signal();
 
-    thread_t *main = NULL;
     assert_eq(err = thread_create(NULL, (thread_entry_t)kthread_main,
-        NULL, 0, &main), 0,
+        NULL, THREAD_CREATE_SCHED, NULL), 0,
         "Failed to create main kernel thread: err: %s\n",
         perror(err)
     );
 
-    thread_info_t info;
-    thread_reap(main, &info, NULL);
-
-    thread_info_dump(&info);
+    scheduler();
     loop() asm volatile ("pause");
 }

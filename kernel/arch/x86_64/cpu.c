@@ -12,6 +12,7 @@
 #include <string.h>
 #include <sync/atomic.h>
 #include <sync/preempt.h>
+#include <sys/schedule.h>
 
 static cpu_t *cpus[NCPU] = {NULL};
 static volatile atomic_t cpus_count  = 1;
@@ -32,6 +33,12 @@ thread_t *get_current(void) {
     thread_t *thread = cpu ? cpu->thread : NULL;
     enable_preemption();
     return thread;
+}
+
+void set_current(thread_t *thread) {
+    disable_preemption();
+    cpu->thread = thread;
+    enable_preemption();
 }
 
 int getcpuid(void) {
@@ -61,6 +68,7 @@ static void cpu_init(void) {
     lapic_init();
     atomic_inc(&cpus_online);
     atomic_or(&cpu->flags, CPU_ONLINE);
+    scheduler_init();
 }
 
 void bsp_init(void) {

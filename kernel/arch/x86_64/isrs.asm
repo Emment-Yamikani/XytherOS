@@ -97,6 +97,7 @@ IRQ 29, 61
 IRQ 30, 62
 IRQ 31, 63
 IRQ 32, 64
+IRQ 33, 65
 
 ; Common handler for ISRs and IRQs
 global trapret
@@ -180,6 +181,6 @@ _sim_trap:
     cli
     push    qword 0x8           ; Push code segment selector (CS)
     push    rax                 ; Push return address (RIP)
-    push    qword 0x0           ; Push dummy error code
+    push    qword 160           ; Push dummy error code
     push    rdi                 ; Push RDI (additional context)
     jmp     stub                ; Jump to common handler

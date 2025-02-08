@@ -48,7 +48,7 @@ typedef enum tstate_t {
     T_TERMINATED = 6  /**< Thread has been terminated. */
 } tstate_t;
 
-extern const char *t_states[];
+extern const char *get_tstate(void);
 extern const char *tget_state(const tstate_t st);
 
 /**
@@ -148,7 +148,7 @@ typedef struct {
     thread_sched_t  ti_sched;       /**< Scheduling information. */
     uintptr_t       ti_errno;       /**< Per-thread error number. */
     atomic_t        ti_flags;       /**< Thread flags. */
-    uintptr_t       ti_exit_code;   /**< Exit code when the thread terminates. */
+    uintptr_t       ti_exit;        /**< Exit code when the thread terminates. */
 } thread_info_t;
 
 void thread_info_dump(thread_info_t *info);
@@ -164,7 +164,7 @@ struct __proc_info_t {
     proc_info_t     *parent;        /**< Pointer to the parent process. */
     proc_state_t    state;          /**< Process state. */
     unsigned long   flags;          /**< Process flags. */
-    long            exit_code;      /**< Process exit status. */
+    long            exit;           /**< Process exit status. */
     thread_entry_t  entry;          /**< Process entry point. */
     char            *name;          /**< Process name. */
     cond_t          child_event;    /**< Condition variable for child wait events. */
@@ -305,7 +305,7 @@ typedef struct thread_t {
 #define thread_iswake(t)            thread_test(t, THREAD_WAKE)
 #define thread_isdetached(t)        thread_test(t, THREAD_DETACHED)
 #define thread_issigctx(t)          thread_test(t, THREAD_HANDLING_SIG)
-#define thread_iskill(t)            thread_test(t, THREAD_KILLED)
+#define thread_iskilled(t)          thread_test(t, THREAD_KILLED)
 
 #define thread_setmain(t)           thread_set(t, THREAD_MAIN)
 #define thread_setlast(t)           thread_set(t, THREAD_LAST)
@@ -318,6 +318,7 @@ typedef struct thread_t {
 
 #define thread_mask_park(t)         thread_mask(t, THREAD_PARK)
 #define thread_mask_wake(t)         thread_mask(t, THREAD_WAKE)
+#define thread_mask_park_wake(t)    thread_mask(t, THREAD_PARK | THREAD_WAKE)
 #define thread_mask_sigctx(t)       thread_mask(t, THREAD_HANDLING_SIG)
 
 #define current_ismain()            thread_ismain(current)
@@ -327,7 +328,7 @@ typedef struct thread_t {
 #define current_iswake()            thread_iswake(current)
 #define current_isdetached()        thread_isdetached(current)
 #define current_issigctx()          thread_issigctx(current)
-#define current_iskill()            thread_iskill(current)
+#define current_iskilled()          thread_iskilled(current)
 
 #define current_setmain()           thread_setmain(current)
 #define current_setlast()           thread_setlast(current)
@@ -340,6 +341,7 @@ typedef struct thread_t {
 
 #define current_mask_park()         thread_mask_park(current)
 #define current_mask_wake()         thread_mask_wake(current)
+#define current_mask_park_wake()    thread_mask_park_wake(current)
 #define current_mask_sigctx()       thread_mask_sigctx(current)
 
 /**

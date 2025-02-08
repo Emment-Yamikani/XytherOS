@@ -31,8 +31,10 @@ int x86_64_kthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) 
     mcontext_t  *mctx   = NULL;
     u64         *kstack = NULL;
 
-    if (thread == NULL || entry == NULL)
+    if (thread == NULL || thread->t_thread == NULL || entry == NULL)
         return -EINVAL;
+
+    thread_assert_locked(thread->t_thread);
 
     mctx = (mcontext_t *)ALIGN16(thread->t_sstack.ss_sp - sizeof *mctx);
     memset(mctx, 0, sizeof *mctx);
@@ -137,6 +139,8 @@ int x86_64_signal_dispatch( arch_thread_t   *thread, thread_entry_t  entry, sigi
 
     if (thread->t_thread == NULL)
         return -EINVAL;
+    
+    thread_assert_locked(thread->t_thread);
 
     mctx = (mcontext_t *)(thread->t_sstack.ss_sp - sizeof *mctx);
     memset(mctx, 0, sizeof *mctx);
@@ -275,8 +279,10 @@ int x86_64_uthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) 
     u64         *kstack = NULL;
     u64         *ustack = NULL;
 
-    if (thread == NULL || entry == NULL)
+    if (thread == NULL || thread->t_thread == NULL || entry == NULL)
         return -EINVAL;
+
+    thread_assert_locked(thread->t_thread);
 
     if ((ustack = (u64 *)ALIGN16(thread->t_ustack.ss_sp)) == NULL)
         return -EINVAL;
@@ -317,16 +323,17 @@ int x86_64_uthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) 
     return 0;
 }
 
-int x86_64_thread_execve(arch_thread_t *thread, thread_entry_t entry,
-                       int argc, const char *argp[], const char *envp[]) {
+int x86_64_thread_execve(arch_thread_t *thread, thread_entry_t entry, int argc, const char *argp[], const char *envp[]) {
     int         err         = 0;
     context_t   *ctx        = NULL;
     mcontext_t  *mctx       = NULL;
     u64         *ustack     = NULL;
     u64         *kstack     = NULL;
 
-    if (thread == NULL || entry == NULL)
+    if (thread == NULL || thread->t_thread == NULL || entry == NULL)
         return -EINVAL;
+
+    thread_assert_locked(thread->t_thread);
 
     if ((ustack = (u64 *)ALIGN16(thread->t_ustack.ss_sp)) == NULL)
         return -EINVAL;
@@ -372,8 +379,11 @@ int x86_64_thread_execve(arch_thread_t *thread, thread_entry_t entry,
 
 int x86_64_thread_setkstack(arch_thread_t *thread) {
     u64     kstack  = 0;
-    if (thread == NULL)
+
+    if (thread == NULL || thread->t_thread == NULL)
         return -EINVAL;
+
+    thread_assert_locked(thread->t_thread);
 
     if (thread->t_rsvd < thread->t_kstack.ss_sp)
         return -EOVERFLOW;
@@ -388,8 +398,11 @@ int x86_64_thread_fork(arch_thread_t *dst, arch_thread_t *src) {
     context_t   *ctx    = NULL;
     u64         *kstack = NULL;
 
-    if (dst == NULL || src == NULL)
+    if (dst == NULL || dst->t_thread == NULL || src == NULL || src->t_thread)
         return -EINVAL;
+
+    thread_assert_locked(dst->t_thread);
+    thread_assert_locked(src->t_thread);
 
     kstack = (u64 *)dst->t_sstack.ss_sp;
     assert(kstack, "Invalid Kernel stack.");

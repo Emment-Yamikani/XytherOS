@@ -69,6 +69,7 @@ extern void irq29(void);
 extern void irq30(void);
 extern void irq31(void);
 extern void irq32(void);
+extern void irq33(void);
 
 extern void cpu_pause(void);
 
