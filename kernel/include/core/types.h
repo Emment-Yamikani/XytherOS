@@ -76,8 +76,8 @@ typedef     struct dev              dev_t;
 
 typedef     struct cpu_t            cpu_t;
 
-typedef     struct proc             proc_t;
-typedef     struct thread_t       thread_t;
+typedef     struct thread_queue_t   thread_queue_t;
+typedef     struct thread_t         thread_t;
 
 typedef     struct vmr              vmr_t;
 typedef     struct page             page_t;

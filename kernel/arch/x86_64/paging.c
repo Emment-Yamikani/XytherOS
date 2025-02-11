@@ -26,7 +26,7 @@ void x86_64_dumptable(pte_t *table) {
 
 void x86_64_tlb_shootdown(uintptr_t pdbr __unused, uintptr_t addr __unused) {
     invlpg(addr);
-    lapic_send_ipi(TLB_SHTDWN, IPI_ALLXSELF);
+    lapic_send_ipi(T_TLBSHTDWN, IPI_ALLXSELF);
 }
 
 static inline int x86_64_map_pdpt(int i4, int flags) {

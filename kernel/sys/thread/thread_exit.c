@@ -7,34 +7,11 @@ void thread_exit(uintptr_t exit_code) {
 }
 
 int thread_reap(thread_t *thread, thread_info_t *info, void **retval) {
-    int err = 0;
 
     if (thread == NULL)
         return -EINVAL;
 
     thread_assert_locked(thread);
-
-    // detach from associated queues.
-    queue_lock(&thread->t_queues);
-    queue_foreach(&thread->t_queues, queue_t *, queue) {
-        queue_lock(queue);
-         if ((err = queue_remove(queue, thread))) {
-            queue_unlock(&thread->t_queues);
-            return err;
-        }
-
-        if ((err = queue_remove(&thread->t_queues, queue))) {
-            int Err;
-            assert_eq(Err = enqueue(queue, thread, QUEUE_ENFORCE_UNIQUE, NULL), 0,
-                "enqueue():[Err: %s]: Failed to reverse queue_remove(queue, thread[%d])->err: %s\n",
-                perror(Err), thread_gettid(thread), perror(err)
-            );
-            queue_unlock(&thread->t_queues);
-            return err;
-        }
-        queue_unlock(queue);
-    }
-    queue_unlock(&thread->t_queues);
 
     if (info != NULL) { // copy the thread info.
         info->ti_tid    = thread->t_info.ti_tid;
@@ -51,6 +28,19 @@ int thread_reap(thread_t *thread, thread_info_t *info, void **retval) {
     //get the return value.
     if (retval) *retval = (void *)thread->t_info.ti_exit;
 
-    // todo("'Implement me :)'\n");
+    // Detach thread from all queues
+    if (thread->t_global_qnode.queue)
+        embedded_queue_remove(thread->t_global_qnode.queue, &thread->t_global_qnode);
+
+    if (thread->t_group_qnode.queue)
+        embedded_queue_remove(thread->t_group_qnode.queue, &thread->t_group_qnode);
+
+    if (thread->t_run_qnode.queue)
+        embedded_queue_remove(thread->t_run_qnode.queue, &thread->t_run_qnode);
+
+    if (thread->t_wait_qnode.queue)
+        embedded_queue_remove(thread->t_wait_qnode.queue, &thread->t_wait_qnode);
+
+    todo("'Implement me :)'\n");
     return 0;
 }

@@ -96,16 +96,21 @@ int thread_alloc(usize stack_size, int flags, thread_t **ptp) {
     sched->ts_affin.type    = SOFT_AFFINITY;
     sched->ts_affin.cpu_set = -1; /* -1 means all CPUs allowed */
 
-    /* Initialize thread queues and signal queues */
-    queue_init(&thread->t_queues);
+    /* Initialize thread qnodes */
+    thread->t_wait_qnode.data   = (void *)thread;
+    thread->t_run_qnode.data    = (void *)thread;
+    thread->t_group_qnode.data  = (void *)thread;
+    thread->t_global_qnode.data = (void *)thread;
+
+    /* Initialize signal queues */
     for (usize i = 0; i < NELEM(thread->t_sigqueue); ++i) {
         queue_init(&thread->t_sigqueue[i]);
     }
 
-    thread_lock(thread);
-
     /* Set initial state to embryonic */
     thread_enter_state(thread, T_EMBRYO);
+
+    thread_lock(thread);
     
     *ptp = thread;
     return 0;
@@ -206,12 +211,10 @@ int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, int cfla
         if ((err = arch_uthread_init(&thread->t_arch, entry, arg)))
             goto error;
 
-        queue_lock(current->t_group);
-        if ((err = thread_join_group(current, thread))) {
-            queue_unlock(current->t_group);
+        // add thread to current thread group.
+        if ((err = thread_join_group(thread))) {
             goto error;
         }
-        queue_unlock(current->t_group);
     } else {
         // allocate the thread struct and kernel struct.
         if ((err = thread_alloc(t_attr.stacksz, cflags, &thread)))
@@ -227,12 +230,10 @@ int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, int cfla
             if ((err = thread_create_group(thread)))
                 goto error;
         } else {
-            queue_lock(current->t_group);
-            if ((err = thread_join_group(current, thread))) {
-                queue_unlock(current->t_group);
+            // add thread to current thread group.
+            if ((err = thread_join_group(thread))) {
                 goto error;
             }
-            queue_unlock(current->t_group);
         }
 
     }
@@ -246,10 +247,8 @@ int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, int cfla
             goto error;
     }
 
-    if (ptp)
-        *ptp = thread;
-    else
-        thread_unlock(thread);
+    if (ptp) *ptp = thread;
+    else thread_unlock(thread);
 
     return 0;
 error:

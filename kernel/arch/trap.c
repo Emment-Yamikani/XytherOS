@@ -4,7 +4,7 @@
 #include <core/debug.h>
 #include <sync/preempt.h>
 
-static isr_ne(int trapno) {
+static void isr_ne(int trapno) {
     todo("trap(%d)\n", trapno);
 }
 

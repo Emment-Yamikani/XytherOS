@@ -2,37 +2,15 @@
 
 // Core includes for timekeeping, synchronization, and data structures
 #include <dev/timer.h>
-#include <sync/spinlock.h>
 #include <ds/queue.h>
+#include <sync/spinlock.h>
+#include <sys/thread_queue.h>
 
 // Definition of a scheduling level in the MLFQ
 typedef struct {
-    queue_t     queue;      // Queue to hold processes for this level
-    jiffies_t   quantum;    // Time quantum for this level
-    spinlock_t  lock;       // Lock to ensure thread-safe operations
-} sched_level_t;
-
-// Number of scheduling levels in the MLFQ
-#define NSCHED_LEVEL 4
-
-// Definition of the Multi-Level Feedback Queue (MLFQ) structure
-typedef struct {
-    sched_level_t   level[NSCHED_LEVEL]; // Array of scheduling levels
-} mlfq_t;
-
-// Highest priority level.
-#define MLFQ_HIGHEST    (NSCHED_LEVEL - 1)
-
-// Lowest priority level.
-#define MLFQ_LOWEST     0
-
-extern const char *MLFQ_PRIORITY[];
-
-extern void scheduler_init(void);
-extern void scheduler_tick(void);
-extern int sched_enqueue(thread_t *thread);
-
-extern __noreturn void scheduler(void);
+    jiffies_t       quantum;    // Time quantum for this level
+    thread_queue_t  run_queue;  // Queue to hold processes for this level.
+} MLFQ_level_t;
 
 typedef struct {
     uint64_t total_context_switches;
@@ -44,3 +22,37 @@ typedef struct {
     uint64_t steal_attempts;
     uint64_t successful_steals;
 } sched_metrics_t;
+
+// Number of scheduling levels in the MLFQ
+#define NSCHED_LEVEL 4
+
+// Definition of the Multi-Level Feedback Queue (MLFQ) structure
+typedef struct {
+    sched_metrics_t metrics;
+    MLFQ_level_t   level[NSCHED_LEVEL]; // Array of scheduling levels
+} MLFQ_t;
+
+// Highest priority level.
+#define MLFQ_HIGHEST    (NSCHED_LEVEL - 1)
+
+// Lowest priority level.
+#define MLFQ_LOWEST     0
+
+extern const char *MLFQ_PRIORITY[];
+
+extern void sched(void);
+extern void scheduler_init(void);
+extern void scheduler_tick(void);
+extern int sched_enqueue(thread_t *thread);
+
+extern __noreturn void scheduler(void);
+
+/**
+ * @brief give up the cpu for one scheduling round
+ *
+ */
+extern void sched_yield(void);
+
+extern int sched_wakeup_all(thread_queue_t *wait_queue, size_t *pnt);
+extern int sched_wakeup(thread_queue_t *wait_queue, queue_relloc_t whence);
+extern int sched_wait(thread_queue_t *wait_queue, tstate_t state, queue_relloc_t whence, spinlock_t *lock);

@@ -4,6 +4,7 @@
 #include <arch/cpu.h>
 #include <boot/multiboot.h>
 #include <core/types.h>
+#include <dev/fb.h>
 
 #define NMODS   32
 #define NMMAP   32 + NCPU
@@ -37,10 +38,10 @@ typedef struct {
         usize       size;
         u32         bpp;
 
-        // struct fb_bitfield red;
-        // struct fb_bitfield blue;
-        // struct fb_bitfield green;
-        // struct fb_bitfield resv;
+        struct fb_bitfield red;
+        struct fb_bitfield blue;
+        struct fb_bitfield green;
+        struct fb_bitfield resv;
     } fb /* framebuffer data returned by bootloader*/;
 
     uintptr_t       phyaddr;    // first free physical address. 

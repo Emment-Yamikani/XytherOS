@@ -18,18 +18,18 @@ extern void pit_wait(double s);
 #define time_before_eq(unknown, known)    ((long)(known) - (long)(unknown) >= 0)
 
 
-#define s_TO_ms(s)          ((double)(s) * 1000ul)        // convert seconds to ms
-#define s_TO_us(s)          ((double)(s) * 1000000ul)     // convert seconds to us
-#define s_TO_ns(s)          ((double)(s) * 1000000000ul)  // convert seconds to ns
+#define ms_from_s(s)        ((double)(s) * 1000ul)        // convert seconds to ms
+#define us_from_s(s)        ((double)(s) * 1000000ul)     // convert seconds to us
+#define ns_from_s(s)        ((double)(s) * 1000000000ul)  // convert seconds to ns
 
-#define ms_TO_s(s)          ((double)(s) / 1000ul)        // convert ms to seconds
-#define us_TO_s(s)          ((double)(s) / 1000000ul)     // convert us to seconds
-#define ns_TO_s(s)          ((double)(s) / 1000000000ul)  // convert ns to seconds
+#define s_from_ms(s)        ((double)(s) / 1000ul)        // convert ms to seconds
+#define s_from_us(s)        ((double)(s) / 1000000ul)     // convert us to seconds
+#define s_from_ns(s)        ((double)(s) / 1000000000ul)  // convert ns to seconds
 
-#define HZ_TO_s(Hz)         ((double)1 / (Hz))          // convert Hz to s
-#define HZ_TO_ms(Hz)        (s_TO_ms(HZ_TO_s(Hz)))      // convert Hz to ms
-#define HZ_TO_us(Hz)        (s_TO_us(HZ_TO_s(Hz)))      // convert Hz to us
-#define HZ_TO_ns(Hz)        (s_TO_ns(HZ_TO_s(Hz)))      // convert Hz to ns
+#define s_from_HZ(Hz)       ((double)1 / (Hz))            // convert Hz to s
+#define ms_from_HZ(Hz)      (ms_from_s(s_from_HZ(Hz)))    // convert Hz to ms
+#define us_from_HZ(Hz)      (us_from_s(s_from_HZ(Hz)))    // convert Hz to us
+#define ns_from_HZ(Hz)      (ns_from_s(s_from_HZ(Hz)))    // convert Hz to ns
 
 #define NSEC_PER_USEC       (1000)
 #define USEC_PER_SEC        (1000000)
@@ -67,15 +67,15 @@ extern void pit_wait(double s);
      ((tv)->tv_usec / (USEC_PER_SEC / SYS_HZ))); \
 })
 
-#define s_TO_jiffies(s)     ((double)SYS_HZ * (double)(s))
-#define ms_TO_jiffies(ms)   (s_TO_jiffies(ms_TO_s(ms)))
-#define us_TO_jiffies(us)   (s_TO_jiffies(us_TO_s(us)))
-#define ns_TO_jiffies(ns)   (s_TO_jiffies(ns_TO_s(ns)))
+#define jiffies_from_s(s)     ((double)SYS_HZ * (double)(s))
+#define jiffies_from_ms(ms)   (jiffies_from_s(s_from_ms(ms)))
+#define jiffies_from_us(us)   (jiffies_from_s(s_from_us(us)))
+#define jiffies_from_ns(ns)   (jiffies_from_s(s_from_ns(ns)))
 
-#define jiffies_TO_s(j)     ((double)(j) / SYS_HZ)
-#define jiffies_TO_ms(j)    (s_TO_ms(jiffies_TO_s(j)))
-#define jiffies_TO_us(j)    (s_TO_us(jiffies_TO_s(j)))
-#define jiffies_TO_ns(j)    (s_TO_ns(jiffies_TO_s(j)))
+#define s_from_jiffies(j)     ((double)(j) / SYS_HZ)
+#define ms_from_jiffies(j)    (ms_from_s(s_from_jiffies(j)))
+#define us_from_jiffies(j)    (us_from_s(s_from_jiffies(j)))
+#define ns_from_jiffies(j)    (ns_from_s(s_from_jiffies(j)))
 
 typedef unsigned long jiffies_t;
 

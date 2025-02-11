@@ -30,7 +30,7 @@ void pit_init(void) {
     outb(COUNTER(0), (uint8_t)counter);
     inb(0x60);
     outb(COUNTER(0), (uint8_t)(counter >> 8));
-    ioapic_enable(LEG_PIT, getcpuid());
+    ioapic_enable(IRQ_PIT, getcpuid());
 }
 
 void pit_intr(void) {

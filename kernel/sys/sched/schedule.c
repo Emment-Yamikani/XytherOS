@@ -4,556 +4,281 @@
 #include <sys/schedule.h>
 #include <sys/thread.h>
 
+// iterates through the MLFQ from highest to lowest priority level.
+#define foreach_level_from_highest(mlfq)                                     \
+    for (MLFQ_level_t *level = (mlfq) ? &(mlfq)->level[MLFQ_HIGHEST] : NULL; \
+         level >= &(mlfq)->level[MLFQ_LOWEST]; --level)
+
+// same as foreach_level but in reverse
+#define foreach_level_from_lowest(mlfq)                                     \
+    for (MLFQ_level_t *level = (mlfq) ? &(mlfq)->level[MLFQ_LOWEST] : NULL; \
+         level <= &(mlfq)->level[MLFQ_HIGHEST]; ++level)
+
 const char *MLFQ_PRIORITY[] = {
-    [MLFQ_LOWEST]       = "MLFQ_LOWEST",
-    [MLFQ_LOWEST + 1]   = "MLFQ_MID - 1",
-    [MLFQ_LOWEST + 2]   = "MLFQ_MID - 2",
-    [MLFQ_HIGHEST]      = "MLFQ_HIGHEST",
+    [MLFQ_LOWEST]       = "LOWEST",
+    [MLFQ_LOWEST + 1]   = "MID-LEVEL1",
+    [MLFQ_LOWEST + 2]   = "MID-LEVEL2",
+    [MLFQ_HIGHEST]      = "HIGHEST",
     [NSCHED_LEVEL]      = NULL
 };
 
-#define level_lock(lvl)             ({ spin_lock(&(lvl)->lock); })
-#define level_unlock(lvl)           ({ spin_unlock(&(lvl)->lock); })
-#define level_islocked(lvl)         ({ spin_islocked(&(lvl)->lock); })
-#define level_assert_locked(lvl)    ({ spin_assert_locked(&(lvl)->lock); })
+static MLFQ_t MLFQ[NCPU];
 
-static mlfq_t MLFQ[NCPU];
-
-static QUEUE(terminated_threads);
-
-static mlfq_t *mlfq_getself(void) {
+static MLFQ_t *MLFQ_get(void) {
     return &MLFQ[getcpuid()];
 }
 
-// per-cpu MLFQ init
-static void mlfq_init(void) {
-    usize   quant = 0;
-    mlfq_t  *mlfq = mlfq_getself();
+static MLFQ_level_t *MLFQ_get_level(MLFQ_t *mlfq, int i) {
+    if (!mlfq || i < MLFQ_LOWEST || i > MLFQ_HIGHEST)
+        return NULL;
+    return &mlfq->level[i];
+}
+
+static void MLFQ_init(void) {
+    MLFQ_t *mlfq = MLFQ_get();
 
     memset(mlfq, 0, sizeof *mlfq);
 
-    quant = ms_TO_jiffies(10); // quant/queue is a multiple of 10.
+    usize quantum = jiffies_from_ms(10);
     for (int i = MLFQ_HIGHEST; i >= MLFQ_LOWEST; --i) {
-        mlfq->level[i].lock    = SPINLOCK_INIT();
-        mlfq->level[i].queue   = QUEUE_INIT();
-        mlfq->level[i].quantum = quant;
-        quant = quant + ms_TO_jiffies(10);
+        mlfq->level[i].quantum = quantum;
+        quantum += jiffies_from_ms(10);
+        thread_queue_init(&mlfq->level[i].run_queue);
     }
 }
 
 void scheduler_init(void) {
-    mlfq_init();
+    MLFQ_init();
 }
 
-static sched_level_t *mlfq_getlevel(mlfq_t *mlfq, int level) {
-    if (!mlfq || level < MLFQ_LOWEST || level > MLFQ_HIGHEST)
-        return NULL;
-    return &mlfq->level[level];
+static usize MLFQ_load(MLFQ_t *mlfq) {
+    usize load = 0;
+
+    if (mlfq == NULL)
+        return 0;
+    
+    foreach_level_from_highest(mlfq) {
+        thread_queue_lock(&level->run_queue);
+        queue_lock(&level->run_queue.t_queue);
+        load += queue_count(&level->run_queue.t_queue);
+        queue_lock(&level->run_queue.t_queue);
+        thread_queue_lock(&level->run_queue);
+    }
+
+    return load;
 }
 
-static sched_level_t *mlfq_selflevel(int level) {
-    return mlfq_getlevel(mlfq_getself(), level);
-}
+static int MLFQ_enqueue(thread_t *thread) {
+    int          err = 0;
+    MLFQ_t      *mlfq = NULL;
+    MLFQ_level_t *level = NULL;
 
-static queue_t *mlfq_selfqueue(int level) {
-    sched_level_t *lev = mlfq_selflevel(level);
-    return lev ? &lev->queue : NULL;
-}
+    if (thread == NULL)
+        return -EINVAL;
 
-/**
- * @brief Attempts to steal threads from the most loaded CPU's MLFQ.
- *
- * This function identifies the most loaded CPU by summing the threads in all
- * priority levels of each CPU's MLFQ. It then attempts to steal threads from the
- * most loaded CPU, starting with the highest priority level.
- *
- * Locks are acquired for both the source and destination queues during the operation.
- *
- * @return void
- *
- * @note This function may fail to steal threads if no eligible threads are found.
- */
-static void mlfq_steal(void) {
-    int             err         = 0;
-    int             max_load    = 0;            // Maximum thread count.
-    sched_level_t   *src_level  = NULL;         // Source level pointer.
-    queue_t         *dst_queue  = NULL;         // Destination queue.
-    queue_t         *src_queue  = NULL;         // Source queue.
-    mlfq_t          *most_loaded_mlfq = NULL;   // Pointer to the most loaded MLFQ.
-
-    // Find the most loaded CPU's MLFQ.
-    for (mlfq_t *mlfq = MLFQ; mlfq < &MLFQ[cpu_online()]; ++mlfq) {
-        if (mlfq == mlfq_getself())
-            continue;
-
-        int total_threads = 0;
-        for (int level = MLFQ_HIGHEST; level >= MLFQ_LOWEST; --level) {
-            sched_level_t *level_ptr = mlfq_getlevel(mlfq, level);
-            queue_lock(&level_ptr->queue);
-            total_threads += queue_count(&level_ptr->queue);
-            queue_unlock(&level_ptr->queue);
-        }
-
-        if (total_threads > max_load) {
-            max_load = total_threads;
-            most_loaded_mlfq = mlfq;
-        }
-    }
-
-    // If no eligible CPU is found, return.
-    if (!most_loaded_mlfq || max_load <= 2)
-        return;
-
-    // Attempt to steal threads from the most loaded CPU's MLFQ.
-    for (int level = MLFQ_HIGHEST; level >= MLFQ_LOWEST; --level) {
-        src_level = mlfq_getlevel(most_loaded_mlfq, level);
-        level_lock(src_level);
-        src_queue = &src_level->queue;
-        queue_lock(src_queue);
-
-        if (queue_count(src_queue) > 2) { // Ensure there are at least 2 threads in the source queue.
-            level_lock(mlfq_selflevel(level));
-            dst_queue = mlfq_selfqueue(level); // Get the self CPU's corresponding queue.
-            queue_lock(dst_queue);
-
-            // Migrate half the threads from the source queue to the destination queue.
-            assert_eq(err = queue_node_migrate(
-                dst_queue, src_queue, 0,
-                queue_count(src_queue) / 2, // Steal half the threads.
-                QUEUE_RELLOC_HEAD
-            ), 0, "Failed to reallocate nodes: %d\n", err);
-
-            forlinked(node, dst_queue->head, node->next) {
-                thread_t *thread = (thread_t *)node->data;
-
-                thread_lock(thread);
-                queue_lock(&thread->t_queues);
-
-                // replace current queue with the next holding queue.
-                assert_eq(err = queue_replace(&thread->t_queues, src_queue,
-                    dst_queue), 0,
-                    "Failed to replace queue for thread[%d:%d], error: %d\n",
-                    thread_getpid(thread), thread_gettid(thread), err
-                );
-
-                queue_unlock(&thread->t_queues);
-                thread_unlock(thread);
-            }
-
-            queue_unlock(dst_queue);
-            level_unlock(mlfq_selflevel(level));
-        }
-
-        queue_unlock(src_queue);
-        level_unlock(src_level);
-    }
-}
-
-static thread_t *mlfq_getnext(void) {
-    thread_t    *thread = NULL;
-    queue_t     *queue  = NULL;
-
-    for (int level = MLFQ_HIGHEST; level >= MLFQ_LOWEST; --level) {
-        queue = mlfq_selfqueue(level);
-        queue_lock(queue);
-        if ((thread = thread_dequeue(queue))) {
-            queue_unlock(queue);
-            return thread;
-        }
-        queue_unlock(queue);
-    }
-
-    return NULL;
-}
-
-void mlfq_priority_boost(void) {
-    int     err = 0;
-    thread_t *thread = NULL;
-    queue_t  *queue = NULL;
-
-    for (int level = MLFQ_HIGHEST - 1; level >= MLFQ_LOWEST; --level) {
-        queue = mlfq_selfqueue(level);
-        queue_lock(queue);
-
-        // increment the priority of threads on this queue.        
-        forlinked(node, queue->head, node->next) {
-            thread = (thread_t *)node->data; // get the thread pointer.
-
-            thread_lock(thread);
-            thread->t_info.ti_sched.ts_priority++; // boost thread's priority.
-            // ensure thread now has the timeslice of the new priority level.
-            thread->t_info.ti_sched.ts_timeslice = mlfq_selflevel(level + 1)->quantum;
-
-            queue_lock(&thread->t_queues);
-
-            // replace current queue for the next holding queue.
-            assert_eq(err = queue_replace(&thread->t_queues, queue,
-                mlfq_selfqueue(level + 1)), 0,
-                "Failed to replace queue for thread[%d:%d], error: %d\n",
-                thread_getpid(thread), thread_gettid(thread), err
-            );
-
-            queue_unlock(&thread->t_queues);
-
-            thread_unlock(thread);
-        }
-
-        queue_lock(mlfq_selfqueue(level + 1)); // lock the destination.
-        // move from lower priority queue to a higher one.
-        queue_move(mlfq_selfqueue(level + 1), queue, QUEUE_RELLOC_TAIL);
-        queue_unlock(mlfq_selfqueue(level + 1)); // unlock the destination.
-
-        queue_unlock(queue);
-    }
-}
-
-void mlfq_adjust_quantum(void) {
-    mlfq_t *mlfq = mlfq_getself();
-    int total_threads = 0;
-
-    // Calculate total threads in all levels
-    for (int i = MLFQ_HIGHEST; i >= MLFQ_LOWEST; --i) {
-        queue_lock(&mlfq->level[i].queue);
-        total_threads += queue_count(&mlfq->level[i].queue);
-        queue_unlock(&mlfq->level[i].queue);
-    }
-
-    for (int i = MLFQ_HIGHEST; i >= MLFQ_LOWEST; --i) {
-        sched_level_t *level = &mlfq->level[i];
-        level_lock(level);
-
-        queue_lock(&level->queue);
-        int queue_size = queue_count(&level->queue);
-        queue_unlock(&level->queue);
-
-        // Adjust quantum based on queue size relative to total threads
-        if (queue_size > total_threads / 2) {
-            level->quantum += ms_TO_jiffies(5); // Increase by 5ms
-        } else if (queue_size < total_threads / 4 && level->quantum > ms_TO_jiffies(10)) {
-            level->quantum -= ms_TO_jiffies(5); // Decrease by 5ms (min 10ms)
-        }
-        level_unlock(level);
-    }
-}
-
-int load_balance_threshold(void) {
-    int total_load = 0;
-
-    for (int cpu_i = 0; cpu_i < cpu_online(); ++cpu_i) {
-        mlfq_t *mlfq = &MLFQ[cpu_i];
-        for (int level = MLFQ_HIGHEST; level >= MLFQ_LOWEST; --level) {
-            queue_lock(&mlfq->level[level].queue);
-            total_load += queue_count(&mlfq->level[level].queue);
-            queue_unlock(&mlfq->level[level].queue);
-        }
-    }
-
-    return total_load / (2 * cpu_online()); // Set threshold to 50% of the average load per CPU
-}
-
-void mlfq_load_balance(void) {
-    int     err = 0, max_load = 0, min_load = INT_MAX;
-    mlfq_t  *most_loaded = NULL, *least_loaded = NULL;
-
-    // Find the most loaded and least loaded CPUs
-    for (int cpu_i = 0; cpu_i < cpu_online(); ++cpu_i) {
-        int     load  = 0;
-        mlfq_t  *mlfq = &MLFQ[cpu_i];
-
-        for (int level = MLFQ_HIGHEST; level >= MLFQ_LOWEST; --level) {
-            queue_lock(&mlfq->level[level].queue);
-            load += queue_count(&mlfq->level[level].queue);
-            queue_unlock(&mlfq->level[level].queue);
-        }
-
-        if (load > max_load) {
-            max_load = load;
-            most_loaded = mlfq;
-        }
-
-        if (load < min_load) {
-            min_load = load;
-            least_loaded = mlfq;
-        }
-    }
-
-    // Migrate threads if there's a significant imbalance
-    if (most_loaded && least_loaded && (max_load - min_load > load_balance_threshold())) {
-        for (int level = MLFQ_HIGHEST; level >= MLFQ_LOWEST; --level) {
-            sched_level_t *src_level = mlfq_getlevel(most_loaded, level);
-            sched_level_t *dst_level = mlfq_getlevel(least_loaded, level);
-
-            if (!src_level || !dst_level) continue;
-
-            level_lock(src_level);
-            level_lock(dst_level);
-
-            queue_t *src_queue = &src_level->queue;
-            queue_t *dst_queue = &dst_level->queue;
-
-            queue_lock(src_queue);
-            int threads_to_move = queue_count(src_queue) / 4; // Move 25% of threads
-
-            if (threads_to_move > 0) {
-                queue_lock(dst_queue);
-                assert_eq(err = queue_node_migrate(
-                    dst_queue, src_queue,
-                    0, threads_to_move, QUEUE_RELLOC_HEAD
-                ), 0, "Failed to migrate threads, error: %d\n", err);
-
-                forlinked(node, dst_queue->head, node->next) {
-                    thread_t *thread = (thread_t *)node->data;
-
-                    thread_lock(thread);
-                    queue_lock(&thread->t_queues);
-
-                    // replace current queue with the next holding queue.
-                    assert_eq(err = queue_replace(&thread->t_queues, src_queue,
-                        dst_queue), 0,
-                        "Failed to replace queue for thread[%d:%d], error: %d\n",
-                        thread_getpid(thread), thread_gettid(thread), err
-                    );
-
-                    queue_unlock(&thread->t_queues);
-                    thread_unlock(thread);
-                }
-
-                queue_unlock(dst_queue);
-            }
-
-            queue_unlock(src_queue);
-            level_unlock(dst_level);
-            level_unlock(src_level);
-        }
-    }
-}
-
-void scheduler_tick(void) {
-    jiffies_t ticks = jiffies_get();
-
-    if (ticks % (SYS_HZ * 3) == 0) {
-        mlfq_priority_boost();
-    }
-
-    if (ticks % (SYS_HZ * 1) == 0) {
-        mlfq_load_balance();
-    }
-
-    if (ticks % SYS_HZ == 0) {
-        mlfq_adjust_quantum();
-    }
-}
-
-int mlfq_enqueue(thread_t *thread) {
-    int     err     = 0;
-    int     level   = 0;
-    queue_t *queue  = NULL;
-
+    /**
+     * @brief FIXME: This violates the lock ordering described below.
+     *
+     * thread_queue->lock before thread_queue->queue->lock before thread->t_lock.
+     *
+     * Is it safe to momentarily release thread->t_lock,
+     * then re-acquire it after acquisition of:
+     * thread_queue->lock before thread_queue->queue->lock.
+     *
+     * @brief SEE: lock ordering used in MLFQ_get_next().
+     *
+     * @brief THOUGHT: but then again, thread isn't in queue yet,
+     * so I suppose it is still safe to acquire locks in this order:
+     * thread->t_lock -> thread_queue->lock -> thread_queue->queue->lock.*/
     thread_assert_locked(thread);
 
-    level = thread->t_info.ti_sched.ts_priority;
+    mlfq = MLFQ_get();
 
-    queue = mlfq_selfqueue(level);
-    queue_lock(queue);
-    if ((err = thread_enqueue(queue, thread, NULL))) {
-        queue_unlock(queue);
+    if (thread->t_info.ti_sched.ts_affin.type == HARD_AFFINITY) {
+        usize mlfq_load = MLFQ_load(MLFQ_get()); // get current cpu's load.
+
+        // Choose suitable MLFQ.
+        for (int i = 0; i < ncpu(); ++i) {
+            if (MLFQ_get() == &MLFQ[i]) // skip self MLFQ.
+                continue;
+
+            // Choose a MLFQ which is the least loaded among the CPU affinity set.
+            if (thread->t_info.ti_sched.ts_affin.cpu_set & (1 << i)) {
+                if (mlfq_load >= MLFQ_load(&MLFQ[i])) {
+                    mlfq = &MLFQ[i]; // pick MLFQ with lower load.
+                }
+            }
+        }
+    }
+
+    // enqueue thread according to it's current priority level.
+    level = MLFQ_get_level(mlfq, thread->t_info.ti_sched.ts_prio);
+    if (level == NULL) {
+        return -EINVAL;
+    }
+
+    thread_queue_lock(&level->run_queue);
+    queue_lock(&level->run_queue.t_queue);
+
+    if ((err = embedded_enqueue(&level->run_queue.t_queue, &thread->t_run_qnode, QUEUE_ENFORCE_UNIQUE))) {
+        // ensure we release level resources.
+        queue_unlock(&level->run_queue.t_queue);
+        thread_queue_unlock(&level->run_queue);
         return err;
     }
-    queue_unlock(queue);
 
-    thread->t_info.ti_sched.ts_timeslice= mlfq_selflevel(level)->quantum;
+    // ensure we release level resources.
+    queue_unlock(&level->run_queue.t_queue);
+    thread_queue_unlock(&level->run_queue);
+
     thread_enter_state(thread, T_READY);
 
     return 0;
 }
 
-void sched(void) {
-    long ncli = 0, intena = 0;
+static thread_t *MLFQ_get_next(void) {
+    int     err   = 0;
+    MLFQ_t  *mlfq = MLFQ_get();
+    
+    foreach_level_from_highest(mlfq) {
+        // acquire level resources.
+        thread_queue_lock(&level->run_queue);
+        queue_lock(&level->run_queue.t_queue);
 
-    pushcli();
-    ncli    = cpu->ncli;
-    intena  = cpu->intena;
-    current_assert_locked();
+        embedded_queue_foreach(&level->run_queue.t_queue, thread_t, thread, t_run_qnode) {
+            thread_lock(thread);
 
-    if (current_ispark() && current_issleep()) {
-        if (current_iswake()) {
-            current_mask_park_wake();
-            popcli();
-            return;
+            /// remove thread from run queue.
+            /// panic is this fails.
+            /// What could possibly go run?
+            assert_eq(err = embedded_queue_detach(&level->run_queue.t_queue, thread_node), 0,
+                "Failed to remove thread[%d:%d] at priority level: %s: Error: %s\n",
+                thread_getpid(thread), thread_gettid(thread), MLFQ_PRIORITY[level - mlfq->level], perror(err)
+            );
+
+            // ensure we release level resources.
+            queue_unlock(&level->run_queue.t_queue);
+            thread_queue_unlock(&level->run_queue);
+
+            /* update scheduling metadata for the chosen thread. */
+
+            thread->t_info.ti_sched.ts_proc       = cpu; // set the current processor for chosen thread.
+            thread->t_info.ti_sched.ts_last_sched = jiffies_get();
+            thread->t_info.ti_sched.ts_timeslice  = level->quantum;
+
+            // enter running state.
+            thread_enter_state(thread, T_RUNNING);
+            // success, return thread for execution.
+            return thread;
         }
+
+        // no thread was found at this level.
+        queue_unlock(&level->run_queue.t_queue);
+        thread_queue_unlock(&level->run_queue);
     }
 
-    // thread has used up it's time allotment.
-    if (current->t_info.ti_sched.ts_timeslice == 0) {
-        // step it down 1 priority level.
-        if (current->t_info.ti_sched.ts_priority)
-            current->t_info.ti_sched.ts_priority--;
-    }
-
-    context_switch(&current->t_arch.t_ctx);
-
-    current_assert_locked();
-    cpu->ncli   = ncli;
-    cpu->intena = intena;
-    popcli();
-}
-
-void sched_yield(void) {
-    current_lock();
-    current_enter_state(T_READY);
-    sched();
-    current_unlock();
+    // no threads ready to run on this cpu-core.
+    return NULL;
 }
 
 int sched_enqueue(thread_t *thread) {
-    thread_assert_locked(thread);
-    thread->t_info.ti_sched.ts_priority = MLFQ_HIGHEST;
-    return mlfq_enqueue(thread);
+    if (thread == NULL)
+        return -EINVAL;
+    return MLFQ_enqueue(thread);
 }
 
-static void sched_self_terminate(void) {
-    int err = 0;
+static void MLFQ_steal_threads(void) {
 
-    current_assert_locked();
-
-    pushcli(); // prevent enabling interrupts
-
-    assert_eq(current_get_state(), T_TERMINATED,
-        "current->state[%s]: must be terminated\n", get_tstate()
-    );
-
-    // FIXME: this is a potential deadlock??
-    queue_lock(terminated_threads);
-    assert_eq(err = thread_enqueue(terminated_threads, current, NULL), 0,
-        "failed to enqueue, error: %d\n", err
-    );
-    queue_unlock(terminated_threads);
-
-    current_unlock();
-    debug("terminated: %p\n", current->t_info.ti_exit);
 }
 
-/**
- * @brief Handles the current thread's state and performs the necessary actions.
- * 
- * This function checks the state of the current thread and handles it based on
- * its value, such as enqueuing, unlocking, or terminating the thread.
- *
- * @param current The current thread being handled.
- * @return void
- */
-static void handle_thread_state(void) {
-    int err = 0;
-
+void sched(void) {
     current_assert_locked();
 
-    if (current_iskilled()) {
-        current_enter_state(T_TERMINATED);
-        current->t_info.ti_exit = -EINTR;
+    if (current_test(THREAD_WAKE)) {
+        current_mask(THREAD_WAKE | THREAD_PARK);
+        return;
     }
+
+    disable_preemption();
+
+    isize ncli   = cpu->ncli;
+    isize intena = cpu->intena;
+
+    /// used up entire timesclice, so downgrade it one priority level.
+    if (current->t_info.ti_sched.ts_timeslice == 0) {
+        // Check to prevent underflow.
+        if (current->t_info.ti_sched.ts_prio != 0)
+            current->t_info.ti_sched.ts_prio -= 1;
+    }
+
+    // return to the sscheduler.
+    context_switch(&current->t_arch.t_ctx);
+
+    cpu->intena = intena;
+    cpu->ncli   = ncli;
+
+    enable_preemption();
+}
+
+static void hanlde_thread_state(void) {
+    int err = 0;
 
     switch (current_get_state()) {
-    case T_RUNNING:
-    case T_READY:
-        assert_eq(err = mlfq_enqueue(current), 0,
-            "Failed to enqueue 'current', error: %d\n", err);
-        current_unlock();
-        break;
-    case T_SLEEP:
-    case T_STOPPED:
-        current_unlock();
-        break;
-    case T_TERMINATED:
-        sched_self_terminate();
-        break;
-    default:
-        assert(0, "state[%s]: Returned to scheduler()\n", get_tstate());
+        case T_EMBRYO:
+            assert(0, "T_EMBRYO thread returned?\n");
+            break;
+        case T_READY:
+            assert(0, "T_READY thread returned?\n");
+            break;
+        case T_RUNNING:
+            assert_eq(err = MLFQ_enqueue(current), 0,
+                "Failed to enqueue current thread. error: %s\n", perror(err)
+            );
+            break;
+        case T_SLEEP:
+        case T_STOPPED:
+            break;
+        case T_ZOMBIE:
+        case T_TERMINATED:
+            // does nothing special yet.
+            todo("Please Handle: %s\n", get_tstate());
+            break;
+        default:
+        assert(0, "Undefined state: %s\n", get_tstate());
     }
+
+    current_unlock();
 }
 
 __noreturn void scheduler(void) {
-    int             err     = 0;
-    uintptr_t       pdbr    = 0;
-    jiffies_t       before  = 0;
-    mmap_t          *mmap   = NULL;
-    thread_sched_t  *tsched = NULL;
-    arch_thread_t   *tarch  = NULL;
-
     loop() {
         cpu->ncli   = 0;
         cpu->intena = 0;
-        if (current) set_current(NULL);
+        set_current(NULL);
+
+        sti();
 
         loop() {
-            sti();
-            set_current(mlfq_getnext());
-            if (current) break;
-            mlfq_steal(); // attempt stealing some threads
-            set_current(mlfq_getnext());
+
+            set_current(MLFQ_get_next());
             if (current)
                 break;
+
+            MLFQ_steal_threads();
+
+            set_current(MLFQ_get_next());
+            if (current)
+                break;
+            
+            cpu_pause();
             hlt();
         }
 
-        /// ensure current thread is locked,
-        /// this will be implicity unlocked,
-        /// in functions like arch_thread_start().
-        current_assert_locked();
+        // jmp to thread.
+        context_switch(&current->t_arch.t_ctx);
 
-        if (current_iskilled()) {
-            current_enter_state(T_ZOMBIE);
-            current->t_info.ti_exit = -EINTR;
-        }
+        disable_preemption();
 
-        switch (current_get_state()) {
-        case T_READY:
-            current_enter_state(T_RUNNING);
-        case T_RUNNING:
-        case T_ZOMBIE: // allow zombie to run to clean up
-            break;
-        case T_TERMINATED:
-            sched_self_terminate();
-            continue;
-        default:
-            assert(0, "state[%s]: scheduled to run??\n", get_tstate());
-        }
-
-        mmap    = current->t_mmap;
-        tarch   = &current->t_arch;
-        tsched  = &current->t_info.ti_sched;
-
-        // get the current time of scheduling.
-        tsched->ts_last_sched = jiffies_TO_s(before = jiffies_get());
-
-        if (mmap) {
-            mmap_lock(mmap);
-            mmap_focus(mmap, &pdbr);
-            mmap_unlock(mmap);
-            // Make sure a thread running in a seperate address space
-            // to that of the kernel must have it's kernel stack pointer
-            // set up in the tss.
-            // TODO: use tss.ist in later versions of this code.
-            err = arch_thread_setkstack(tarch);
-            assert(err == 0, "Kernel stack was not set for user thread, errno = %d\n", err);
-        } else arch_swtchvm(0, NULL);
-
-        context_switch(&tarch->t_ctx);
-
-        // ensure thread was locked before returning
-        current_assert_locked();
-
-        // get the time thread returned execution to the scheduler.
-        tsched->ts_cpu_time += jiffies_TO_s(jiffies_get() - before);
-
-        pushcli(); // Ensure atomicity.
-
-        handle_thread_state();
+        hanlde_thread_state();
     }
 }
-
-__noreturn void scheduler_load_balance(void) {
-    loop() {
-        jiffies_sleep(s_TO_jiffies(2));
-        mlfq_load_balance();
-    }
-} // BUILTIN_THREAD(load_balance, scheduler_load_balance, NULL);

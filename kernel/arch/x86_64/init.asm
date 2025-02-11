@@ -105,6 +105,7 @@ start32:
     add     eax, PGSZ
     loop    .mapdevs
 
+.enable_longmode:
     ; Check for 64-bit support
     mov     eax, 0x80000000
     cpuid

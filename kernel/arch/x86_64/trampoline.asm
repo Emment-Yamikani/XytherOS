@@ -1,8 +1,7 @@
 [bits 16]
 section .trampoline
 
-; Physical address where trampoline is loaded (set by boot code)
-MVM equ 0x8000
+VMA equ 0xffff800000000000
 
 ; Segment Descriptor Flags (adjusted for correct bit positions)
 SEG_ACC     equ (1 << 0)   ; Accessed
@@ -37,9 +36,10 @@ trampoline:
 
     ; Load GDT
     lgdt [gdt64.pointer]
+
     ; Enable protected mode and paging
     mov eax, cr0
-    and eax, 0xFFFFFFFF
+    and eax, 0x0FFFFFFF
     or  eax, 0x80000001     ; CR0.PG | CR0.PE
     mov cr0, eax
 
@@ -63,29 +63,28 @@ long_mode:
     ; Initialize SSE
     call init_sse
 
-    call .high64
+    mov rax, .high64
+    mov rdx, VMA
+    add rax, rdx
+    jmp  rax
+.high64:
+    hlt
     ; Jump to entry point
     mov rax, qword [entry]
     call rax
 
     cli
     hlt
-.high64:
-    pop  rax
-    mov  rdx, 0xffff800000000000
-    add  rax, rdx
-    jmp  rax
 ;
-
 init_sse:
     fninit                   ; Initialize FPU
     mov rax, cr0
     and rax, ~(1 << 2)       ; Clear CR0.EM
-    or rax, (1 << 1)         ; Set CR0.MP
+    or  rax, (1 << 1)         ; Set CR0.MP
     mov cr0, rax
     
     mov rax, cr4
-    or rax, (3 << 9)         ; CR4.OSFXSR | CR4.OSXMMEXCPT
+    or  rax, (3 << 9)         ; CR4.OSFXSR | CR4.OSXMMEXCPT
     mov cr4, rax
     ret
 

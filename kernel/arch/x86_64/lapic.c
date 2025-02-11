@@ -83,20 +83,20 @@ int lapic_id(void) {
 }
 
 void lapic_enable(void) {
-    SIVR = ENABLED | LAPIC_SPURIOUS;
+    SIVR = ENABLED | T_LAPIC_SPURIOUS;
 }
 
 int lapic_init(void) {
-    SIVR = ENABLED | LAPIC_SPURIOUS;
+    SIVR = ENABLED | T_LAPIC_SPURIOUS;
 
     LVT_TMR = MASKED;
     DCR = X1;
     ICR = 10000000;
-    LVT_TMR = PERIODIC | LAPIC_TIMER;
+    LVT_TMR = PERIODIC | T_LAPIC_TIMER;
 
     LVT_LINT0 = MASKED;
     LVT_LINT1 = MASKED;
-    LVT_ERR = LAPIC_ERROR;
+    LVT_ERR = T_LAPIC_ERROR;
 
     ESR = 0;
     ESR = 0;
@@ -113,13 +113,13 @@ int lapic_init(void) {
 }
 
 static void microdelay(int us) {
-    timer_wait(TIMER_PIT, us_TO_s(us));
+    timer_wait(TIMER_PIT, s_from_us(us));
 }
 
 void lapic_recalibrate(long hz) {
     uint32_t ticks = 0;
     uint32_t timer = LVT_TMR;
-    __unused double s = HZ_TO_s(hz);
+    __unused double s = s_from_HZ(hz);
 
     ICR = -1;
     timer_wait(TIMER_PIT, s);
@@ -153,6 +153,7 @@ void lapic_startup(int dst, uint16_t addr) {
 }
 
 void lapic_timerintr(void) {
+    atomic_inc(&cpu->timer_ticks);
 }
 
 void lapic_send_ipi(int ipi, int dst) {

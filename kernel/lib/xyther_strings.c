@@ -1,7 +1,10 @@
+#include <bits/errno.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <immintrin.h> // SSE intrinsics
+#include <mm/kalloc.h>
+#include <string.h>
 
 // xytherOS_memset: Fill memory with a specific value
 void* xytherOS_memset(void* dest, int value, size_t count) {
@@ -283,19 +286,6 @@ int xytherOS_strcmp(const char* s1, const char* s2) {
     }
 }
 
-int xytherOS_strncmp(const char *s1, const char *s2, size_t n) {
-    if (n == 0)
-        return 0;
-
-    while (n-- && *s1 == *s2) {
-        if (!n || !*s1)
-            break;
-        s1++;
-        s2++;
-    }
-    return (*(uint8_t *)s1) - (*(uint8_t *)s2);
-}
-
 size_t xytherOS_strlen(const char* str) {
     const char* s = str;
     
@@ -380,15 +370,540 @@ bool string_eq(const char *s0, const char *s1) {
     return !xytherOS_strcmp(s0, s1);
 }
 
-// Like strncpy but guaranteed to NUL-terminate.
-char *safestrncpy(char *restrict s, const char *restrict t, size_t n) {
-    char *os;
+/*===========================================================================
+  Helper functions for SSE loads and stores.
+  These check pointer alignment and use aligned loads/stores when possible.
+  ===========================================================================*/
+static inline __m128i sse_load(const void *p) {
+    return (((uintptr_t)p & 0xF) == 0) ? _mm_load_si128((const __m128i *)p)
+                                       : _mm_loadu_si128((const __m128i *)p);
+}
 
-    os = s;
-    if (n <= 0)
-        return os;
-    while (--n > 0 && (*s++ = *t++) != 0)
-        ;
-    *s = 0;
-    return os;
+static inline void sse_store(void *p, __m128i v) {
+    if (((uintptr_t)p & 0xF) == 0)
+        _mm_store_si128((__m128i *)p, v);
+    else
+        _mm_storeu_si128((__m128i *)p, v);
+}
+
+/*===========================================================================
+  xytherOS_safestrncpy
+  Copies at most n-1 characters from src to dest and always NUL-terminates.
+  Uses SSE to copy 16 bytes at a time until a NUL is encountered.
+  ===========================================================================*/
+char *xytherOS_safestrncpy(char *dest, const char *src, size_t n) {
+    size_t i = 0;
+    if (n == 0)
+        return dest;
+    __m128i zero = _mm_setzero_si128();
+    while (n - i >= 16) {
+        __m128i chunk = sse_load(src + i);
+        int mask = _mm_movemask_epi8(_mm_cmpeq_epi8(chunk, zero));
+        if (mask) {
+            int pos = __builtin_ctz(mask);
+            memcpy(dest + i, src + i, pos);
+            i += pos;
+            goto finish;
+        }
+        sse_store(dest + i, chunk);
+        i += 16;
+    }
+    for (; i < n - 1; i++) {
+        dest[i] = src[i];
+        if (src[i] == '\0')
+            return dest;
+    }
+finish:
+    dest[n - 1] = '\0';
+    return dest;
+}
+
+/*===========================================================================
+  xytherOS_lfind
+  Finds (from the left) the first occurrence of character ch in str.
+  ===========================================================================*/
+char *xytherOS_lfind(const char *str, int ch) {
+    __m128i target = _mm_set1_epi8((char)ch);
+    __m128i zero = _mm_setzero_si128();
+    for (;; str += 16) {
+        __m128i block = sse_load(str);
+        int eqMask = _mm_movemask_epi8(_mm_cmpeq_epi8(block, target));
+        int zMask = _mm_movemask_epi8(_mm_cmpeq_epi8(block, zero));
+        if (eqMask)
+            return (char *)(str + __builtin_ctz(eqMask));
+        if (zMask)
+            break;
+    }
+    return NULL;
+}
+
+/*===========================================================================
+  xytherOS_rfind
+  Finds (from the right) the last occurrence of character ch in str.
+  ===========================================================================*/
+char *xytherOS_rfind(const char *str, int ch) {
+    size_t len = xytherOS_strlen(str);
+    /* If searching for the NUL terminator, return the end */
+    if (ch == 0)
+        return (char *)(str + len);
+    const char *last = NULL;
+    for (size_t i = 0; i < len; i++) {
+        if (str[i] == (char)ch)
+            last = str + i;
+    }
+    return (char *)last;
+}
+
+/*===========================================================================
+  Helpers for xytherOS_strtok_r:
+  These routines use SSE to quickly skip over or find delimiter characters.
+  ===========================================================================*/
+static const char *sse_skip_delim(const char *s, const char *delim, int dlen) {
+    __m128i zero = _mm_setzero_si128();
+    for (;;) {
+        __m128i block = sse_load(s);
+        int nullMask = _mm_movemask_epi8(_mm_cmpeq_epi8(block, zero));
+        int dmask = 0;
+        for (int i = 0; i < dlen; i++) {
+            __m128i d = _mm_set1_epi8(delim[i]);
+            dmask |= _mm_movemask_epi8(_mm_cmpeq_epi8(block, d));
+        }
+        if (nullMask) {
+            int valid = __builtin_ctz(nullMask);
+            if ((dmask & ((1 << valid) - 1)) == ((1 << valid) - 1))
+                return s + valid;
+            else
+                return s + __builtin_ctz(~(dmask & ((1 << valid) - 1)));
+        }
+        if (dmask == 0xFFFF)
+            s += 16;
+        else
+            return s + __builtin_ctz(~dmask);
+    }
+}
+
+static const char *sse_find_delim(const char *s, const char *delim, int dlen) {
+    __m128i zero = _mm_setzero_si128();
+    for (;;) {
+        __m128i block = sse_load(s);
+        int nullMask = _mm_movemask_epi8(_mm_cmpeq_epi8(block, zero));
+        int dmask = 0;
+        for (int i = 0; i < dlen; i++) {
+            __m128i d = _mm_set1_epi8(delim[i]);
+            dmask |= _mm_movemask_epi8(_mm_cmpeq_epi8(block, d));
+        }
+        if (nullMask) {
+            int valid = __builtin_ctz(nullMask);
+            int mask = dmask & ((1 << valid) - 1);
+            if (mask)
+                return s + __builtin_ctz(mask);
+            else
+                return s + valid;
+        }
+        if (dmask)
+            return s + __builtin_ctz(dmask);
+        s += 16;
+    }
+}
+
+/*===========================================================================
+  xytherOS_strtok_r
+  A reentrant string tokenizer that uses SSE routines when the delimiter
+  set is short (<= 16 characters). Otherwise, it falls back to a scalar loop.
+  ===========================================================================*/
+char *xytherOS_strtok_r(char *s, const char *delim, char **saveptr) {
+    if (!delim || !delim[0]) {  /* Empty delimiter returns the whole string */
+        *saveptr = s ? s + strlen(s) : NULL;
+        return s;
+    }
+    if (!s)
+        s = *saveptr;
+    int dlen = (int)strlen(delim);
+    if (dlen > 0 && dlen <= 16) {
+        s = (char *)sse_skip_delim(s, delim, dlen);
+        if (!*s) {
+            *saveptr = s;
+            return NULL;
+        }
+        char *token = s;
+        char *end = (char *)sse_find_delim(s, delim, dlen);
+        if (*end) {
+            *end = '\0';
+            *saveptr = end + 1;
+        } else
+            *saveptr = end;
+        return token;
+    } else {
+        /* Fallback scalar code if delimiter set is large */
+        while (*s && xytherOS_strchr(delim, *s))
+            s++;
+        if (!*s) {
+            *saveptr = s;
+            return NULL;
+        }
+        char *token = s;
+        while (*s && !xytherOS_strchr(delim, *s))
+            s++;
+        if (*s) {
+            *s = '\0';
+            *saveptr = s + 1;
+        } else
+            *saveptr = s;
+        return token;
+    }
+}
+
+char *xytherOS_strtok(char *s, const char *delim) {
+    static char *last;
+    return xytherOS_strtok_r(s, delim, &last);
+}
+
+/*===========================================================================
+  xytherOS_strcat
+  Concatenates src onto the end of dest.
+  Locates the end of dest using SSE and then copies src (using SSE) until NUL.
+  ===========================================================================*/
+char *xytherOS_strcat(char *dest, const char *src) {
+    char *d = dest;
+    __m128i zero = _mm_setzero_si128();
+    for (;;) {
+        __m128i block = sse_load(d);
+        int mask = _mm_movemask_epi8(_mm_cmpeq_epi8(block, zero));
+        if (mask) {
+            d += __builtin_ctz(mask);
+            break;
+        }
+        d += 16;
+    }
+    char *ret = dest;
+    for (;;) {
+        __m128i chunk = sse_load(src);
+        int mask = _mm_movemask_epi8(_mm_cmpeq_epi8(chunk, zero));
+        if (mask) {
+            int pos = __builtin_ctz(mask);
+            memcpy(d, src, pos);
+            d += pos;
+            *d = '\0';
+            break;
+        }
+        sse_store(d, chunk);
+        d += 16;
+        src += 16;
+    }
+    return ret;
+}
+
+/*===========================================================================
+  xytherOS_strncat
+  Appends at most n characters from src to dest and always NUL-terminates.
+  ===========================================================================*/
+char *xytherOS_strncat(char *dest, const char *src, size_t n) {
+    char *d = dest;
+    __m128i zero = _mm_setzero_si128();
+    for (;;) {
+        __m128i block = sse_load(d);
+        int mask = _mm_movemask_epi8(_mm_cmpeq_epi8(block, zero));
+        if (mask) {
+            d += __builtin_ctz(mask);
+            break;
+        }
+        d += 16;
+    }
+    char *ret = dest;
+    size_t copied = 0;
+    while (copied < n) {
+        __m128i chunk = sse_load(src);
+        int mask = _mm_movemask_epi8(_mm_cmpeq_epi8(chunk, zero));
+        if (mask) {
+            int pos = __builtin_ctz(mask);
+            size_t to_copy = (n - copied < (size_t)pos) ? (n - copied) : (size_t)pos;
+            memcpy(d, src, to_copy);
+            d += to_copy;
+            copied += to_copy;
+            break;
+        }
+        if (n - copied >= 16) {
+            sse_store(d, chunk);
+            d += 16;
+            src += 16;
+            copied += 16;
+        } else {
+            for (size_t i = 0; i < n - copied; i++) {
+                if (src[i] == '\0') {
+                    memcpy(d, src, i);
+                    copied += i;
+                    d += i;
+                    goto finish_ncat;
+                }
+            }
+            memcpy(d, src, n - copied);
+            d += (n - copied);
+            copied = n;
+            break;
+        }
+    }
+finish_ncat:
+    *d = '\0';
+    return ret;
+}
+
+/*===========================================================================
+  xytherOS_strncmp
+  Compares at most n characters of s1 and s2.
+  Uses SSE to compare 16 bytes at a time.
+  ===========================================================================*/
+int xytherOS_strncmp(const char *s1, const char *s2, size_t n) {
+    __m128i zero = _mm_setzero_si128();
+    while (n >= 16) {
+        __m128i v1 = sse_load(s1);
+        __m128i v2 = sse_load(s2);
+        __m128i cmp = _mm_cmpeq_epi8(v1, v2);
+        int mask = _mm_movemask_epi8(cmp);
+        if (mask != 0xFFFF) {
+            int diff = __builtin_ctz(~mask);
+            return ((unsigned char *)s1)[diff] - ((unsigned char *)s2)[diff];
+        }
+        int zmask = _mm_movemask_epi8(_mm_cmpeq_epi8(v1, zero));
+        if (zmask) {
+            for (int i = 0; i < 16 && n; i++) {
+                if (s1[i] != s2[i])
+                    return ((unsigned char *)s1)[i] - ((unsigned char *)s2)[i];
+                if (s1[i] == '\0')
+                    return 0;
+                n--;
+            }
+            return 0;
+        }
+        s1 += 16; s2 += 16; n -= 16;
+    }
+    while (n--) {
+        unsigned char c1 = (unsigned char)*s1++;
+        unsigned char c2 = (unsigned char)*s2++;
+        if (c1 != c2)
+            return c1 - c2;
+        if (c1 == '\0')
+            return 0;
+    }
+    return 0;
+}
+
+/*===========================================================================
+  xytherOS_strcasecmp
+  Case-insensitive string compare.
+  Uses SSE to convert A-Z to lower-case (by OR-ing with 0x20) before comparing.
+  ===========================================================================*/
+int xytherOS_strcasecmp(const char *s1, const char *s2) {
+    __m128i zero = _mm_setzero_si128();
+    __m128i offset = _mm_set1_epi8(0x20);
+    __m128i A = _mm_set1_epi8('A' - 1);
+    __m128i Z = _mm_set1_epi8('Z' + 1);
+    for (;;) {
+        __m128i v1 = sse_load(s1);
+        __m128i v2 = sse_load(s2);
+        __m128i mask1 = _mm_and_si128(_mm_cmpgt_epi8(v1, A), _mm_cmplt_epi8(v1, Z));
+        __m128i lower1 = _mm_or_si128(v1, _mm_and_si128(mask1, offset));
+        __m128i mask2 = _mm_and_si128(_mm_cmpgt_epi8(v2, A), _mm_cmplt_epi8(v2, Z));
+        __m128i lower2 = _mm_or_si128(v2, _mm_and_si128(mask2, offset));
+        __m128i cmp = _mm_cmpeq_epi8(lower1, lower2);
+        int mask = _mm_movemask_epi8(cmp);
+        if (mask != 0xFFFF) {
+            int diff = __builtin_ctz(~mask);
+            unsigned char c1 = ((unsigned char *)&lower1)[diff];
+            unsigned char c2 = ((unsigned char *)&lower2)[diff];
+            return c1 - c2;
+        }
+        int zmask = _mm_movemask_epi8(_mm_cmpeq_epi8(lower1, zero));
+        if (zmask) {
+            for (int i = 0; i < 16; i++) {
+                unsigned char c1 = s1[i], c2 = s2[i];
+                if (c1 >= 'A' && c1 <= 'Z')
+                    c1 |= 0x20;
+                if (c2 >= 'A' && c2 <= 'Z')
+                    c2 |= 0x20;
+                if (c1 != c2)
+                    return c1 - c2;
+                if (c1 == '\0')
+                    return 0;
+            }
+        }
+        s1 += 16; s2 += 16;
+    }
+}
+
+/*===========================================================================
+  xytherOS_strncasecmp
+  As above but comparing at most n characters.
+  ===========================================================================*/
+int xytherOS_strncasecmp(const char *s1, const char *s2, size_t n) {
+    if (n == 0)
+        return 0;
+    __m128i zero = _mm_setzero_si128();
+    __m128i offset = _mm_set1_epi8(0x20);
+    __m128i A = _mm_set1_epi8('A' - 1);
+    __m128i Z = _mm_set1_epi8('Z' + 1);
+    while (n >= 16) {
+        __m128i v1 = sse_load(s1);
+        __m128i v2 = sse_load(s2);
+        __m128i mask1 = _mm_and_si128(_mm_cmpgt_epi8(v1, A), _mm_cmplt_epi8(v1, Z));
+        __m128i lower1 = _mm_or_si128(v1, _mm_and_si128(mask1, offset));
+        __m128i mask2 = _mm_and_si128(_mm_cmpgt_epi8(v2, A), _mm_cmplt_epi8(v2, Z));
+        __m128i lower2 = _mm_or_si128(v2, _mm_and_si128(mask2, offset));
+        __m128i cmp = _mm_cmpeq_epi8(lower1, lower2);
+        int mask = _mm_movemask_epi8(cmp);
+        if (mask != 0xFFFF) {
+            int diff = __builtin_ctz(~mask);
+            unsigned char c1 = ((unsigned char *)&lower1)[diff];
+            unsigned char c2 = ((unsigned char *)&lower2)[diff];
+            return c1 - c2;
+        }
+        int zmask = _mm_movemask_epi8(_mm_cmpeq_epi8(lower1, zero));
+        if (zmask) {
+            for (int i = 0; i < 16 && n; i++) {
+                unsigned char c1 = s1[i], c2 = s2[i];
+                if (c1 >= 'A' && c1 <= 'Z')
+                    c1 |= 0x20;
+                if (c2 >= 'A' && c2 <= 'Z')
+                    c2 |= 0x20;
+                if (c1 != c2)
+                    return c1 - c2;
+                if (c1 == '\0')
+                    return 0;
+                n--;
+            }
+            return 0;
+        }
+        s1 += 16; s2 += 16; n -= 16;
+    }
+    while (n--) {
+        unsigned char c1 = (unsigned char)*s1++;
+        unsigned char c2 = (unsigned char)*s2++;
+        if (c1 >= 'A' && c1 <= 'Z')
+            c1 |= 0x20;
+        if (c2 >= 'A' && c2 <= 'Z')
+            c2 |= 0x20;
+        if (c1 != c2)
+            return c1 - c2;
+        if (c1 == '\0')
+            return 0;
+    }
+    return 0;
+}
+
+/*===========================================================================
+  xytherOS_strdup
+  Duplicates the string s (allocating memory) using our SSE-optimized copy.
+  ===========================================================================*/
+char *xytherOS_strdup(const char *s) {
+    size_t len = xytherOS_strlen(s);
+    char *dup = (char *)kmalloc(len + 1);
+    if (!dup)
+        return NULL;
+    const char *src = s;
+    char *dst = dup;
+    __m128i zero = _mm_setzero_si128();
+    for (;;) {
+        __m128i chunk = sse_load(src);
+        int mask = _mm_movemask_epi8(_mm_cmpeq_epi8(chunk, zero));
+        if (mask) {
+            int pos = __builtin_ctz(mask);
+            memcpy(dst, src, pos);
+            dst += pos;
+            *dst = '\0';
+            break;
+        }
+        sse_store(dst, chunk);
+        src += 16;
+        dst += 16;
+    }
+    return dup;
+}
+
+int tokenize(char *s, int delim, size_t *ntoks, char ***ptokenized, char **plast_tok) {
+    if (!s || !delim || ptokenized == NULL)
+        return -EINVAL;
+
+    /* Duplicate the input string */
+    size_t len = strlen(s);
+    char *buf = kmalloc(len + 1);
+    if (!buf)
+        return -ENOMEM;
+    memcpy(buf, s, len + 1);
+
+    /* Trim leading delimiters */
+    char *p = buf;
+    while (*p == delim)
+        p++;
+
+    if (p != buf) {
+        memmove(buf, p, strlen(p) + 1);
+        p = buf;
+    }
+
+    /* Trim trailing delimiters */
+    char *end = buf + len - 1;
+    while (end >= p && *end == delim)
+        *end-- = '\0';
+
+    /* Estimate the number of tokens */
+    size_t count = 0;
+    for (char *scan = p; *scan; scan++)
+        if (*scan == delim && *(scan + 1) && *(scan + 1) != delim)
+            count++;
+
+    /* Allocate tokens array (worst-case count + 1) */
+    char **tokens = kmalloc((count + 2) * sizeof(char *));
+    if (!tokens) {
+        kfree(buf);
+        return -ENOMEM;
+    }
+
+    /* Extract tokens in-place */
+    size_t token_index = 0;
+    while (*p) {
+        tokens[token_index++] = p;
+        while (*p && *p != delim)
+            p++;
+        if (*p) {
+            *p = '\0';
+            p++;
+            while (*p == delim)
+                p++;
+        }
+    }
+    tokens[token_index] = NULL;
+
+    if (ntoks)
+        *ntoks = token_index;
+    if (plast_tok)
+        *plast_tok = token_index ? tokens[token_index - 1] : NULL;
+    *ptokenized = tokens;
+
+    return 0;
+}
+
+void tokens_free(char **tokens) {
+    if (!tokens)
+        return;
+    kfree(tokens[0]);
+    kfree(tokens);
+}
+
+int canonicalize_path(const char *path, size_t *ntoks, char ***ptokenized, char **plast) {
+    return tokenize((char *)path, '/', ntoks, ptokenized, plast);
+}
+
+char *combine_strings(const char *s0, const char *s1) {
+    if (!s0 || !s1)
+        return NULL;
+
+    size_t len0 = strlen(s0);
+    size_t len1 = strlen(s1);
+    size_t total_len = len0 + len1 + 1;
+
+    char *result = kmalloc(total_len);
+    if (!result)
+        return NULL;
+    memcpy(result, s0, len0);
+    memcpy(result + len0, s1, len1 + 1);  /* include the null terminator */
+    return result;
 }

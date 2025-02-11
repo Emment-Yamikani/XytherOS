@@ -137,10 +137,8 @@ static const char *ErrMsg[] = {
 };
 
 const char *perror(int err) {
-    if (err < 0) {
-        err *= -1;
-    } else if (err >= (int)NELEM(ErrMsg)) {
+    if (err >= (int)NELEM(ErrMsg)) {
         return "Unknown_Error";
     }
-    return ErrMsg[err];
+    return ErrMsg[ABS(err)];
 }

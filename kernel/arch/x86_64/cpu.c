@@ -68,7 +68,11 @@ static void cpu_init(void) {
     lapic_init();
     atomic_inc(&cpus_online);
     atomic_or(&cpu->flags, CPU_ONLINE);
-    scheduler_init();
+}
+
+int cpu_rsel(void) {
+    static atomic_t i = 0;
+    return (atomic_inc(&i) % ncpu());
 }
 
 void bsp_init(void) {
@@ -82,6 +86,7 @@ static void ap_start(void) {
     while (!atomic_read(&ap_continue)) {
         asm volatile ("pause");
     }
+    scheduler_init();
     loop() asm volatile ("pause");
 }
 

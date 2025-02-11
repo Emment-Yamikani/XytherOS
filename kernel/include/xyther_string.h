@@ -12,7 +12,7 @@
  *
  * Returns: Pointer to the memory area @dest.
  */
-void *xytherOS_memset(void *dest, int value, size_t count);
+extern void *xytherOS_memset(void *dest, int value, size_t count);
 
 /**
  * xytherOS_memcpy - Copy memory from source to destination.
@@ -22,7 +22,7 @@ void *xytherOS_memset(void *dest, int value, size_t count);
  *
  * Returns: Pointer to the destination memory area @dest.
  */
-void *xytherOS_memcpy(void *dest, const void *src, size_t count);
+extern void *xytherOS_memcpy(void *dest, const void *src, size_t count);
 
 /**
  * xytherOS_memmove - Copy memory with handling for overlapping regions.
@@ -32,7 +32,7 @@ void *xytherOS_memcpy(void *dest, const void *src, size_t count);
  *
  * Returns: Pointer to the destination memory area @dest.
  */
-void *xytherOS_memmove(void *dest, const void *src, size_t count);
+extern void *xytherOS_memmove(void *dest, const void *src, size_t count);
 
 /**
  * xytherOS_memcmp - Compare two memory regions.
@@ -42,7 +42,7 @@ void *xytherOS_memmove(void *dest, const void *src, size_t count);
  *
  * Returns: 0 if equal, negative if @ptr1 < @ptr2, positive if @ptr1 > @ptr2.
  */
-int xytherOS_memcmp(const void *ptr1, const void *ptr2, size_t count);
+extern int xytherOS_memcmp(const void *ptr1, const void *ptr2, size_t count);
 
 /**
  * xytherOS_memchr - Find the first occurrence of a byte in memory.
@@ -52,7 +52,7 @@ int xytherOS_memcmp(const void *ptr1, const void *ptr2, size_t count);
  *
  * Returns: Pointer to the first occurrence of @value, or NULL if not found.
  */
-void *xytherOS_memchr(const void *ptr, int value, size_t count);
+extern void *xytherOS_memchr(const void *ptr, int value, size_t count);
 
 /**
  * xytherOS_memsetw - Fill memory with a specific 16-bit value.
@@ -62,7 +62,7 @@ void *xytherOS_memchr(const void *ptr, int value, size_t count);
  *
  * Returns: Pointer to the memory area @dest.
  */
-void *xytherOS_memsetw(void *dest, uint16_t value, size_t count);
+extern void *xytherOS_memsetw(void *dest, uint16_t value, size_t count);
 
 /**
  * xytherOS_strstr - Locate a substring.
@@ -71,7 +71,7 @@ void *xytherOS_memsetw(void *dest, uint16_t value, size_t count);
  *
  * Returns: Pointer to the first occurrence of @needle, or NULL if not found.
  */
-char *xytherOS_strstr(const char *haystack, const char *needle);
+extern char *xytherOS_strstr(const char *haystack, const char *needle);
 
 /**
  * xytherOS_strrchr - Locate the last occurrence of a character in a string.
@@ -80,7 +80,7 @@ char *xytherOS_strstr(const char *haystack, const char *needle);
  *
  * Returns: Pointer to the last occurrence of @c, or NULL if not found.
  */
-char *xytherOS_strrchr(const char *str, int c);
+extern char *xytherOS_strrchr(const char *str, int c);
 
 /**
  * xytherOS_strncpy - Copy a string up to a specified length.
@@ -90,7 +90,7 @@ char *xytherOS_strrchr(const char *str, int c);
  *
  * Returns: Pointer to the destination buffer @dest.
  */
-char *xytherOS_strncpy(char *dest, const char *src, size_t n);
+extern char *xytherOS_strncpy(char *dest, const char *src, size_t n);
 
 /**
  * xytherOS_strcpy - Copy a null-terminated string.
@@ -99,7 +99,7 @@ char *xytherOS_strncpy(char *dest, const char *src, size_t n);
  *
  * Returns: Pointer to the destination buffer @dest.
  */
-char *xytherOS_strcpy(char *dest, const char *src);
+extern char *xytherOS_strcpy(char *dest, const char *src);
 
 /**
  * xytherOS_strcmp - Compare two null-terminated strings.
@@ -108,7 +108,7 @@ char *xytherOS_strcpy(char *dest, const char *src);
  *
  * Returns: 0 if equal, negative if @s1 < @s2, positive if @s1 > @s2.
  */
-int xytherOS_strcmp(const char *s1, const char *s2);
+extern int xytherOS_strcmp(const char *s1, const char *s2);
 
 /**
  * xytherOS_strlen - Compute the length of a null-terminated string.
@@ -116,6 +116,18 @@ int xytherOS_strcmp(const char *s1, const char *s2);
  *
  * Returns: Length of the string excluding the null terminator.
  */
-size_t xytherOS_strlen(const char *str);
+extern size_t xytherOS_strlen(const char *str);
 
-int xytherOS_strncmp(const char *s1, const char *s2, size_t n);
+extern int xytherOS_strncmp(const char *s1, const char *s2, size_t n);
+
+extern char *xytherOS_safestrncpy(char *dest, const char *src, size_t n);
+extern char *xytherOS_lfind(const char *str, int ch);
+extern char *xytherOS_rfind(const char *str, int ch);
+extern char *xytherOS_strtok_r(char *s, const char *delim, char **saveptr);
+extern char *xytherOS_strtok(char *s, const char *delim);
+extern char *xytherOS_strcat(char *dest, const char *src);
+extern char *xytherOS_strncat(char *dest, const char *src, size_t n);
+extern int  xytherOS_strncmp(const char *s1, const char *s2, size_t n);
+extern int  xytherOS_strcasecmp(const char *s1, const char *s2);
+extern int  xytherOS_strncasecmp(const char *s1, const char *s2, size_t n);
+extern char *xytherOS_strdup(const char *s);
