@@ -1,13 +1,14 @@
-#include <stdint.h>
-#include <arch/traps.h>
 #include <arch/chipset.h>
+#include <arch/firmware/acpi.h>
+#include <arch/traps.h>
 #include <arch/x86_64/asm.h>
+#include <stdint.h>
 
 // I/O Addresses of the two programmable interrupt controllers
 #define IO_PIC1 0x20 // Master (IRQs 0-7)
 #define IO_PIC2 0xA0 // Slave (IRQs 8-15)
 
-#define IRQ_SLAVE 2 // IRQ at which slave connects to master
+#define IRQ_SLAVE 2  // IRQ at which slave connects to master
 
 // Current IRQ mask.
 // Initial IRQ mask has interrupt 2 enabled (for slave 8259A).
@@ -21,7 +22,8 @@ pic_setmask(uint16_t mask) {
 }
 
 void pic_enable(int irq) {
-    pic_setmask(irqmask & ~(1 << irq));
+    if (!acpi_disable_8259A())
+        pic_setmask(irqmask & ~(1 << irq));
 }
 
 // Initialize the 8259A interrupt controllers.
@@ -56,12 +58,12 @@ void pic_init(void) {
     outb(IO_PIC1 + 1, 0x3);
 
     // Set up slave (8259A-2)
-    outb(IO_PIC2, 0x11);               // ICW1
-    outb(IO_PIC2 + 1, IRQ_OFFSET + 8); // ICW2
-    outb(IO_PIC2 + 1, IRQ_SLAVE);      // ICW3
+    outb(IO_PIC2, 0x11);                // ICW1
+    outb(IO_PIC2 + 1, IRQ_OFFSET + 8);  // ICW2
+    outb(IO_PIC2 + 1, IRQ_SLAVE);       // ICW3
     // NB Automatic EOI mode doesn't tend to work on the slave.
     // Linux source code says it's "to be investigated".
-    outb(IO_PIC2 + 1, 0x3); // ICW4
+    outb(IO_PIC2 + 1, 0x3);             // ICW4
 
     // OCW3:  0ef01prs
     //   ef:  0x = NOP, 10 = clear specific mask, 11 = set specific mask

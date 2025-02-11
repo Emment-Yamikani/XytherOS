@@ -99,4 +99,8 @@ typedef enum {
     TIMER_HPET  = 2,
 } timerid_t;
 
+extern int  timer_init(void);
+
+extern void timer_intr(void);
+
 extern void timer_wait(timerid_t timer, double sec);

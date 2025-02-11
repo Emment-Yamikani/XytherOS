@@ -104,3 +104,13 @@ acpiSDT_t *acpi_enumerate(const char *sign) {
         return sdt;
     return NULL;
 }
+
+
+bool acpi_disable_8259A(void) {
+    acpiMADT_t *MADT = NULL;
+    if (!(MADT = (acpiMADT_t *)acpi_enumerate("APIC")))
+        return false;
+
+    // disable 8259A-PICs
+    return BTEST(MADT->flags, 0);
+}

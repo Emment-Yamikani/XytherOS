@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <core/defs.h>
 
@@ -112,12 +113,14 @@ typedef struct {
 
 
 
-int acpi_mp(void);
-void *acpi_findrsdp(void);
-int acpi_parse_madt(acpiMADT_t *madt);
-int acpi_validate_table(char *addr, size_t size);
-acpiSDT_t *acpi_parse_rsdt(rsdt_t *rsdt, const char *sign);
-acpiSDT_t *acpi_parse_xsdt(xsdt_t *xsdt, const char *sign);
-acpiSDT_t *acpi_enumerate(const char *signature);
+extern int acpi_mp(void);
+extern void *acpi_findrsdp(void);
+extern int acpi_parse_madt(acpiMADT_t *madt);
+extern int acpi_validate_table(char *addr, size_t size);
+extern acpiSDT_t *acpi_parse_rsdt(rsdt_t *rsdt, const char *sign);
+extern acpiSDT_t *acpi_parse_xsdt(xsdt_t *xsdt, const char *sign);
+extern acpiSDT_t *acpi_enumerate(const char *signature);
 
-int acpi_init(void);
+extern bool acpi_disable_8259A(void);
+
+extern int acpi_init(void);

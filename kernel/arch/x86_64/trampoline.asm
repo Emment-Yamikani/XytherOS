@@ -68,7 +68,6 @@ long_mode:
     add rax, rdx
     jmp  rax
 .high64:
-    hlt
     ; Jump to entry point
     mov rax, qword [entry]
     call rax

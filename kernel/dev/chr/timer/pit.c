@@ -9,20 +9,20 @@
 volatile int intsrc_overide = 0;
 
 #define DATAPORT    0x40
-
 #define CMDPORT     0x43
+
 #define COUNTER(i)  (DATAPORT + i)
 
-#define CH(i)   SHL(i, 6)
+#define CH(i)       SHL(i, 6)
 
-#define LOB     1
-#define HIB     2
-#define LOHI    3
-#define HZ      SYS_HZ
+#define LOB         1
+#define HIB         2
+#define LOHI        3
+#define HZ          SYS_HZ
 
-#define MODE(x) SHL(x, 1)
-#define RATEGEN MODE(2)
-#define ONESHOT MODE(1)
+#define MODE(x)     SHL(x, 1)
+#define RATEGEN     MODE(2)
+#define ONESHOT     MODE(1)
 
 void pit_init(void) {
     outb(CMDPORT, LOHI | RATEGEN);
@@ -30,7 +30,9 @@ void pit_init(void) {
     outb(COUNTER(0), (uint8_t)counter);
     inb(0x60);
     outb(COUNTER(0), (uint8_t)(counter >> 8));
-    ioapic_enable(IRQ_PIT, getcpuid());
+
+    pic_enable(IRQ_PIT0);
+    interrupt_controller_enable(IRQ_PIT2, getcpuid());
 }
 
 void pit_intr(void) {

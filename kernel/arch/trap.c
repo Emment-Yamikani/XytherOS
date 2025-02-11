@@ -2,6 +2,7 @@
 #include <arch/ucontext.h>
 #include <arch/x86_64/lapic.h>
 #include <core/debug.h>
+#include <dev/timer.h>
 #include <sync/preempt.h>
 
 static void isr_ne(int trapno) {
@@ -12,72 +13,13 @@ void trap(ucontext_t *uctx) {
     mcontext_t *mctx = &uctx->uc_mcontext;
 
     switch(mctx->trapno) {
-        case T_DE:
-            isr_ne(mctx->trapno);
-            break;
-        case T_DB:
-            isr_ne(mctx->trapno);
-            break;
-        case T_NMI:
-            isr_ne(mctx->trapno);
-            break;
-        case T_BP:
-            isr_ne(mctx->trapno);
-            break;
-        case T_OF:
-            isr_ne(mctx->trapno);
-            break;
-        case T_BR:
-            isr_ne(mctx->trapno);
-            break;
-        case T_UD:
-            isr_ne(mctx->trapno);
-            break;
-        case T_NM:
-            isr_ne(mctx->trapno);
-            break;
-        case T_DF:
-            isr_ne(mctx->trapno);
-            break;
-        case T_CSO:
-            isr_ne(mctx->trapno);
-            break;
-        case T_TS:
-            isr_ne(mctx->trapno);
-            break;
-        case T_NP:
-            isr_ne(mctx->trapno);
-            break;
-        case T_SS:
-            isr_ne(mctx->trapno);
-            break;
-        case T_GP:
-            isr_ne(mctx->trapno);
-            break;
-        case T_PF:
-            isr_ne(mctx->trapno);
-            break;
-        case T_MF:
-            isr_ne(mctx->trapno);
-            break;
-        case T_AC:
-            isr_ne(mctx->trapno);
-            break;
-        case T_MC:
-            isr_ne(mctx->trapno);
-            break;
-        case T_XM:
-            isr_ne(mctx->trapno);
-            break;
-        case T_VE:
-            isr_ne(mctx->trapno);
-            break;
-
         case T_PIT:
             break;
         case T_PS2_KBD:
             break;
         case T_HPET:
+            timer_intr();
+            printk("jiffies: %d\n", jiffies_get());
             break;
         case T_RTC:
             break;

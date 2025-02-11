@@ -13,6 +13,7 @@ void x86_64_thread_exit(u64 exit_code __unused) {
 
 /// @brief all threads start here
 static void x86_64_thread_start(void) {
+    current_unlock();
 }
 
 /// @brief all threads end executution here.

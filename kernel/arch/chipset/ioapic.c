@@ -61,13 +61,13 @@ static void write_ioapic(ioapic_t *ioapic, uint32_t reg, uint32_t data) {
     spin_unlock(&ioapic->lock);
 }
 
-void ioapic_enable(int irq, int cpunum) {
+static void ioapic_enable(int irq, int cpunum) {
     int i = (irq % nioapic);
     write_ioapic(ioapics[i], REDIR_TBL(irq), IRQ(irq));
     write_ioapic(ioapics[i], REDIR_TBL(irq) + 1, cpunum << 24);
 }
 
-int ioapic_init(void) {
+static int ioapic_init(void) {
     char *entry = NULL;
     uint32_t ver_data = 0;
     ioapic_t *ioapic = NULL;
@@ -77,7 +77,7 @@ int ioapic_init(void) {
         return -EINVAL;
 
     // disable 8259A-PICs
-    if (BTEST(MADT->flags, 0)) {
+    if (acpi_disable_8259A()) {
         outb(0x22, 0x70);
         outb(0x23, inb(0x23) | 1);
     }
@@ -125,4 +125,17 @@ int ioapic_init(void) {
     }
 
     return 0;
+}
+
+extern void pic_init(void);
+int interrupt_controller_init(void) {
+    pic_init();
+    return ioapic_init();
+}
+
+
+extern void pic_enable(int irq);
+void interrupt_controller_enable(int irq, int core_id) {
+    pic_enable(irq);
+    ioapic_enable(irq, core_id);
 }

@@ -1,7 +1,10 @@
+#include <bits/errno.h>
+#include <core/debug.h>
 #include <dev/timer.h>
 #include <sync/atomic.h>
 
-static volatile jiffies_t jiffies = 0; 
+static volatile bool        use_hpet = 0;
+static volatile jiffies_t   jiffies  = 0; 
 
 void jiffies_update(void) {
     atomic_inc(&jiffies);
@@ -28,4 +31,22 @@ void timer_wait(timerid_t timer, double sec) {
         case TIMER_HPET:
         break;
     }
+}
+
+int timer_init(void) {
+    int err = 0;
+    if ((err = hpet_init())) {
+        debug("Error[%s]: HPET init failed. Fallback to PIT\n", perror(err));
+        pit_init();
+        return 0;
+    }
+
+    atomic_write(&use_hpet, true);
+    return 0;
+}
+
+void timer_intr(void) {
+    if (use_hpet)
+        hpet_intr();
+    else pit_intr();
 }

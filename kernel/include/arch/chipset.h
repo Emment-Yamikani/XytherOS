@@ -1,10 +1,9 @@
 #pragma once
 
-int ioapic_init(void);
-void ioapic_enable(int irq, int cpunum);
+extern void pic_enable(int irq);
+extern int interrupt_controller_init(void);
+extern void interrupt_controller_enable(int irq, int core_id);
 
-void pic_enable(int irq);
-void pic_init(void);
-void pit_init(void);
-void pit_intr(void);
-void pit_wait(double s);
+extern void pit_init(void);
+extern void pit_intr(void);
+extern void pit_wait(double s);

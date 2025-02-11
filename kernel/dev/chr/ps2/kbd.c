@@ -66,8 +66,7 @@ static int ps2kbd_probe(void) {
     }
 
     // enable interrupt on line 1.
-    pic_enable(IRQ_PS2_KBD);
-    ioapic_enable(IRQ_PS2_KBD, getcpuid());
+    interrupt_controller_enable(IRQ_PS2_KBD, getcpuid());
 
     return 0;
 }

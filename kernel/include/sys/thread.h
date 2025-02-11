@@ -411,6 +411,10 @@ typedef struct {
 extern builtin_thread_t __builtin_thrds[];
 extern builtin_thread_t __builtin_thrds_end[];
 
+#define foreach_builtin_thread()                         \
+    for (builtin_thread_t *thread = &__builtin_thrds[0]; \
+         thread < &__builtin_thrds_end[0]; thread++)
+
 /**
  * @brief Declare a builtin thread.
  *
@@ -456,6 +460,8 @@ extern int      thread_join_group(thread_t *thread);
 extern int      thread_create_group(thread_t *thread);
 
 extern int      thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, int cflags, thread_t **ptp);
+
+extern int      thread_builtin_init(void);
 
 extern pid_t    fork(void);
 extern void     exit(int exit_code);

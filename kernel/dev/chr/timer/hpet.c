@@ -78,12 +78,12 @@ typedef struct {
 #define COMP_FSB(n)   ((TIMER(n) + 16) / 8)
 
 
-static int cntsz64 = 0;
-static int ntimers = 0;
-static long frequency = 0;
-static size_t period_fs = 0;      // main counter period in fs
-static size_t period_ns = 0;      // main counter period in ns
-static size_t tick_per_100ns = 0; // number of ticks in 100 ns
+static int      cntsz64 = 0;
+static int      ntimers = 0;
+static long     frequency = 0;
+static size_t   period_fs = 0;      // main counter period in fs
+static size_t   period_ns = 0;      // main counter period in ns
+static size_t   tick_per_100ns = 0; // number of ticks in 100 ns
 
 #define TIMERID_BAD(n)  ((n) < 0 || (n) >= ntimers)
 
@@ -134,44 +134,8 @@ void hpet_eoi(int i) {
     hpet_write(REG_INTS, hpet_read(REG_INTS) | (1 << i));
 }
 
-int hpet_init(void) {
-    int err = -ENOENT;
-    hpet_timer_t tmr = {0};
-    return -ENOTSUP;
 
-    printk("Initializing High Precision Event Timer (HPET)...\n");
-
-    if (!(acpi_hpet = (acpi_hpet_t *)acpi_enumerate("HPET")))
-        return err;
-    
-    hpet = (void *)acpi_hpet->base_addr.timer_block_addr;
-    general_capID_t cap = (general_capID_t)hpet_read(0);
-
-    cntsz64 = cap.count_size_cap;
-    ntimers = cap.num_tim_cap + 1;
-    period_fs = cap.count_clk_tick;
-    period_ns = period_fs / 1000000;
-    tick_per_100ns = 100000000 / period_fs;
-    frequency = 1000000000000000 / cap.count_clk_tick;
-    size_t ticks = 1000000000000000 / SYS_HZ; // HZ_TO_ns(SYS_HZ) / period_ns;
-
-    hpet_disable();
-    hpet_stop();
-    hpet_enable();
-
-    tmr = (hpet_timer_t) {
-        .t_id = 0,
-        .t_value = ticks,
-        .t_flags = HPET_TMR_PER | HPET_TMR_LVL,
-    };
-
-    if ((err = hpet_timer_init(&tmr)))
-        panic("HPET timer init failed: err=%d\n", err);
-    
-    return 0;
-}
-
-int hpet_timer_init(const hpet_timer_t *tmr) {
+static int hpet_timer_init(const hpet_timer_t *tmr) {
     size_t cntval = 0;
     timer_config_t tcnf;
 
@@ -214,11 +178,50 @@ int hpet_timer_init(const hpet_timer_t *tmr) {
 
     hpet_write(COMP_CAP(tmr->t_id), tcnf.raw);
     hpet_write(COMP_VALUE(tmr->t_id), (tmr->t_value + cntval));
-    ioapic_enable(IRQ_HPET, cpu_rsel());
+
+    interrupt_controller_enable(IRQ_HPET, cpu_rsel());
+
     timers[tmr->t_id] = *tmr;
     hpet_enable();
 
     spin_unlock(hpet_lock);
+    return 0;
+}
+
+int hpet_init(void) {
+    int err = -ENOENT;
+    hpet_timer_t tmr = {0};
+    return -ENOTSUP;
+
+    printk("Initializing High Precision Event Timer (HPET)...\n");
+
+    if (!(acpi_hpet = (acpi_hpet_t *)acpi_enumerate("HPET")))
+        return err;
+    
+    hpet = (void *)acpi_hpet->base_addr.timer_block_addr;
+    general_capID_t cap = (general_capID_t)hpet_read(0);
+
+    cntsz64        = cap.count_size_cap;
+    ntimers        = cap.num_tim_cap + 1;
+    period_fs      = cap.count_clk_tick;
+    period_ns      = period_fs / 1000000;
+    tick_per_100ns = 100000000l / period_fs;
+    frequency      = 1000000000000000l / cap.count_clk_tick;
+    size_t ticks   = 1000000000000000l / SYS_HZ; // HZ_TO_ns(SYS_HZ) / period_ns;
+
+    hpet_disable();
+    hpet_stop();
+    hpet_enable();
+
+    tmr = (hpet_timer_t) {
+        .t_id = 0,
+        .t_value = ticks,
+        .t_flags = HPET_TMR_PER | HPET_TMR_LVL,
+    };
+
+    if ((err = hpet_timer_init(&tmr)))
+        panic("HPET timer init failed: err=%d\n", err);
+    
     return 0;
 }
 

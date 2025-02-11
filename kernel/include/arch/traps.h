@@ -27,13 +27,14 @@
 #define T_XM            ISR(19) // SIMD Floating-Point Exception
 #define T_VE            ISR(20) // Virtualization Exception.
 
-#define IRQ_PIT         0
+#define IRQ_PIT0        0
 #define IRQ_PS2_KBD     1
+#define IRQ_PIT2        2
 #define IRQ_HPET        2
 #define IRQ_RTC         8
 
 
-#define T_PIT            IRQ(IRQ_PIT) // PIT interrupt line.
+#define T_PIT            IRQ(IRQ_PIT0) // PIT interrupt line.
 #define T_PS2_KBD        IRQ(IRQ_PS2_KBD) // PS2 KBD interrupt line.
 #define T_HPET           IRQ(IRQ_HPET) // HPET interrupt line.
 #define T_SPURIOUS       IRQ(7) // Spurious interrupt.

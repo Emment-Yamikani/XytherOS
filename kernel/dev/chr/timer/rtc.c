@@ -11,15 +11,15 @@
 #include <string.h>
 #include <sync/cond.h>
 
-int rtc_probe();
-int rtc_close(struct devid *dd);
-int rtc_getinfo(struct devid *dd, void *info);
-int rtc_open(struct devid *dd __unused, inode_t **pip __unused);
-int rtc_ioctl(struct devid *dd, int req, void *argp);
-off_t rtc_lseek(struct devid *dd, off_t off, int whence);
+int     rtc_probe();
+int     rtc_close(struct devid *dd);
+int     rtc_getinfo(struct devid *dd, void *info);
+int     rtc_open(struct devid *dd __unused, inode_t **pip __unused);
+int     rtc_ioctl(struct devid *dd, int req, void *argp);
+off_t   rtc_lseek(struct devid *dd, off_t off, int whence);
 ssize_t rtc_read(struct devid *dd, off_t off, void *buf, size_t sz);
 ssize_t rtc_write(struct devid *dd, off_t off, void *buf, size_t sz);
-int rtc_mmap(struct devid *dd, vmr_t *r);
+int     rtc_mmap(struct devid *dd, vmr_t *r);
 
 #define RTC_CMD (0x70)  // RTC command port.
 #define RTC_IO  (0x71)  // RTC io data port.
@@ -61,7 +61,6 @@ static int rtc_retrieve_time(rtc_time_t *tm) {
 
     if (tm == NULL)
         return -EINVAL;
-    
 
     while (rtc_updating());
     outb(RTC_CMD, RTC_SEC);
@@ -137,15 +136,16 @@ static int rtc_retrieve_time(rtc_time_t *tm) {
             tm->rtc_year += (CURRENT_YEAR / 100) * 100;
             if(tm->rtc_year < CURRENT_YEAR) tm->rtc_year += 100;
       }
+
     return 0;
 }
 
 int rtc_probe(void) {
     acpiFADT_t *FADT = (acpiFADT_t *)acpi_enumerate("FACP");
+
     RTC_CENT = FADT ? FADT->RTC_CENTURY: 0;
 
-    pic_enable(IRQ_RTC);
-    ioapic_enable(IRQ_RTC, getcpuid());
+    interrupt_controller_enable(IRQ_RTC, getcpuid());
 
     outb(RTC_CMD, 0x8A);
     uint8_t value = inb(RTC_IO);
@@ -288,7 +288,6 @@ static time_t rtc_to_epoch(const rtc_time_t *rtc_time) {
     return total_seconds;
 }
 
-
 usize rtc_gettime(void) {
     rtc_time_t  tm      = {0};
     time_t      time    = 0;
@@ -301,7 +300,6 @@ usize rtc_gettime(void) {
 }
 
 void rtc_intr(void) {
-
     spin_lock(rtclk);
     if (!((++rtc_ticks) % 2)) {
         ++rtc_secs;

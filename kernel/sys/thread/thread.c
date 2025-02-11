@@ -100,13 +100,13 @@ int thread_create_group(thread_t *thread) {
     }
 
     thread_queue_lock(tqueue);
-    queue_unlock(&current->t_group->t_queue);
-    if ((err = embedded_enqueue(&current->t_group->t_queue, &thread->t_group_qnode, QUEUE_ENFORCE_UNIQUE))) {
-        queue_unlock(&current->t_group->t_queue);
+    queue_lock(&tqueue->t_queue);
+    if ((err = embedded_enqueue(&tqueue->t_queue, &thread->t_group_qnode, QUEUE_ENFORCE_UNIQUE))) {
+        queue_unlock(&tqueue->t_queue);
         thread_queue_unlock(tqueue);
         goto error;    
     }
-    queue_unlock(&current->t_group->t_queue);
+    queue_unlock(&tqueue->t_queue);
     thread_queue_unlock(tqueue);
 
     thread_setmain(thread);
@@ -154,6 +154,17 @@ int thread_join_group(thread_t *thread) {
     thread->t_group       = current->t_group;
     thread->t_signals     = current->t_signals;
     thread->t_info.ti_tgid= current->t_info.ti_tgid;
+
+    return 0;
+}
+
+int thread_builtin_init(void) {
+    int err = 0;
+
+    foreach_builtin_thread() {
+        if ((err = thread_create(NULL, thread->thread_entry, thread->thread_arg, THREAD_CREATE_SCHED, NULL)))
+            return err;
+    }
 
     return 0;
 }
