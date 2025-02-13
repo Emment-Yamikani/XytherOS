@@ -68,12 +68,12 @@ int ialloc(itype_t type, int flags, inode_t **pip) {
     }
 
     if ((flags & I_NORQUEUE) == 0) {
-        if ((err = cond_new(&reader)))
+        if ((err = cond_alloc(&reader)))
             goto error;
     }
 
     if ((flags & I_NOWQUEUE) == 0) {
-        if ((err = cond_new(&writer)))
+        if ((err = cond_alloc(&writer)))
             goto error;
     }
 

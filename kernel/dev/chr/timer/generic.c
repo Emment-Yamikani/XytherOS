@@ -2,6 +2,7 @@
 #include <core/debug.h>
 #include <dev/timer.h>
 #include <sync/atomic.h>
+#include <sys/schedule.h>
 
 static volatile bool        use_hpet = 0;
 static volatile jiffies_t   jiffies  = 0; 
@@ -14,7 +15,10 @@ jiffies_t jiffies_get(void) {
     return atomic_read(&jiffies);
 }
 
-void jiffies_timed_wait(double s);
+void jiffies_timed_wait(double s) {
+    jiffies_t jiffy = jiffies_get() + jiffies_from_s(s);
+    while (time_before(jiffies_get(), jiffy));
+}
 
 jiffies_t jiffies_sleep(jiffies_t jiffies);
 
@@ -28,7 +32,7 @@ void timer_wait(timerid_t timer, double sec) {
     switch (timer) {
         case TIMER_PIT: pit_wait(sec); break;
         case TIMER_RTC:
-        case TIMER_HPET:
+        case TIMER_HPET: hpet_wait(sec); break;
         break;
     }
 }
@@ -49,4 +53,6 @@ void timer_intr(void) {
     if (use_hpet)
         hpet_intr();
     else pit_intr();
+
+    scheduler_tick();
 }

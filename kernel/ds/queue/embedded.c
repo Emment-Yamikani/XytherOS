@@ -293,3 +293,76 @@ int embedded_queue_replace(queue_t *queue, queue_node_t *qnode0, queue_node_t *q
     // If we reach here, `qnode0` was not found.
     return -ENOENT; // No such entry.
 }
+
+int embedded_queue_migrate(queue_t *dst, queue_t *src, usize pos, usize n, queue_relloc_t whence) {
+    usize        index = 0;
+    queue_node_t *node = NULL;
+
+    if (!dst || !src)
+        return -EINVAL;
+
+    queue_assert_locked(dst);
+    queue_assert_locked(src);
+
+    if ((pos >= src->q_count) || (n == 0) || ((pos + n) > src->q_count))
+        return -EINVAL;
+
+    if (whence != QUEUE_RELLOC_HEAD && whence != QUEUE_RELLOC_TAIL)
+        return -EINVAL; // Error: invalid rellocation position
+
+    // Traverse src queue to the starting position.
+    for (node = src->head; node && index < pos; ++index) {
+        node = node->next;
+    }
+
+    if (node == NULL)
+        return -ENOENT; // Error: starting position not found.
+
+    queue_node_t *last  = node;
+    queue_node_t *first = node;
+
+    // Find the ending node.
+    for (usize i = 1; i < n; ++i) {
+        last->queue = dst; // update the node->queue pointer.
+        last = last->next;
+    }
+
+    // Remove the nodes from source queue.
+    if (first->prev)
+        first->prev->next = last->next;
+    else src->head = last->next;
+
+    if (last->next)
+        last->next->prev = first->prev;
+    else src->tail = first->prev;
+
+    src->q_count -= n; // Update source queue item count.
+
+    first->prev = NULL;
+    last->next  = NULL;
+
+    // Attach nodes to the destination queue.
+    if (whence == QUEUE_RELLOC_HEAD) {
+        last->next = dst->head;
+        
+        if (dst->head)
+            dst->head->prev = last;
+        
+        dst->head = first;
+        
+        if (dst->tail == NULL)
+            dst->tail = last;
+    } else if (whence == QUEUE_RELLOC_TAIL) {
+        first->prev = dst->tail;
+        if (dst->tail)
+            dst->tail->next = first;
+        
+        dst->tail = last;
+        
+        if (dst->head == NULL)
+            dst->head = first;
+    }
+
+    dst->q_count += n; // Update destination queue item count.
+    return 0;
+}

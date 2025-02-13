@@ -11,7 +11,7 @@ int cond_init(cond_t *cond) {
         return -EINVAL;
     cond->count = 0;
     spinlock_init(&cond->lock);
-    return thread_queue_init(&cond->waiters);
+    return queue_init(&cond->waiters);
 }
 
 int cond_alloc(cond_t **ref) {

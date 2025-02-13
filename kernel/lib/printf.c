@@ -874,10 +874,9 @@ void panic(const char *restrict format, ...) {
   _vsnprintf(_out_char, buffer, (size_t)-1, format, va);
   spin_unlock(lock);
   va_end(va);
-  lapic_send_ipi(T_PANIC, IPI_ALLXSELF);
   loop() {
     cli();
-    asm("int $64");
+    lapic_send_ipi(T_PANIC, IPI_ALLXSELF);
     hlt();
   }
 }

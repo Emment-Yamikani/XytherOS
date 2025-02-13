@@ -1,8 +1,8 @@
-#include <core/debug.h>
-#include <mm/mem.h>
 #include <arch/chipset.h>
 #include <boot/boot.h>
+#include <core/debug.h>
 #include <dev/timer.h>
+#include <mm/mem.h>
 #include <sys/schedule.h>
 #include <sys/thread.h>
 
@@ -25,5 +25,6 @@ void early_init(void) {
 
     ap_signal();
     scheduler();
+
     loop() asm volatile ("pause");
 }

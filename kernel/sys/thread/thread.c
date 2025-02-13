@@ -42,6 +42,24 @@ tid_t thread_self(void) {
     return gettid();
 }
 
+int thread_get_prio(thread_t *thread) {
+    if (thread == NULL)
+        return -EINVAL;
+    
+    thread_assert_locked(thread);
+
+    return thread->t_info.ti_sched.ts_prio;
+}
+
+int thread_set_prio(thread_t *thread, int prio) {
+    if ((thread == NULL) || (prio < MLFQ_LOWEST) || (prio > MLFQ_HIGHEST))
+        return -EINVAL;
+
+    thread_assert_locked(thread);
+    thread->t_info.ti_sched.ts_prio = prio;
+    return 0;
+}
+
 int thread_schedule(thread_t *thread) {
     if (thread == NULL)
         return -EINVAL;
@@ -69,20 +87,12 @@ void thread_info_dump(thread_info_t *info) {
     );
 }
 
-
-int thread_queue_init(thread_queue_t *tqueue) {
-    if (tqueue == NULL)
-        return -EINVAL;
-    spinlock_init(&tqueue->t_qlock);
-    return queue_init(&tqueue->t_queue);
-}
-
 int thread_create_group(thread_t *thread) {
     int             err      = 0;
     cred_t          *cred    = NULL;
     file_ctx_t      *fctx    = NULL;
     sig_desc_t      *signals = NULL;
-    thread_queue_t  *tqueue  = NULL;
+    queue_t         *queue   = NULL;
 
     if (thread == NULL)
         return -EINVAL;
@@ -92,34 +102,31 @@ int thread_create_group(thread_t *thread) {
     if (thread->t_group)
         return -EALREADY;
 
-    if (NULL == (tqueue = kmalloc(sizeof *tqueue)))
+    if (NULL == (queue = kmalloc(sizeof *queue)))
         return -ENOMEM;
 
-    if ((err = thread_queue_init(tqueue))) {
+    if ((err = queue_init(queue))) {
         goto error;
     }
 
-    thread_queue_lock(tqueue);
-    queue_lock(&tqueue->t_queue);
-    if ((err = embedded_enqueue(&tqueue->t_queue, &thread->t_group_qnode, QUEUE_ENFORCE_UNIQUE))) {
-        queue_unlock(&tqueue->t_queue);
-        thread_queue_unlock(tqueue);
+    queue_lock(queue);
+    if ((err = embedded_enqueue(queue, &thread->t_group_qnode, QUEUE_ENFORCE_UNIQUE))) {
+        queue_unlock(queue);
         goto error;    
     }
-    queue_unlock(&tqueue->t_queue);
-    thread_queue_unlock(tqueue);
+    queue_unlock(queue);
 
     thread_setmain(thread);
 
     thread->t_fctx          = fctx;
     thread->t_cred          = cred;
-    thread->t_group         = tqueue;
+    thread->t_group         = queue;
     thread->t_signals       = signals;
     thread->t_info.ti_tgid  = thread_gettid(thread);
 
     return 0;
 error:
-    if (tqueue) kfree(tqueue);
+    if (queue) kfree(queue);
     if (cred) {
         todo("FIXME!\n"); }
     if (fctx) {
@@ -137,15 +144,12 @@ int thread_join_group(thread_t *thread) {
 
     thread_assert_locked(thread);
 
-    thread_queue_lock(current->t_group);
-    queue_lock(&current->t_group->t_queue);
-    if ((err = embedded_enqueue(&current->t_group->t_queue, &thread->t_group_qnode, QUEUE_ENFORCE_UNIQUE))) {
-        queue_unlock(&current->t_group->t_queue);
-        thread_queue_unlock(current->t_group);
+    queue_lock(current->t_group);
+    if ((err = embedded_enqueue(current->t_group, &thread->t_group_qnode, QUEUE_ENFORCE_UNIQUE))) {
+        queue_unlock(current->t_group);
         return err;
     }
-    queue_unlock(&current->t_group->t_queue);
-    thread_queue_unlock(current->t_group);
+    queue_unlock(current->t_group);
 
     thread->t_proc        = current->t_proc;
     thread->t_mmap        = current->t_mmap;

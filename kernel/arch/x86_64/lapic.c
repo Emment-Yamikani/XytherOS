@@ -119,7 +119,7 @@ static void microdelay(int us) {
 void lapic_recalibrate(long hz) {
     uint32_t ticks = 0;
     uint32_t timer = LVT_TMR;
-    __unused double s = s_from_HZ(hz);
+    double   s = s_from_HZ(hz);
 
     ICR = -1;
     timer_wait(TIMER_PIT, s);
@@ -154,6 +154,13 @@ void lapic_startup(int dst, uint16_t addr) {
 
 void lapic_timerintr(void) {
     atomic_inc(&cpu->timer_ticks);
+
+    if (current) {
+        current_lock();
+        if (current->t_info.ti_sched.ts_timeslice)
+            current->t_info.ti_sched.ts_timeslice--;
+        current_unlock();
+    }
 }
 
 void lapic_send_ipi(int ipi, int dst) {

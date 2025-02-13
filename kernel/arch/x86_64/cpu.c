@@ -62,6 +62,10 @@ int ncpu(void) {
     return (int)atomic_read(&cpus_count);
 }
 
+int isbsp(void) {
+    return atomic_read(&cpu->flags) & CPU_BSP;
+}
+
 static void cpu_init(void) {
     idt_init();
     gdt_init();
@@ -77,6 +81,7 @@ int cpu_rsel(void) {
 }
 
 void bsp_init(void) {
+    atomic_or(&cpu->flags, CPU_BSP);
     tvinit();
     cpu_init();
 }

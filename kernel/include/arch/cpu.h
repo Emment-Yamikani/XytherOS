@@ -21,8 +21,9 @@ typedef struct cpu_t {
 
 #define NCPU    8
 
-#define CPU_ENABLED 0x1
-#define CPU_ONLINE  0x2
+#define CPU_ENABLED     0x1
+#define CPU_ONLINE      0x2
+#define CPU_BSP         0x4
 
 #define AP_STACK_SIZE   0x4000
 
@@ -37,6 +38,8 @@ extern int cpu_online(void);
 extern int cpu_rsel(void);
 extern int ncpu(void);
 extern void ap_signal(void);
+
+extern int isbsp(void);
 
 // access with interrupts disabled.
 #define cpu     (getcls())

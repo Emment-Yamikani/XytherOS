@@ -2,24 +2,37 @@
 #include <arch/ucontext.h>
 #include <arch/x86_64/lapic.h>
 #include <core/debug.h>
+#include <dev/ps2.h>
 #include <dev/timer.h>
+#include <sys/schedule.h>
+#include <sys/thread.h>
 #include <sync/preempt.h>
 
 static void isr_ne(int trapno) {
     todo("trap(%d)\n", trapno);
 }
 
+void thread_handle_even(ucontext_t *uctx) {
+    if (uctx == NULL)
+        return;
+
+    if (atomic_read(&current->t_info.ti_sched.ts_timeslice) == 0)
+        sched_yield();
+}
+
 void trap(ucontext_t *uctx) {
     mcontext_t *mctx = &uctx->uc_mcontext;
 
-    switch(mctx->trapno) {
+    switch (mctx->trapno) {
+        case T_LEG_SYSCALL:
+            break;
         case T_PIT:
             break;
         case T_PS2_KBD:
+            ps2kbd_intr();
             break;
         case T_HPET:
             timer_intr();
-            printk("jiffies: %d\n", jiffies_get());
             break;
         case T_RTC:
             break;
@@ -33,13 +46,13 @@ void trap(ucontext_t *uctx) {
             break;
         case T_TLBSHTDWN:
             break;
-        case T_LAPIC_IPI:
-            break;
         case T_PANIC:
-            break;
-        case T_LEG_SYSCALL:
+            isr_ne(mctx->trapno);
             break;
         case T_SIMTRAP:
+            break;
+        case T_LAPIC_IPI:
+            printk("IPI: cpu:%d, tid: %d\n", getcpuid(), gettid());
             break;
         default:
             isr_ne(mctx->trapno);
@@ -47,4 +60,9 @@ void trap(ucontext_t *uctx) {
 
     if (mctx->trapno >= IRQ_OFFSET)
         lapic_eoi();
+    
+    if (current == NULL)
+        return;
+
+    thread_handle_even(uctx);
 }

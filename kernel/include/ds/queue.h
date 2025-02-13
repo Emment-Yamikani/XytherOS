@@ -47,6 +47,7 @@ typedef struct queue {
 #define queue_assert(queue)         ({ assert((queue), "No queue"); })
 #define queue_lock(queue)           ({ queue_assert(queue); spin_lock(&(queue)->q_lock); })
 #define queue_unlock(queue)         ({ queue_assert(queue); spin_unlock(&(queue)->q_lock); })
+#define queue_trylock(queue)        ({ queue_assert(queue); spin_trylock(&(queue)->q_lock); })
 #define queue_islocked(queue)       ({ queue_assert(queue); spin_islocked(&(queue)->q_lock); })
 #define queue_test_and_lock(queue)  ({ queue_assert(queue); spin_test_and_lock(&(queue)->q_lock); })
 #define queue_assert_locked(queue)  ({ queue_assert(queue); spin_assert_locked(&(queue)->q_lock); })
@@ -54,7 +55,7 @@ typedef struct queue {
 // initialize a queue at runtime with this macro.
 #define INIT_QUEUE(queue) ({           \
     queue_assert(queue);               \
-    memset(queue, 0, sizeof *(queue));     \
+    memset(queue, 0, sizeof *(queue)); \
     (queue)->q_lock = SPINLOCK_INIT(); \
 })
 
@@ -71,7 +72,7 @@ typedef struct queue {
         for (type item = (type)item##_node->data; item##_node != NULL; item##_node = NULL)
 
 #define queue_foreach_reverse(queue, type, item)                                   \
-    queue_assert_locked(queue);                                                     \
+    queue_assert_locked(queue);                                                    \
     for (queue_node_t *item##_node = (queue) ? (queue)->tail : NULL,               \
                       *prev##item##_node = item##_node ? item##_node->prev : NULL; \
                       item##_node != NULL; item##_node = prev##item##_node,        \
@@ -318,6 +319,8 @@ int embedded_queue_detach(queue_t *queue, queue_node_t *qnode);
  * @return 0 on success, non-zero on failure.
  */
 extern int embedded_queue_replace(queue_t *queue, queue_node_t *qnode0, queue_node_t *qnode1);
+
+extern int embedded_queue_migrate(queue_t *dst, queue_t *src, usize pos, usize n, queue_relloc_t whence);
 
 #define embedded_queue_foreach(queue, type, item, member)                                                        \
     queue_assert_locked(queue);                                                                                  \

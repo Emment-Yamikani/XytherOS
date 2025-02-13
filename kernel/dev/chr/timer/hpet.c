@@ -2,6 +2,7 @@
 #include <arch/firmware/acpi.h>
 #include <arch/traps.h>
 #include <bits/errno.h>
+#include <core/debug.h>
 #include <dev/dev.h>
 #include <dev/hpet.h>
 #include <dev/timer.h>
@@ -191,14 +192,12 @@ static int hpet_timer_init(const hpet_timer_t *tmr) {
 int hpet_init(void) {
     int err = -ENOENT;
     hpet_timer_t tmr = {0};
-    return -ENOTSUP;
-
-    printk("Initializing High Precision Event Timer (HPET)...\n");
+    // return -ENOTSUP;
 
     if (!(acpi_hpet = (acpi_hpet_t *)acpi_enumerate("HPET")))
         return err;
     
-    hpet = (void *)acpi_hpet->base_addr.timer_block_addr;
+    hpet = (void *)V2HI(acpi_hpet->base_addr.timer_block_addr);
     general_capID_t cap = (general_capID_t)hpet_read(0);
 
     cntsz64        = cap.count_size_cap;

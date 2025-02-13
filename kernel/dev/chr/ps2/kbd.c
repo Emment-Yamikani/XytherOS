@@ -12,10 +12,10 @@
 DEV_DECL_OPS(static, ps2kbd);
 static DEV_INIT(ps2kbd, FS_CHR, DEV_KBD0, 0);
 
-#define KBD_BUFFSZ      256     // size of keyboard buffer.
+#define KBD_BUFFSZ      256  // size of keyboard buffer.
 
-static THREAD_QUEUE(kbd_waiter); // thread waiting to read the keyboard.
-static ringbuf_t kbd_buffer;     // Ring buffer for scancodes
+static QUEUE(kbd_waiter);    // thread waiting to read the keyboard.
+static ringbuf_t kbd_buffer; // Ring buffer for scancodes
 
 #define buffer_lock()               ({ ringbuf_lock(&kbd_buffer); })
 #define buffer_unlock()             ({ ringbuf_unlock(&kbd_buffer); })

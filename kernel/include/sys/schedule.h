@@ -4,12 +4,11 @@
 #include <dev/timer.h>
 #include <ds/queue.h>
 #include <sync/spinlock.h>
-#include <sys/thread_queue.h>
 
 // Definition of a scheduling level in the MLFQ
 typedef struct {
-    jiffies_t       quantum;    // Time quantum for this level
-    thread_queue_t  run_queue;  // Queue to hold processes for this level.
+    jiffies_t   quantum;    // Time quantum for this level
+    queue_t     run_queue;  // Queue to hold processes for this level.
 } MLFQ_level_t;
 
 typedef struct {
@@ -29,7 +28,7 @@ typedef struct {
 // Definition of the Multi-Level Feedback Queue (MLFQ) structure
 typedef struct {
     sched_metrics_t metrics;
-    MLFQ_level_t   level[NSCHED_LEVEL]; // Array of scheduling levels
+    MLFQ_level_t    level[NSCHED_LEVEL]; // Array of scheduling levels
 } MLFQ_t;
 
 // Highest priority level.
@@ -53,6 +52,6 @@ extern __noreturn void scheduler(void);
  */
 extern void sched_yield(void);
 
-extern int sched_wakeup_all(thread_queue_t *wait_queue, size_t *pnt);
-extern int sched_wakeup(thread_queue_t *wait_queue, queue_relloc_t whence);
-extern int sched_wait(thread_queue_t *wait_queue, tstate_t state, queue_relloc_t whence, spinlock_t *lock);
+extern int sched_wakeup_all(queue_t *wait_queue, size_t *pnt);
+extern int sched_wakeup(queue_t *wait_queue, queue_relloc_t whence);
+extern int sched_wait(queue_t *wait_queue, tstate_t state, queue_relloc_t whence, spinlock_t *lock);

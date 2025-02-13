@@ -8,7 +8,6 @@
 #include <mm/mmap.h>
 #include <sync/cond.h>
 #include <sync/spinlock.h>
-#include <sys/thread_queue.h>
 
 /** @file
  *  @brief Threading library header for xytherOS.
@@ -94,7 +93,7 @@ typedef struct thread_sched_t {
     time_t      ts_total_time;  /**< Cumulative run time (jiffies) */
     time_t      ts_last_sched;  /**< Timestamp of last scheduling (jiffies) */
 
-    atomic_t    ts_prio;        /**< Scheduling priority (can be static or dynamic) */
+    int         ts_prio;        /**< Scheduling priority (can be static or dynamic) */
     cpu_t       *ts_proc;       /**< Pointer to the current processor */
     cpu_affin_t ts_affin;       /**< CPU affinity information */
 
@@ -179,7 +178,7 @@ typedef struct thread_t {
     cred_t          *t_cred;        /**< Credentials */
     file_ctx_t      *t_fctx;        /**< File context */
     mmap_t          *t_mmap;        /**< Memory mapping for the process */
-    thread_queue_t  *t_group;       /**< Thread group queue */
+    queue_t         *t_group;       /**< Thread group queue */
     sig_desc_t      *t_signals;     /**< Per-process signal descriptor */
 } __aligned(16) thread_t;
 
@@ -408,13 +407,6 @@ typedef struct {
     void    *thread_rsvd;  /**< Reserved for future use */
 } builtin_thread_t;
 
-extern builtin_thread_t __builtin_thrds[];
-extern builtin_thread_t __builtin_thrds_end[];
-
-#define foreach_builtin_thread()                         \
-    for (builtin_thread_t *thread = &__builtin_thrds[0]; \
-         thread < &__builtin_thrds_end[0]; thread++)
-
 /**
  * @brief Declare a builtin thread.
  *
@@ -430,6 +422,13 @@ builtin_thread_t __used_section(.__builtin_thrds) \
         .thread_arg     = arg,                    \
         .thread_entry   = entry,                  \
 }
+
+extern builtin_thread_t __builtin_thrds[];
+extern builtin_thread_t __builtin_thrds_end[];
+
+#define foreach_builtin_thread()                         \
+    for (builtin_thread_t *thread = &__builtin_thrds[0]; \
+         thread < &__builtin_thrds_end[0]; thread++)
 
 /**
  * @brief Announce a builtin thread's startup (for debugging).
@@ -451,10 +450,12 @@ extern tid_t    thread_gettid(thread_t *thread);
 extern pid_t    thread_getpid(thread_t *thread);
 extern tid_t    thread_self(void);
 
-extern int      thread_reap(thread_t *thread, thread_info_t *info, void **retval);
-extern int      thread_schedule(thread_t *thread);
 extern void     thread_exit(uintptr_t exit_code);
+extern int      thread_schedule(thread_t *thread);
+extern int      thread_get_prio(thread_t *thread);
+extern int      thread_set_prio(thread_t *thread, int prio);
 extern int      thread_alloc(usize stack_size, int cflags, thread_t **ptp);
+extern int      thread_reap(thread_t *thread, thread_info_t *info, void **retval);
 
 extern int      thread_join_group(thread_t *thread);
 extern int      thread_create_group(thread_t *thread);

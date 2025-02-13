@@ -29,13 +29,13 @@ SECTIONS {
 
     .__builtin_mods ALIGN (4K) : AT(ADDR(.__builtin_mods) - KERNEL_VMA) {
         __builtin_mods = .;
-        *(.__builtin_mods*)
+        KEEP(*(.__builtin_mods*))
         __builtin_mods_end = .;
     }
 
     .__builtin_thrds ALIGN (4K) : AT(ADDR(.__builtin_thrds) - KERNEL_VMA) {
         __builtin_thrds = .;
-        *(.__builtin_thrds*)
+        KEEP(*(.__builtin_thrds*))
         __builtin_thrds_end = .;
     }
 
