@@ -32,7 +32,7 @@ extern void spinlock_init(spinlock_t *lk);
 extern void spin_acquire(spinlock_t *lk);
 extern void spin_lock(spinlock_t *lk);
 extern int spin_trylock(spinlock_t *lk);
-extern int spin_test_and_lock(spinlock_t *lk);
+extern int spin_recursive_lock(spinlock_t *lk);
 
 extern void spin_release(spinlock_t *lk);
 extern void spin_unlock(spinlock_t *lk);

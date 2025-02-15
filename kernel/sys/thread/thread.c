@@ -163,11 +163,15 @@ int thread_join_group(thread_t *thread) {
 }
 
 int thread_builtin_init(void) {
-    int err = 0;
 
     foreach_builtin_thread() {
-        if ((err = thread_create(NULL, thread->thread_entry, thread->thread_arg, THREAD_CREATE_SCHED, NULL)))
-            return err;
+        int err = thread_create(NULL, 
+            thread->thread_entry,
+            thread->thread_arg,
+            THREAD_CREATE_SCHED,
+            NULL
+        );
+        if (err) return err;
     }
 
     return 0;

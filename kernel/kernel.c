@@ -2,7 +2,7 @@
 #include <sys/thread.h>
 
 void thread(void) {
-    debuglog();
+    loop() debuglog();
 }
 
 __noreturn void kthread_main(void) {

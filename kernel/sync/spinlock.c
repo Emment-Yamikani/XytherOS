@@ -97,7 +97,7 @@ int spin_islocked(spinlock_t *lk) {
     return locked;
 }
 
-int spin_test_and_lock(spinlock_t *lk) {
+int spin_recursive_lock(spinlock_t *lk) {
     spin_assert(lk);
     int locked;
     if ((locked = !spin_islocked(lk)))

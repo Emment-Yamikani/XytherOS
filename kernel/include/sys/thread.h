@@ -228,7 +228,7 @@ typedef struct thread_t {
 
 /**
  * @brief Test and lock a thread. */
-#define thread_test_and_lock(t)     ({ thread_assert(t); spin_test_and_lock(&(t)->t_lock); })
+#define thread_recursive_lock(t)     ({ thread_assert(t); spin_recursive_lock(&(t)->t_lock); })
 
 /**
  * @brief Assert that a thread is locked. */
@@ -244,7 +244,7 @@ typedef struct thread_t {
 /**
  * @brief Test a thread's flags. */
 #define thread_test(t, f) ({                      \
-    bool locked = thread_test_and_lock(t);        \
+    bool locked = thread_recursive_lock(t);        \
     flags64_t flags = (t)->t_info.ti_flags & (f); \
     if (locked)                                   \
         thread_unlock(t);                         \
@@ -254,7 +254,7 @@ typedef struct thread_t {
 /**
  * @brief Set specific flags on a thread. */
 #define thread_set(t, f) ({                \
-    bool locked = thread_test_and_lock(t); \
+    bool locked = thread_recursive_lock(t); \
     (t)->t_info.ti_flags |= (f);           \
     if (locked)                            \
         thread_unlock(t);                  \
@@ -263,7 +263,7 @@ typedef struct thread_t {
 /**
  * @brief Clear specific flags on a thread. */
 #define thread_mask(t, f) ({               \
-    bool locked = thread_test_and_lock(t); \
+    bool locked = thread_recursive_lock(t); \
     (t)->t_info.ti_flags &= ~(f);          \
     if (locked)                            \
         thread_unlock(t);                  \
@@ -330,7 +330,7 @@ typedef struct thread_t {
  *
  * @return 0 on success, or -EINVAL if the state is invalid. */
 #define thread_enter_state(t, s) ({             \
-    bool locked = thread_test_and_lock(t);      \
+    bool locked = thread_recursive_lock(t);      \
     int err = 0;                                \
     if ((s) >= T_EMBRYO && (s) <= T_TERMINATED) \
         (t)->t_info.ti_state = (s);             \
@@ -350,7 +350,7 @@ typedef struct thread_t {
  *
  * @return The current thread state. */
 #define thread_get_state(t) ({             \
-    bool locked = thread_test_and_lock(t); \
+    bool locked = thread_recursive_lock(t); \
     tstate_t state = (t)->t_info.ti_state; \
     if (locked)                            \
         thread_unlock(t);                  \

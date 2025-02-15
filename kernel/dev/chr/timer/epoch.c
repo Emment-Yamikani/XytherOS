@@ -1,4 +1,5 @@
 #include <dev/timer.h>
+#include <sys/_time.h>
 
 static volatile atomic_t epoch_time = 0;
 
@@ -68,4 +69,13 @@ u64 epoch_from_datetime(int year, int month, int day, int hour, int minute, int 
     epoch += second;                     // Add remaining seconds
 
     return epoch;
+}
+
+void epoch_to_timespec(uint64_t epoch, struct timespec *ts) {
+    ts->tv_sec = epoch;
+    ts->tv_nsec = 0;
+}
+
+uint64_t epoch_from_timespec(const struct timespec *ts) {
+    return ts->tv_sec;
 }

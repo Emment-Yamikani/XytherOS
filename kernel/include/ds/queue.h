@@ -49,7 +49,7 @@ typedef struct queue {
 #define queue_unlock(queue)         ({ queue_assert(queue); spin_unlock(&(queue)->q_lock); })
 #define queue_trylock(queue)        ({ queue_assert(queue); spin_trylock(&(queue)->q_lock); })
 #define queue_islocked(queue)       ({ queue_assert(queue); spin_islocked(&(queue)->q_lock); })
-#define queue_test_and_lock(queue)  ({ queue_assert(queue); spin_test_and_lock(&(queue)->q_lock); })
+#define queue_recursive_lock(queue) ({ queue_assert(queue); spin_recursive_lock(&(queue)->q_lock); })
 #define queue_assert_locked(queue)  ({ queue_assert(queue); spin_assert_locked(&(queue)->q_lock); })
 
 // initialize a queue at runtime with this macro.

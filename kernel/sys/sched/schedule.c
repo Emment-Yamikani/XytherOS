@@ -15,7 +15,7 @@ const char *MLFQ_PRIORITY[] = {
 static MLFQ_t MLFQ[NCPU];
 
 #define foreach_MLFQ() \
-    for (MLFQ_t *mlfq = &MLFQ[0]; mlfq < &MLFQ[NELEM(MLFQ)]; ++mlfq)
+    for (MLFQ_t *mlfq = &MLFQ[0]; mlfq < &MLFQ[ncpu()]; ++mlfq)
 
 // iterates through the MLFQ from highest to lowest priority level.
 #define foreach_level(mlfq)                                               \
@@ -38,11 +38,14 @@ static MLFQ_level_t *MLFQ_get_level(MLFQ_t *mlfq, int i) {
 }
 
 static void MLFQ_init(void) {
-    MLFQ_t *mlfq = MLFQ_get();
+    usize   quantum = 0;
+    MLFQ_t  *mlfq   = MLFQ_get();
+
     memset(mlfq, 0, sizeof *mlfq);
-    usize quantum = jiffies_from_ms(5);
-    for (int i = MLFQ_HIGH; i >= MLFQ_LOW; --i) {
-        mlfq->level[i].quantum = quantum;
+
+    quantum = jiffies_from_ms(10);
+    foreach_level(mlfq) {
+        level->quantum = quantum;
         quantum += jiffies_from_ms(5);
     }
 }
@@ -64,8 +67,8 @@ static usize MLFQ_load(MLFQ_t *mlfq) {
 }
 
 static int MLFQ_enqueue(thread_t *thread) {
-    int          err = 0;
-    MLFQ_t      *mlfq = NULL;
+    int          err    = 0;
+    MLFQ_t      *mlfq   = NULL;
     MLFQ_level_t *level = NULL;
 
     if (thread == NULL)
@@ -164,88 +167,164 @@ int sched_enqueue(thread_t *thread) {
     return MLFQ_enqueue(thread);
 }
 
-static void MLFQ_pull_threads(void) {
-    MLFQ_level_t    *dst            = NULL;
-    usize           load            = 0;
-    usize           stolen_count    = 0;
-    usize           count_to_steal  = 0;
-    MLFQ_t          *most_loaded    = NULL;
+static void MLFQ_pull(void) {
+    usize           count           = 0;
+    usize           target_load     = 0;
+    usize           count_pulled    = 0;
+    MLFQ_t          *target_mlfq    = NULL;
+    MLFQ_t          *current_mlfq   = NULL;
+
+    current_mlfq = MLFQ_get(); // get current MLFQ.
 
     /// Find the most loaded MLFQ
     foreach_MLFQ() {
-        usize lo = 0;
-        if (mlfq == MLFQ_get())
+        usize load = 0;
+        if (mlfq == current_mlfq)
             continue;
-        if (load < (lo = MLFQ_load(mlfq))) {
-            load        = lo;
-            most_loaded = mlfq;
+
+        if (target_load < (load = MLFQ_load(mlfq))) {
+            target_load = load;
+            target_mlfq = mlfq;
         }
     }
 
-    if (most_loaded == NULL || load < 2)
+    if (target_mlfq == NULL || target_load < 2)
         return;
 
     /// Steal thread in reversed order of priority.
     /// This is because the owning CPU, will always check the highest
     /// priority level first then lower levels.
     /// This inturn may reduce contention for run queues.
-    foreach_level_reverse(most_loaded) {
+    foreach_level_reverse(target_mlfq) {
+        MLFQ_level_t    *target_level   = NULL;
         /// We have stolen enough threads, break out of loop.
-        if (stolen_count >= (load / 2))
+        if (count_pulled >= (target_load / 2))
             break;
 
         /// No coresponding thread.
-        dst = MLFQ_get_level(MLFQ_get(), level - most_loaded->level);
-        if (dst == NULL) {
-            continue;
-        }
+        target_level = MLFQ_get_level(current_mlfq, level - target_mlfq->level);
+        assert(target_level, "Invalid target level.\n");
 
         // Attempt to acquire locks.
         loop() {
-            if (queue_trylock(&dst->run_queue) == 0) {
+            if (queue_trylock(&target_level->run_queue) == 0) {
                 if (queue_trylock(&level->run_queue) == 0) {
                     break;
                 }
-                queue_unlock(&dst->run_queue);  // Release first lock before continuing.
+                queue_unlock(&target_level->run_queue);  // Release first lock before continuing.
             }
-            jiffies_timed_wait(s_from_ms(5));
+            jiffies_timed_wait(5);
         }
 
         // Successfully acquired both locks, proceed with migration.
         switch (queue_count(&level->run_queue)) {
         case 0: // Skip empty run queues.
             queue_unlock(&level->run_queue);
-            queue_unlock(&dst->run_queue);
+            queue_unlock(&target_level->run_queue);
             continue;
         case 1: /// For run queues having only 1 thread take it,
             /// if we haven't reached total number needed.
-            if (stolen_count < (load / 2))
-                count_to_steal = 1;
+            if (count_pulled < (target_load / 2))
+                count =  1;
             break;
         default:
-            count_to_steal = queue_count(&level->run_queue) / 2;
+            count =  queue_count(&level->run_queue) / 2;
         }
 
         int err = embedded_queue_migrate(
-            &dst->run_queue,
+            &target_level->run_queue,
             &level->run_queue,
             queue_count(&level->run_queue) / 2,
-            count_to_steal,
-            QUEUE_RELLOC_TAIL
+            count,
+             QUEUE_RELLOC_TAIL
         );
 
         assert_eq(err, 0, "Error[%s]: Failed to migrate threads\n", perror(err));
-        stolen_count += count_to_steal;
-
+        count_pulled += count;
+ 
         // Unlock in the reverse order of locking
         queue_unlock(&level->run_queue);
-        queue_unlock(&dst->run_queue);
+        queue_unlock(&target_level->run_queue);
         // debug("load: %d, stealing: %d, stolen: %d to prio: %s\n",
-        //    load, count_to_steal, stolen_count, MLFQ_PRIORITY[dst - MLFQ_get()->level]);
+        //    load, count,  count_pulled, MLFQ_PRIORITY[target_level - MLFQ_get()->level]);
+    }
+}
+
+static void MLFQ_push(void) {
+    usize           target_load     = 0;
+    usize           count_pushed    = 0;
+    usize           count   = 0;
+    usize           my_load         = 0;
+    MLFQ_t          *target_mlfq    = NULL;
+    MLFQ_t          *current_mlfq   = NULL;
+
+    current_mlfq = MLFQ_get(); // get current MLFQ.
+
+    foreach_MLFQ() {
+        if (mlfq == current_mlfq)
+            continue;
+
+        usize load = MLFQ_load(mlfq);
+        if (target_load > load) {
+            target_load = load;
+            target_mlfq = mlfq;
+        }
+    }
+
+    /** Return if no suitable core is found or if target
+     * core has a load greater or equal to current core's load*/
+    if (target_mlfq == NULL || target_load >= MLFQ_load(current_mlfq))
+        return;
+    
+    foreach_level(current_mlfq) {
+        MLFQ_level_t    *target_level   = NULL;
+
+        target_level = MLFQ_get_level(target_mlfq, level - current_mlfq->level);
+        assert(target_level, "Invalid target level.\n");
+
+        if (queue_trylock(&level->run_queue) == 0) {
+            if (queue_trylock(&target_level->run_queue) == 0) {
+                break;
+            }
+            // Locks not avalable.
+            queue_lock(&level->run_queue);
+            /**
+             * @brief Spinning for the locks here is not desirable.
+             * 
+             * Unlike in MLFQ_pull(), a processor calling to push threads
+             * is already bomberdded with work, so waiting would significantly reduce performance.
+             * 
+             * So just continue, or maybe return. Which is better?
+             * */
+            continue;
+        }
+
+        if ((count = queue_count(&level->run_queue)) >= 2) {
+            count /= 2;
+        } else if ((count == 0) || (count_pushed >= (my_load / 2))) {
+            queue_unlock(&level->run_queue);
+            queue_unlock(&target_level->run_queue);
+            continue;
+        }
+
+        int err = embedded_queue_migrate(
+            &target_level->run_queue,
+            &level->run_queue,
+            queue_count(&level->run_queue) / 2,
+            count,
+            QUEUE_RELLOC_HEAD
+        );
+        assert_eq(err, 0, "Error[%s]: Failed to migrate threads\n", perror(err));
+
+        count_pushed += count;
+
+        queue_unlock(&level->run_queue);    
+        queue_unlock(&target_level->run_queue);    
     }
 }
 
 static void MLFQ_balance(void) {
+    MLFQ_push();
 }
 
 void scheduler_tick(void) {
@@ -296,7 +375,7 @@ __noreturn void scheduler(void) {
             if (current)
                 break;
 
-            MLFQ_pull_threads();
+            MLFQ_pull();
             set_current(MLFQ_get_next());
 
             if (current)

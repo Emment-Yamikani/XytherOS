@@ -83,7 +83,7 @@ extern void jiffies_update(void);
 
 extern jiffies_t jiffies_get(void);
 
-extern void jiffies_timed_wait(double s);
+extern void jiffies_timed_wait(jiffies_t jiffies);
 
 extern jiffies_t jiffies_sleep(jiffies_t jiffies);
 
@@ -91,7 +91,9 @@ extern int jiffies_getres(struct timespec *res);
 
 extern int jiffies_gettime(struct timespec *tp);
 
-extern int jiffies_settime(const struct timespec *tp);
+extern void jiffies_to_timespec(u64 jiffies, struct timespec *ts);
+
+extern u64 jiffies_from_timespec(const struct timespec *ts);
 
 typedef enum {
     TIMER_PIT   = 0,
@@ -111,6 +113,9 @@ extern u64 epoch_get(void);
 extern void epoch_update(void);
 
 extern void epoch_set(u64 epoch);
+
+extern void epoch_to_timespec(u64 epoch, struct timespec *ts);
+extern u64 epoch_from_timespec(const struct timespec *ts);
 
 extern u64 epoch_from_datetime(int year, int month, int day, int hour, int minute, int second);
 
