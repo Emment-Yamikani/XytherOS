@@ -17,27 +17,27 @@ typedef     signed short            sshort;
 typedef     signed int              sint;
 typedef     signed long             slong;
 
-typedef     uchar           u8;
-typedef     ushort          u16;
-typedef     uint            u32;
-typedef     ulong           u64;
+typedef     uchar                   u8;
+typedef     ushort                  u16;
+typedef     uint                    u32;
+typedef     ulong                   u64;
 
 typedef     char                    i8;
 typedef     short                   i16;
 typedef     int                     i32;
 typedef     long                    i64;
 
-typedef     ulong           off_t;
+typedef     ulong                   off_t;
 typedef     long                    isize;
-typedef     ulong           usize;
+typedef     ulong                   usize;
 
 typedef     float                   f32;
 typedef     double                  f64;
 
-typedef     uchar           flags8_t;    // 8-bit flags.
-typedef     ushort          flags16_t;   // 16-bit flags.
-typedef     uint            flags32_t;   // 32-bit flags.
-typedef     ulong           flags64_t;   // 64-bit flags.
+typedef     uchar                   flags8_t;    // 8-bit flags.
+typedef     ushort                  flags16_t;   // 16-bit flags.
+typedef     uint                    flags32_t;   // 32-bit flags.
+typedef     ulong                   flags64_t;   // 64-bit flags.
 
 typedef     int                     pid_t;
 typedef     int                     tid_t;
@@ -58,7 +58,7 @@ typedef     struct timespec         timespec_t;
 
 
 typedef     uint16_t                devid_t;
-typedef     slong             ssize_t;
+typedef     slong                   ssize_t;
 
 typedef     struct inode*           INODE;
 typedef     struct inode            inode_t;
@@ -71,7 +71,6 @@ struct devid {
     uint8_t     type;
 };
 
-struct devid;
 typedef     struct dev              dev_t;
 
 typedef     struct cpu_t            cpu_t;
@@ -93,6 +92,6 @@ typedef     struct __arch_thread_t  arch_thread_t;
 typedef     struct __ucontext_t     ucontext_t;
 typedef     struct __sig_stack_t    sig_stack_t;
 
-typedef struct meminfo_t meminfo_t;
+typedef     struct meminfo_t        meminfo_t;
 
 #endif /* XYTHEROS_TYPES_H */

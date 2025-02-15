@@ -23,6 +23,6 @@ extern pid_t getpid(void);
 #define todo(fmt, ...) // No-op in release builds
 #endif
 
-#define debugloc() ({ \
+#define debuglog() ({ \
     debug("\n");      \
 })

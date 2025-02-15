@@ -5,7 +5,7 @@
 #include <core/types.h>
 
 #ifndef SYS_HZ
-#define SYS_HZ 100
+#define SYS_HZ 1000
 #endif
 
 extern void pit_init(void);
@@ -67,7 +67,7 @@ extern void pit_wait(double s);
      ((tv)->tv_usec / (USEC_PER_SEC / SYS_HZ))); \
 })
 
-#define jiffies_from_s(s)     ((double)SYS_HZ * (double)(s))
+#define jiffies_from_s(s)     ((jiffies_t)((double)SYS_HZ * (double)(s)))
 #define jiffies_from_ms(ms)   (jiffies_from_s(s_from_ms(ms)))
 #define jiffies_from_us(us)   (jiffies_from_s(s_from_us(us)))
 #define jiffies_from_ns(ns)   (jiffies_from_s(s_from_ns(ns)))
@@ -104,3 +104,14 @@ extern int  timer_init(void);
 extern void timer_intr(void);
 
 extern void timer_wait(timerid_t timer, double sec);
+
+
+extern u64 epoch_get(void);
+
+extern void epoch_update(void);
+
+extern void epoch_set(u64 epoch);
+
+extern u64 epoch_from_datetime(int year, int month, int day, int hour, int minute, int second);
+
+extern void epoch_to_datetime(u64 epoch, int *year, int *month, int *day, int *hour, int *minute, int *second);

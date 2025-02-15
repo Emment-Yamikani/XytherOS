@@ -8,7 +8,7 @@
  * Functions prefixed with `atomic_` require passing pointers rather than direct variables.
  */
 
-typedef unsigned long atomic_t;
+typedef _Atomic unsigned long atomic_t;
 
 #define compiler_barrier()  asm volatile("" ::: "memory")
 

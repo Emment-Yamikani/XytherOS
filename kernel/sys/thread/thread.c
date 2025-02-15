@@ -52,7 +52,7 @@ int thread_get_prio(thread_t *thread) {
 }
 
 int thread_set_prio(thread_t *thread, int prio) {
-    if ((thread == NULL) || (prio < MLFQ_LOWEST) || (prio > MLFQ_HIGHEST))
+    if ((thread == NULL) || (prio < MLFQ_LOW) || (prio > MLFQ_HIGH))
         return -EINVAL;
 
     thread_assert_locked(thread);

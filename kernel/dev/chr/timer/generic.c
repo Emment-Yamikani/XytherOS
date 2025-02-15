@@ -8,7 +8,8 @@ static volatile bool        use_hpet = 0;
 static volatile jiffies_t   jiffies  = 0; 
 
 void jiffies_update(void) {
-    atomic_inc(&jiffies);
+    if ((atomic_add_fetch(&jiffies, 1) % SYS_HZ) == 0)
+        epoch_update();
 }
 
 jiffies_t jiffies_get(void) {

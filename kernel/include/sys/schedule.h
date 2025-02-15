@@ -32,10 +32,10 @@ typedef struct {
 } MLFQ_t;
 
 // Highest priority level.
-#define MLFQ_HIGHEST    (NSCHED_LEVEL - 1)
+#define MLFQ_HIGH    (NSCHED_LEVEL - 1)
 
 // Lowest priority level.
-#define MLFQ_LOWEST     0
+#define MLFQ_LOW     0
 
 extern const char *MLFQ_PRIORITY[];
 

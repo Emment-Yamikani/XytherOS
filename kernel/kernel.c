@@ -1,12 +1,11 @@
-#include <sys/thread.h>
 #include <core/debug.h>
+#include <sys/thread.h>
 
 void thread(void) {
-    loop() debugloc();
+    debuglog();
 }
 
 __noreturn void kthread_main(void) {
-    debugloc();
     thread_builtin_init();
 
     for (int i = 0; i < 200; ++i)
