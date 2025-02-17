@@ -167,7 +167,7 @@ int sched_enqueue(thread_t *thread) {
     return MLFQ_enqueue(thread);
 }
 
-static void MLFQ_pull(void) {
+__unused static void MLFQ_pull(void) {
     usize           count           = 0;
     usize           target_load     = 0;
     usize           count_pulled    = 0;
@@ -265,7 +265,7 @@ static void MLFQ_push(void) {
             continue;
 
         usize load = MLFQ_load(mlfq);
-        if (target_load > load) {
+        if (target_load >= load) {
             target_load = load;
             target_mlfq = mlfq;
         }
@@ -283,20 +283,19 @@ static void MLFQ_push(void) {
         assert(target_level, "Invalid target level.\n");
 
         if (queue_trylock(&level->run_queue) == 0) {
-            if (queue_trylock(&target_level->run_queue) == 0) {
-                break;
+            if (queue_trylock(&target_level->run_queue)) {
+                // Locks not avalable.
+                queue_lock(&level->run_queue);
+                /**
+                 * @brief Spinning for the locks here is not desirable.
+                 * 
+                 * Unlike in MLFQ_pull(), a processor calling to push threads
+                 * is already bomberdded with work, so waiting would significantly reduce performance.
+                 * 
+                 * So just continue, or maybe return. Which is better?
+                 * */
+                continue;
             }
-            // Locks not avalable.
-            queue_lock(&level->run_queue);
-            /**
-             * @brief Spinning for the locks here is not desirable.
-             * 
-             * Unlike in MLFQ_pull(), a processor calling to push threads
-             * is already bomberdded with work, so waiting would significantly reduce performance.
-             * 
-             * So just continue, or maybe return. Which is better?
-             * */
-            continue;
         }
 
         if ((count = queue_count(&level->run_queue)) >= 2) {
@@ -377,7 +376,7 @@ __noreturn void scheduler(void) {
             if (current)
                 break;
 
-            MLFQ_pull();
+            // MLFQ_pull();
             set_current(MLFQ_get_next());
 
             if (current)
