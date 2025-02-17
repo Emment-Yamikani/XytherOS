@@ -8,7 +8,28 @@
  * Functions prefixed with `atomic_` require passing pointers rather than direct variables.
  */
 
-typedef _Atomic unsigned long atomic_t;
+typedef _Atomic(char)   atomic_char;
+typedef _Atomic(short)  atomic_short;
+typedef _Atomic(int)    atomic_int;
+typedef _Atomic(long)   atomic_long;
+
+typedef _Atomic(unsigned char)  atomic_uchar;
+typedef _Atomic(unsigned short) atomic_ushort;
+typedef _Atomic(unsigned int)   atomic_uint;
+typedef _Atomic(unsigned long)  atomic_ulong;
+
+
+typedef atomic_char     atomic_i8;
+typedef atomic_short    atomic_i16;
+typedef atomic_int      atomic_i32;
+typedef atomic_long     atomic_i64;
+
+typedef atomic_uchar    atomic_u8;
+typedef atomic_ushort   atomic_u16;
+typedef atomic_uint     atomic_u32;
+typedef atomic_ulong    atomic_u64;
+
+typedef atomic_u64      atomic_t;
 
 #define compiler_barrier()  asm volatile("" ::: "memory")
 

@@ -6,7 +6,7 @@
 
 static spinlock_t *fsIDlock = &SPINLOCK_INIT();
 
-static atomic_t fsIDalloc(void) {
+static u64 fsIDalloc(void) {
     static atomic_t fs_ID = 0;
     spin_lock(fsIDlock);
     atomic_t id = __atomic_add_fetch(&fs_ID, 1, __ATOMIC_SEQ_CST);

@@ -8,7 +8,7 @@ void thread(void) {
 __noreturn void kthread_main(void) {
     thread_builtin_init();
 
-    for (int i = 0; i < 200; ++i)
+    for (int i = 0; i < 500; ++i)
         thread_create(NULL, (void *)thread, NULL, THREAD_CREATE_SCHED, NULL);
 
     loop() {
