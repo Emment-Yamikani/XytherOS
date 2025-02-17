@@ -275,7 +275,7 @@ static void MLFQ_push(void) {
      * core has a load greater or equal to current core's load*/
     if (target_mlfq == NULL || target_load >= MLFQ_load(current_mlfq))
         return;
-    
+
     foreach_level(current_mlfq) {
         MLFQ_level_t    *target_level   = NULL;
 
@@ -318,8 +318,10 @@ static void MLFQ_push(void) {
 
         count_pushed += count;
 
-        queue_unlock(&level->run_queue);    
-        queue_unlock(&target_level->run_queue);    
+        queue_unlock(&level->run_queue);
+        queue_unlock(&target_level->run_queue);
+         debug("load: %d, stealing: %d, stolen: %d to prio: %s\n",
+           my_load, count, count_pushed, MLFQ_PRIORITY[target_level - target_mlfq->level]);
     }
 }
 
@@ -328,7 +330,7 @@ static void MLFQ_balance(void) {
 }
 
 void scheduler_tick(void) {
-    if ((jiffies_get() % jiffies_from_s(20)) == 0) { // 10 sec intervnal
+    if ((jiffies_get() % SYS_Hz) == 0) {
         MLFQ_balance();
     }
 }

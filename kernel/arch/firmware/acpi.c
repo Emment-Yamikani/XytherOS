@@ -95,6 +95,7 @@ acpiSDT_t *acpi_enumerate(const char *sign) {
         assert_eq(err = acpi_init(), 0,
             "Error[%d]: Failed to retrieve ACPI headers.", err
         );
+
         // try again.
         sdt = XSDT ? acpi_parse_xsdt(XSDT, sign) :
               RSDT ? acpi_parse_rsdt(RSDT, sign) : NULL;

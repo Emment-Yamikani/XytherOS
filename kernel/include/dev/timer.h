@@ -4,9 +4,7 @@
 #include <dev/rtc.h>
 #include <core/types.h>
 
-#ifndef SYS_HZ
-#define SYS_HZ 1000
-#endif
+extern const ulong SYS_Hz;
 
 extern void pit_init(void);
 extern void pit_intr(void);
@@ -38,9 +36,9 @@ extern void pit_wait(double s);
 #define JIFFIES_TO_TIMEVAL(jiffies, tv) ({       \
     do                                           \
     {                                            \
-        ulong __secs = (jiffies) / SYS_HZ;       \
-        ulong __usecs = ((jiffies) % SYS_HZ) *   \
-                        (USEC_PER_SEC / SYS_HZ); \
+        ulong __secs = (jiffies) / SYS_Hz;       \
+        ulong __usecs = ((jiffies) % SYS_Hz) *   \
+                        (USEC_PER_SEC / SYS_Hz); \
         (tv)->tv_sec = __secs;                   \
         (tv)->tv_usec = __usecs;                 \
     } while (0);                                 \
@@ -49,30 +47,30 @@ extern void pit_wait(double s);
 #define JIFFIES_TO_TIMESPEC(jiffies, ts) ({      \
     do                                           \
     {                                            \
-        ulong __secs = (jiffies) / SYS_HZ;       \
-        ulong __nsecs = ((jiffies) % SYS_HZ) *   \
-                        (NSEC_PER_SEC / SYS_HZ); \
+        ulong __secs = (jiffies) / SYS_Hz;       \
+        ulong __nsecs = ((jiffies) % SYS_Hz) *   \
+                        (NSEC_PER_SEC / SYS_Hz); \
         (ts)->tv_sec = __secs;                   \
         (ts)->tv_nsecs = __nsecs;                \
     } while (0);                                 \
 })
 
 #define TIMESPEC_TO_JIFFIES(ts) ({               \
-    (((ts)->tv_sec * SYS_HZ) +                   \
-     ((ts)->tv_nsec / (NSEC_PER_SEC / SYS_HZ))); \
+    (((ts)->tv_sec * SYS_Hz) +                   \
+     ((ts)->tv_nsec / (NSEC_PER_SEC / SYS_Hz))); \
 })
 
 #define TIMEVAL_TO_JIFFIES(tv) ({                \
-    (((tv)->tv_sec * SYS_HZ) +                   \
-     ((tv)->tv_usec / (USEC_PER_SEC / SYS_HZ))); \
+    (((tv)->tv_sec * SYS_Hz) +                   \
+     ((tv)->tv_usec / (USEC_PER_SEC / SYS_Hz))); \
 })
 
-#define jiffies_from_s(s)     ((jiffies_t)((double)SYS_HZ * (double)(s)))
+#define jiffies_from_s(s)     ((jiffies_t)((double)SYS_Hz * (double)(s)))
 #define jiffies_from_ms(ms)   (jiffies_from_s(s_from_ms(ms)))
 #define jiffies_from_us(us)   (jiffies_from_s(s_from_us(us)))
 #define jiffies_from_ns(ns)   (jiffies_from_s(s_from_ns(ns)))
 
-#define s_from_jiffies(j)     ((double)(j) / SYS_HZ)
+#define s_from_jiffies(j)     ((double)(j) / SYS_Hz)
 #define ms_from_jiffies(j)    (ms_from_s(s_from_jiffies(j)))
 #define us_from_jiffies(j)    (us_from_s(s_from_jiffies(j)))
 #define ns_from_jiffies(j)    (ns_from_s(s_from_jiffies(j)))

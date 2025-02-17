@@ -5,12 +5,14 @@
 #include <sys/schedule.h>
 #include <sys/_time.h>
 
+const ulong SYS_Hz = 1000;
+
 static volatile bool        use_hpet    = 0;
-static volatile jiffies_t   jiffies_now = 0; 
+static volatile _Atomic(jiffies_t)   jiffies_now = 0; 
 
 void jiffies_update(void) {
-    if ((atomic_add_fetch(&jiffies_now, 1) % SYS_HZ) == 0)
-        epoch_update();
+    atomic_inc(&jiffies_now);
+    scheduler_tick();
 }
 
 jiffies_t jiffies_get(void) {
@@ -25,12 +27,12 @@ void jiffies_timed_wait(jiffies_t jiffies) {
 jiffies_t jiffies_sleep(jiffies_t jiffies);
 
 void jiffies_to_timespec(u64 jiffies, struct timespec *ts) {
-    ts->tv_sec = jiffies / SYS_HZ;
-    ts->tv_nsec= (jiffies % SYS_HZ) * 1000000;
+    ts->tv_sec = jiffies / SYS_Hz;
+    ts->tv_nsec= (jiffies % SYS_Hz) * 1000000;
 }
 
 u64 jiffies_from_timespec(const struct timespec *ts) {
-    return (ts->tv_sec * SYS_HZ) + (ts->tv_nsec / 1000000);
+    return (ts->tv_sec * SYS_Hz) + (ts->tv_nsec / 1000000);
 }
 
 int jiffies_getres(struct timespec *res) {
@@ -38,7 +40,7 @@ int jiffies_getres(struct timespec *res) {
         return -EINVAL;
     
     res->tv_sec = 0;
-    res->tv_nsec= 1000000000l / SYS_HZ;
+    res->tv_nsec= 1000000000l / SYS_Hz;
     return 0;
 }
 
@@ -74,6 +76,4 @@ void timer_intr(void) {
     if (use_hpet)
         hpet_intr();
     else pit_intr();
-
-    scheduler_tick();
 }

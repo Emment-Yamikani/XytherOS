@@ -2,234 +2,164 @@
 #include <arch/firmware/acpi.h>
 #include <arch/traps.h>
 #include <bits/errno.h>
-#include <core/debug.h>
-#include <dev/dev.h>
-#include <dev/hpet.h>
 #include <dev/timer.h>
 #include <lib/printk.h>
-#include <mm/kalloc.h>
 #include <string.h>
-
-typedef union { struct {
-    uint64_t revID : 8;
-    uint64_t num_tim_cap : 5;
-    uint64_t count_size_cap : 1;
-    uint64_t resvd : 1;
-    uint64_t legacy_rt : 1;
-    uint64_t vendorID : 16;
-    uint64_t count_clk_tick : 32;
-}; uint64_t raw;
-} __packed general_capID_t;
-
-typedef union {
-    struct {
-        uint64_t enable_cnf : 1;
-        uint64_t legacy_rt_cnf : 1;
-    }; uint64_t raw;
-} __packed general_config_t;
-
-typedef union { struct {
-        uint64_t resvd0 : 1;
-        uint64_t level_cnf          : 1;       // generate level triggered interrupts.
-        uint64_t intena_cnf: 1;                 // enable interrupts
-        uint64_t periodic_enable_cnf : 1;       // generate(allow) periodic interrupts
-        uint64_t periodic_cap : 1;              // timer able to generate periodic interrupts?
-        uint64_t size_cap : 1;                  // size of the timer. 1=64bit and 0=32bit.
-        uint64_t value_set_cnf : 1;             // allow software to directly write the timers accumulator(IN PERIODIC MODE ONLY)
-        uint64_t resvd1: 1;
-        uint64_t mode32_cnf : 1;                // use the timer in 32 bit mode.
-        uint64_t int_rt_cnf : 5;                // IOAPIC int route.
-        uint64_t fsb_en_cnf: 1;                 // FSB delivery enable?
-        uint64_t fsb_del_cap : 1;               // front side bus delivery capable?
-        uint64_t resvd2: 16;
-        uint64_t int_rt_cap : 32;               // which interrupt line on IOAPIC can this timer be routed?
-    };
-    uint64_t raw;
-}__packed timer_config_t;
+#include <sync/atomic.h>
+#include <sync/spinlock.h>
 
 typedef struct {
-    acpiSDT_t HDR;
-    uint32_t timer_blockID;
+    acpiSDT_t       SdtHdr;     // ACPI SDT header.
+    uint32_t        TmrBlkID;   // Timer block ID.
     struct {
-        uint8_t addr_ID;
-        uint8_t register_width;
-        uint8_t register_offset;
-        uint8_t resvd;
-        uint64_t timer_block_addr;
-    } __packed base_addr;
-    uint8_t hpet_number;
-    uint16_t min_clk_tick;
+        uint8_t     addrID;     // address ID.
+        uint8_t     width;      // register width.
+        uint8_t     offset;     // register offset.
+        uint8_t     resvd0;
+        uint64_t    blk_addr;   // timer block base address.
+    } __packed;
+    uint8_t         hpet_num;   // HPET number.
+    uint16_t        clk_tick;   // minimum clok tick period. 
     struct {
-        uint8_t no_guarantee : 1;
-        uint8_t _4kib : 1;
-        uint8_t _64kib : 1;
-        uint8_t resvd : 4;
-    } __packed page_protection;
+        uint8_t     no_guarantee : 1;
+        uint8_t     _4kib   : 1;
+        uint8_t     _64kib  : 1;
+        uint8_t     resvd1  : 4;
+    } __packed;
 } __packed acpi_hpet_t;
 
+static volatile atomic_u64 *HPET = NULL;
 
-#define REG_CAP     (0x0 / 8)
-#define REG_CONF    (0x10 / 8)
-#define REG_INTS    (0x20 / 8)
-#define REG_COUNTER (0xF0 / 8)
+/*General Capabilities and Identification register. Read-only*/
+#define HPET_CAPID              HPET[(0x000) / 8]
 
-#define TIMER(n)      (0x100 + (n* 0x20))
-#define COMP_CAP(n)   ((TIMER(n) + 0) / 8)
-#define COMP_VALUE(n) ((TIMER(n) + 8) / 8)
-#define COMP_FSB(n)   ((TIMER(n) + 16) / 8)
+/*General Configurations register.*/
+#define HPET_CNF                HPET[(0x010) / 8]
 
+/*General Interrupt Status register. */
+#define HPET_INT_STATUS         HPET[(0x020) / 8]
 
-static int      cntsz64 = 0;
-static int      ntimers = 0;
-static long     frequency = 0;
-static size_t   period_fs = 0;      // main counter period in fs
-static size_t   period_ns = 0;      // main counter period in ns
-static size_t   tick_per_100ns = 0; // number of ticks in 100 ns
+/*Main Counter Value register.*/
+#define HPET_MAIN_COUNTER_VAL   HPET[(0x0F0) / 8]
 
-#define TIMERID_BAD(n)  ((n) < 0 || (n) >= ntimers)
+/*----------------------------------------------------*/
+/*------------------Timer locations-------------------*/
+/*----------------------------------------------------*/
 
-static hpet_timer_t timers[32];
-static volatile uint64_t *hpet = NULL;
-static volatile acpi_hpet_t *acpi_hpet = NULL;
-static spinlock_t *hpet_lock = &SPINLOCK_INIT();
+#define HPET_TMR_CNF(n)         HPET[(0x100 + ((n) * 0x20)) / 8]
+#define HPET_TMR_CMP(n)         HPET[(0x108 + ((n) * 0x20)) / 8]
+#define HPET_TMR_FSB_RT(n)      HPET[(0x110 + ((n) * 0x20)) / 8]
 
-long hpet_freq(void) {
-    return frequency;
+#define HPET_TMR0_CNF           HPET_TMR_CNF(0)
+#define HPET_TMR0_CMP           HPET_TMR_CMP(0)
+#define HPET_TMR0_FSB_RT        HPET_TMR_FSB_RT(0)
+
+#define HPET_TMR1_CNF           HPET_TMR_CNF(1)
+#define HPET_TMR1_CMP           HPET_TMR_CMP(1)
+#define HPET_TMR1_FSB_RT        HPET_TMR_FSB_RT(1)
+
+#define HPET_TMR2_CNF           HPET_TMR_CNF(2)
+#define HPET_TMR2_CMP           HPET_TMR_CMP(2)
+#define HPET_TMR2_FSB_RT        HPET_TMR_FSB_RT(2)
+
+/*Clock period of the main counter in femptoseconds(10^-15).*/
+#define HPET_CLK_PERIOD         ((HPET_CAPID >> 32) & 0xffffffff)
+
+/*Vendor ID, gives a value that PCI Vendor ID reports.*/
+#define HPET_VENDOR             ((HPET_CAPID >> 16) & 0xffff)
+
+/*Legacy routing capabilities bit, 1 if Legacy interrupt routing is supported.*/
+#define HPET_LEG_CAP            (HPET_CAPID & (1 << 15))
+
+/**
+ * Size of the main counter register, 1 if 64bits or 0 is 32bits.
+ * @NOTE: 32bit counter can not be set to run in 64bit mode.*/
+#define HPET_COUNTER_SIZE       (HPET_CAPID & (1 << 13))
+
+/**
+ * Number of timers implemented in this HPET block.
+ * @NOTE: this field == n, where n is the last timer, i.e. 'total # timers - 1'
+ * e.g. this field = 2 for 3 timers.*/
+#define HPET_nTMR_CAP           ((HPET_CAPID >> 8)  & 0x1f)
+
+/*Indicates which version of the function is implemented.*/
+#define HPET_REVISION           (HPET_CAPID & 0xff)
+
+#define HPET_LEG_RT_CNF         (1 << 1)
+#define HPET_ENABLE_CNF         (1 << 0)
+
+#define HPET_TMR_INT_CAP(n)         ((HPET_TMR_CNF(n) >> 32) & 0xffffffff)
+#define HPET_TMR_FSB_DEL_CAP        (1 << 15)
+#define HPET_TMR_FSB_EN_CNF         (1 << 14)
+#define HPET_TMR_INT_RT_CNF(n)      ((HPET_TMR_CNF(n) >> 9) & 0x1f)
+#define HPET_TMR_SET_INT_RT_CNF(n, rt) (HPET_TMR_CNF(n) |= (((rt) & 0x1f) << 9))
+#define HPET_TMR_32MODE_CNF         (1 << 8)
+#define HPET_TMR_VAL_SET_CNF        (1 << 6)
+#define HPET_TMR_64BIT_CAP          (1 << 5)
+#define HPET_TMR_PER_INT_CAP        (1 << 4)
+#define HPET_TMR_PERIODIC_EN        (1 << 3)
+#define HPET_TMR_INT_EN_CNF         (1 << 2)
+#define HPET_TMR_LEVEL_TRIG_CNF     (1 << 1)
+
+typedef struct {
+
+} hpet_tmr_t;
+
+static hpet_tmr_t timer[3];
+
+static void hpet_disable(void) {
+    HPET_CNF &= ~HPET_ENABLE_CNF;
 }
 
-void hpet_wait(double s) {
-    size_t ticks = (ns_from_s(s) / period_ns) + hpet_rdmcnt();
-    while (time_before(hpet_rdmcnt(), ticks));
+static void hpet_enable(void) {
+    HPET_CNF |= HPET_ENABLE_CNF;
 }
 
-uint64_t hpet_read(int reg) {
-    if (!hpet)
-        return 0;
-    return hpet[reg];
-}
-
-void hpet_write(int reg, uint64_t data) {
-    if (!hpet)
-        return;
-    hpet[reg] = data;
-}
-
-void hpet_enable(void) {
-    hpet_write(REG_CONF, (hpet_read(REG_CONF) | 1));
-}
-
-void hpet_disable(void) {
-    uint64_t CONF = hpet_read(REG_CONF);
-    hpet_write(REG_CONF, (CONF & ~1));
-}
-
-void hpet_stop(void) {
-    hpet_write(REG_COUNTER, 0);
-}
-
-size_t hpet_rdmcnt(void) {
-    return hpet_read(REG_COUNTER);
-}
-
-void hpet_eoi(int i) {
-    hpet_write(REG_INTS, hpet_read(REG_INTS) | (1 << i));
-}
-
-
-static int hpet_timer_init(const hpet_timer_t *tmr) {
-    size_t cntval = 0;
-    timer_config_t tcnf;
-
-    if (!tmr)
-        return -EINVAL;
-
-    if (TIMERID_BAD(tmr->t_id))
-        return -EINVAL;
-
-    spin_lock(hpet_lock);
-
-    hpet_disable();
-
-    cntval = hpet_read(REG_COUNTER);
-    tcnf = (timer_config_t)hpet_read(COMP_CAP(tmr->t_id));
-    tcnf.intena_cnf             = 1;
-    tcnf.value_set_cnf          = 1;
-    tcnf.int_rt_cnf             = IRQ_HPET;
-    tcnf.mode32_cnf             = HPET_TMR_IS32(tmr->t_flags)  ? 1 : 0;
-    tcnf.level_cnf              = HPET_TMR_ISLVL(tmr->t_flags) ? 1 : 0;
-    tcnf.periodic_enable_cnf    = HPET_TMR_ISPER(tmr->t_flags) ? 1 : 0;
-
-    if (!BTEST(tcnf.int_rt_cap, IRQ_HPET)) {
-        hpet_enable();
-        spin_unlock(hpet_lock);
-        return -EINVAL;
-    }
-
-    if (!tcnf.size_cap && !HPET_TMR_IS32(tmr->t_flags)) {
-        hpet_enable();
-        spin_unlock(hpet_lock);
-        return -EINVAL;
-    }
-
-    if (tcnf.periodic_cap == 0 && HPET_TMR_ISPER(tmr->t_flags)) {
-        hpet_enable();
-        spin_unlock(hpet_lock);
-        return -EINVAL;
-    }
-
-    hpet_write(COMP_CAP(tmr->t_id), tcnf.raw);
-    hpet_write(COMP_VALUE(tmr->t_id), (tmr->t_value + cntval));
-
-    interrupt_controller_enable(IRQ_HPET, cpu_rsel());
-
-    timers[tmr->t_id] = *tmr;
-    hpet_enable();
-
-    spin_unlock(hpet_lock);
+int hpet_tmr_init() {
     return 0;
 }
 
 int hpet_init(void) {
-    int err = -ENOENT;
-    hpet_timer_t tmr = {0};
-    // return -ENOTSUP;
+    int         err   = 0;
+    usize       tmrcnf= 0;
+    acpi_hpet_t *hpet = NULL;
 
-    if (!(acpi_hpet = (acpi_hpet_t *)acpi_enumerate("HPET")))
-        return err;
-    
-    hpet = (void *)V2HI(acpi_hpet->base_addr.timer_block_addr);
-    general_capID_t cap = (general_capID_t)hpet_read(0);
+    hpet = (acpi_hpet_t *)acpi_enumerate("HPET");
+    if (hpet == NULL)
+        return -ENOTSUP;
 
-    cntsz64        = cap.count_size_cap;
-    ntimers        = cap.num_tim_cap + 1;
-    period_fs      = cap.count_clk_tick;
-    period_ns      = period_fs / 1000000;
-    tick_per_100ns = 100000000l / period_fs;
-    frequency      = 1000000000000000l / cap.count_clk_tick;
-    size_t ticks   = 1000000000000000l / SYS_HZ; // HZ_TO_ns(SYS_HZ) / period_ns;
+    memset(timer, 0, sizeof timer);
+
+    HPET = (atomic_u64 *)V2HI(hpet->blk_addr);
 
     hpet_disable();
-    hpet_stop();
+    if ((err = hpet_tmr_init(0)))
+        return err;
+
+    HPET_MAIN_COUNTER_VAL = 0;
+
+    HPET_TMR_SET_INT_RT_CNF(0, IRQ_HPET);
+    tmrcnf = HPET_TMR0_CNF;
+    tmrcnf |= HPET_TMR_VAL_SET_CNF;
+    tmrcnf |= HPET_TMR_PERIODIC_EN;
+    tmrcnf |= HPET_TMR_LEVEL_TRIG_CNF;
+    tmrcnf |= HPET_TMR_INT_EN_CNF;
+
+    HPET_TMR0_CNF = tmrcnf;
+    HPET_TMR0_CMP = (1000000000000000uL / SYS_Hz) / HPET_CLK_PERIOD;
     hpet_enable();
 
-    tmr = (hpet_timer_t) {
-        .t_id = 0,
-        .t_value = ticks,
-        .t_flags = HPET_TMR_PER | HPET_TMR_LVL,
-    };
-
-    if ((err = hpet_timer_init(&tmr)))
-        panic("HPET timer init failed: err=%d\n", err);
-    
+    interrupt_controller_enable(IRQ_HPET, getcpuid());
     return 0;
 }
 
+void hpet_wait(double s __unused) {
+    return;
+}
+
 void hpet_intr(void) {
-    uint64_t ints = hpet_read(REG_INTS);
-    for (int t = 0; t < ntimers; ++t) {
-        if (BTEST(ints, t))
-            hpet_write(REG_INTS, ints | BS(t));
-        if (t == 0)
-            jiffies_update();
+    if (HPET_INT_STATUS & (1 << 0)) {
+        HPET_INT_STATUS |= 1 << 0;
+        jiffies_update();
     }
 }

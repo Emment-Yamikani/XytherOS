@@ -107,7 +107,7 @@ int lapic_init(void) {
         ;
 
     TPR = 0;
-    lapic_recalibrate(SYS_HZ);
+    lapic_recalibrate(SYS_Hz);
     lapic_eoi();
     return 0;
 }
