@@ -158,8 +158,14 @@ void hpet_wait(double s __unused) {
 }
 
 void hpet_intr(void) {
-    if (HPET_INT_STATUS & (1 << 0)) {
+    u64 int_status = HPET_INT_STATUS;
+
+    if (int_status & (1 << 0)) {
         HPET_INT_STATUS |= 1 << 0;
         jiffies_update();
+    } else if (int_status & (1 << 1)) {
+        HPET_INT_STATUS |= 1 << 1;
+    } else if (int_status & (1 << 2)) {
+        HPET_INT_STATUS |= 1 << 2;
     }
 }

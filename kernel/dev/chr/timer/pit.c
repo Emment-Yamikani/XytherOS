@@ -18,7 +18,7 @@ volatile int intsrc_overide = 0;
 #define LOB         1
 #define HIB         2
 #define LOHI        3
-#define HZ          SYS_HZ
+#define HZ          SYS_Hz
 
 #define MODE(x)     SHL(x, 1)
 #define RATEGEN     MODE(2)
