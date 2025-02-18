@@ -5,9 +5,14 @@
 #include <bits/errno.h>
 #include <core/debug.h>
 #include <string.h>
+#include <sys/schedule.h>
 #include <sys/thread.h>
 
-void x86_64_thread_exit(u64 exit_code __unused) {
+__noreturn void x86_64_thread_exit(u64 exit_code) {
+    current_recursive_lock();
+    current_enter_state(T_ZOMBIE);
+    current->t_info.ti_exit = exit_code;
+    sched();
     loop();
 }
 
