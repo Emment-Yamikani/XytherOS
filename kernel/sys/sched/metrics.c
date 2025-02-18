@@ -1,4 +1,5 @@
 #include "sched_metrics.h"
+#include <core/debug.h>
 
 void sched_update_thread_metrics(thread_t *thread) {
     thread_sched_t *sched_info = NULL;
@@ -24,5 +25,7 @@ void sched_update_thread_metrics(thread_t *thread) {
         sched_info->ts_cpu_time     += jiffies_from_s(sched_info->ts_last_time - epoch_get());
         sched_info->ts_total_time   += sched_info->ts_cpu_time;
         break;
+    default:
+        todo("Handle state[%s]\n", tget_state(thread_get_state(thread)));
     }
 }

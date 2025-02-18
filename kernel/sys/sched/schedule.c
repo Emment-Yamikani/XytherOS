@@ -333,7 +333,7 @@ static void MLFQ_balance(void) {
     MLFQ_push();
 }
 
-static sched_handle_zombie(void) {
+static void sched_handle_zombie(void) {
     cond_broadcast(&current->t_event);
 }
 
@@ -344,10 +344,10 @@ static void hanlde_thread_state(void) {
         case T_EMBRYO:
             assert(0, "T_EMBRYO thread returned?\n");
             break;
-        case T_READY:
-            assert(0, "T_READY thread returned?\n");
-            break;
         case T_RUNNING:
+            assert(0, "T_RUNNING thread returned?\n");
+            break;
+        case T_READY:
             assert_eq(err = MLFQ_enqueue(current), 0,
                 "Failed to enqueue current thread. error: %s\n", perror(err)
             );
