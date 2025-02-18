@@ -6,7 +6,7 @@ global arch_raw_lock_acquire
 arch_raw_lock_acquire:
     mov     rax, 1
 .acquire:
-    lock    xchg dword [rdi], eax
+    xchg    dword [rdi], eax
     test    eax, eax
     nop
     jnz     .acquire
@@ -16,7 +16,7 @@ arch_raw_lock_acquire:
 global arch_raw_lock_release
 arch_raw_lock_release:
     xor     rax, rax
-    lock    xchg dword [rdi], eax
+    xchg    dword [rdi], eax
     ret
 ;
 
