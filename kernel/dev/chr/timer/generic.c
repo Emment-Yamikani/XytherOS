@@ -12,7 +12,6 @@ static volatile _Atomic(jiffies_t)   jiffies_now = 0;
 
 void jiffies_update(void) {
     atomic_inc(&jiffies_now);
-    scheduler_tick();
 }
 
 jiffies_t jiffies_get(void) {
