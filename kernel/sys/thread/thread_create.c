@@ -250,8 +250,8 @@ int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, int cfla
 
     return 0;
 error:
-    printk("%s:%d: Failed to create thread, err: %d\n", __FILE__, __LINE__, err);
-    if (thread) { todo("impl thread_free()\n"); };
+    debug("%s:%d: Failed to create thread, err: %d\n", __FILE__, __LINE__, err);
+    if (thread) thread_free(thread);
     return err;
 }
 
@@ -315,5 +315,6 @@ void thread_free(thread_t *thread) {
 
     thread_enter_state(thread, T_TERMINATED);
 
+    thread_unlock(thread);
     arch_pagefree((uintptr_t)arch->t_kstack.ss_sp, arch->t_kstack.ss_size);
 }
