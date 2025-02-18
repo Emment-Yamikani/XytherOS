@@ -8,6 +8,7 @@
 #include <mm/mmap.h>
 #include <sync/cond.h>
 #include <sync/spinlock.h>
+#include <dev/timer.h>
 
 /** @file
  *  @brief Threading library header for xytherOS.
@@ -87,11 +88,16 @@ typedef struct cpu_affin_t {
  *
  * All time-related fields are in jiffies */
 typedef struct thread_sched_t {
-    time_t      ts_ctime;       /**< Thread creation time (jiffies) */
-    time_t      ts_cpu_time;    /**< CPU time consumed (jiffies) */
-    time_t      ts_timeslice;   /**< Allocated quantum (jiffies) */
-    time_t      ts_total_time;  /**< Cumulative run time (jiffies) */
-    time_t      ts_last_sched;  /**< Timestamp of last scheduling (jiffies) */
+    jiffies_t   ts_timeslice;   /**< Allocated quantum (jiffies) */
+    jiffies_t   ts_last_timeslice;/**< Last quantum thread was scheduled with. */
+    jiffies_t   ts_cpu_time;    /**< CPU time consumed (jiffies) */
+    jiffies_t   ts_total_time;  /**< Cumulative run time (jiffies) */
+
+    time_t      ts_ctime;       /**< Thread creation time (Epoch time) */
+    time_t      ts_last_time;   /**< Timestamp of last scheduling (Epoch time) */
+    time_t      ts_exit_time;   /**< Timestamp of exit (Epoch time) */
+
+    usize       ts_sched_count; /**< Scheduling count. */
 
     int         ts_prio;        /**< Scheduling priority (can be static or dynamic) */
     cpu_t       *ts_proc;       /**< Pointer to the current processor */
@@ -239,6 +245,7 @@ typedef struct thread_t {
 #define current_lock()              thread_lock(current)
 #define current_unlock()            thread_unlock(current)
 #define current_islocked()          thread_islocked(current)
+#define current_recursive_lock()    thread_recursive_lock(current)
 #define current_assert_locked()     thread_assert_locked(current)
 
 /**
