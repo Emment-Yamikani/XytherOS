@@ -1,3 +1,4 @@
+#include "sched_metrics.h"
 #include <core/debug.h>
 #include <string.h>
 #include <limits.h>
@@ -68,7 +69,7 @@ static usize MLFQ_load(MLFQ_t *mlfq) {
 
 static int MLFQ_enqueue(thread_t *thread) {
     int          err    = 0;
-    MLFQ_t      *mlfq   = NULL;
+    MLFQ_t       *mlfq  = NULL;
     MLFQ_level_t *level = NULL;
 
     if (thread == NULL)
@@ -119,7 +120,6 @@ static int MLFQ_enqueue(thread_t *thread) {
 
     // Ensure we release level resources.
     queue_unlock(&level->run_queue);
-    thread_enter_state(thread, T_READY);
     return 0;
 }
 
@@ -132,6 +132,7 @@ static thread_t *MLFQ_get_next(void) {
         queue_lock(&level->run_queue);
         embedded_queue_foreach(&level->run_queue, thread_t, thread, t_run_qnode) {
             thread_lock(thread);
+
             /// Remove thread from run queue.
             /// panic is this fails. What could possibly go run?
             assert_eq(err = embedded_queue_detach(&level->run_queue, thread_node), 0,
@@ -139,14 +140,17 @@ static thread_t *MLFQ_get_next(void) {
                 thread_getpid(thread), thread_gettid(thread), MLFQ_PRIORITY[level - mlfq->level], perror(err)
             );
 
+            thread->t_info.ti_sched.ts_timeslice = level->quantum;
+
             /// Ensure we release level resources.
             queue_unlock(&level->run_queue);
+
             /* Update scheduling metadata for the chosen thread. */
             thread->t_info.ti_sched.ts_proc       = cpu; // set the current processor for chosen thread.
-            thread->t_info.ti_sched.ts_last_sched = jiffies_get();
-            thread->t_info.ti_sched.ts_timeslice  = level->quantum;
+
             /// Enter running state.
             thread_enter_state(thread, T_RUNNING);
+
             /// Success, return thread for execution.
             return thread;
         }
@@ -164,6 +168,7 @@ int sched_enqueue(thread_t *thread) {
         return -EINVAL;
     /// All thread start at the highest priority level.
     thread_set_prio(thread, MLFQ_HIGH);
+    thread_enter_state(thread, T_READY);
     return MLFQ_enqueue(thread);
 }
 
@@ -328,6 +333,10 @@ static void MLFQ_balance(void) {
     MLFQ_push();
 }
 
+static sched_handle_zombie(void) {
+    cond_broadcast(&current->t_event);
+}
+
 static void hanlde_thread_state(void) {
     int err = 0;
 
@@ -347,6 +356,8 @@ static void hanlde_thread_state(void) {
         case T_STOPPED:
             break;
         case T_ZOMBIE:
+            sched_handle_zombie();
+            break;
         case T_TERMINATED:
             todo("Please Handle: %s\n", get_tstate());
             break;
@@ -378,8 +389,14 @@ __noreturn void scheduler(void) {
             hlt();
         }
 
+        sched_update_thread_metrics(current);
+
         // jmp to thread.
         context_switch(&current->t_arch.t_ctx);
+
+        current_assert_locked();
+
+        sched_update_thread_metrics(current);
 
         disable_preemption();
         hanlde_thread_state();
@@ -418,7 +435,7 @@ void sched(void) {
 
 static __noreturn void scheduler_load_balancer(void) {
     loop() {
-        if ((jiffies_get() % SYS_Hz) == 0) {
+        if ((jiffies_get() % (SYS_Hz * 60)) == 0) {
             MLFQ_balance();
         }
         cpu_pause();
