@@ -1059,8 +1059,7 @@ int mmap_focus(mmap_t *mmap, uintptr_t *ref) {
     return 0;
 }
 
-int mmap_argenvcpy(mmap_t *mmap, const char *src_argp[],
-    const char *src_envp[], char **pargv[], int *pargc, char **penvv[]) {
+int mmap_argenvcpy(mmap_t *mmap, const char *src_argp[], const char *src_envp[], char **pargv[], int *pargc, char **penvv[]) {
     int argc        = 0,    envc     = 0;
     int err         = 0,    index    = 0;
     size_t argslen  = 0,    envslen  = 0;

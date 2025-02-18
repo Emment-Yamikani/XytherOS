@@ -3,6 +3,8 @@
 #include <sys/schedule.h>
 #include <sys/thread.h>
 
+QUEUE(global_thread_queue);
+
 const char *tget_state(tstate_t state) {
     static const char *states[] = {
         [T_EMBRYO]      = "T_EMBRYO",
@@ -175,4 +177,77 @@ int thread_builtin_init(void) {
     }
 
     return 0;
+}
+
+int thread_queue_get_thread(queue_t *queue, tid_t tid, tstate_t state, thread_t **ptp) {
+    if (queue == NULL)
+        return -EINVAL;
+
+    queue_foreach(queue, thread_t *, thread) {
+        if (thread == current)
+            continue;
+
+        thread_lock(thread);
+
+        if ((tid == 0) && thread_in_state(thread, state)) {
+            if (ptp) *ptp = thread;
+            else thread_unlock(thread);
+            return 0;
+        } else if ((thread_gettid(thread) == tid) || (tid == 0)) {
+            if (ptp) *ptp = thread;
+            else thread_unlock(thread);
+            return 0;
+        }
+
+        thread_unlock(thread);
+    }
+
+    return -ESRCH;
+}
+
+int thread_wait(thread_t *thread) {
+    int err = 0;
+
+    if (thread == NULL)
+        return -EINVAL;
+    
+    if (thread == current)
+        return -EDEADLK;
+
+    if (thread_iszombie(thread) || thread_isterminated(thread))
+        return 0;
+
+    while (!thread_in_state(thread, T_ZOMBIE)) {
+        if ((err = cond_wait_releasing(&thread->t_event, &thread->t_lock))) {
+            return err;
+        }
+    }
+
+    return 0;
+}
+
+int thread_join(tid_t tid, thread_info_t *info, void **prp) {
+    int         err = 0;
+    thread_t    *thread = NULL;
+
+    if (tid == gettid())
+        return -EDEADLK;
+
+    queue_lock(current->t_group);
+    
+    if ((err = thread_queue_get_thread(current->t_group, tid, 0, &thread))) {
+        queue_unlock(current->t_group);
+        return err;
+    }
+
+    queue_unlock(current->t_group);
+
+    if ((err = thread_wait(thread))) {
+        thread_unlock(thread);
+        return err;
+    }
+
+    // If we get here, target thread has entered T_ZOMBIE state.
+    // Clean ttarget thread.
+    return thread_reap(thread, info, prp);
 }

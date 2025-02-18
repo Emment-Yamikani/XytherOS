@@ -10,6 +10,8 @@
 #include <sync/spinlock.h>
 #include <dev/timer.h>
 
+extern queue_t *global_thread_queue;
+
 /** @file
  *  @brief Threading library header for xytherOS.
  *  
@@ -337,7 +339,7 @@ typedef struct thread_t {
  *
  * @return 0 on success, or -EINVAL if the state is invalid. */
 #define thread_enter_state(t, s) ({             \
-    bool locked = thread_recursive_lock(t);      \
+    bool locked = thread_recursive_lock(t);     \
     int err = 0;                                \
     if ((s) >= T_EMBRYO && (s) <= T_TERMINATED) \
         (t)->t_info.ti_state = (s);             \
@@ -356,12 +358,12 @@ typedef struct thread_t {
  * @param t Thread pointer.
  *
  * @return The current thread state. */
-#define thread_get_state(t) ({             \
+#define thread_get_state(t) ({              \
     bool locked = thread_recursive_lock(t); \
-    tstate_t state = (t)->t_info.ti_state; \
-    if (locked)                            \
-        thread_unlock(t);                  \
-    state;                                 \
+    tstate_t state = (t)->t_info.ti_state;  \
+    if (locked)                             \
+        thread_unlock(t);                   \
+    state;                                  \
 })
 
 #define thread_in_state(t, s)       (thread_get_state(t) == (s))
@@ -456,18 +458,20 @@ extern tid_t    gettid(void);
 extern tid_t    thread_gettid(thread_t *thread);
 extern pid_t    thread_getpid(thread_t *thread);
 extern tid_t    thread_self(void);
-
 extern void     thread_exit(uintptr_t exit_code);
+extern int      thread_join(tid_t tid, thread_info_t *info, void **prp);
+extern int      thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, int cflags, thread_t **ptp);
+
+extern void     thread_free(thread_t *thread);
 extern int      thread_schedule(thread_t *thread);
 extern int      thread_get_prio(thread_t *thread);
 extern int      thread_set_prio(thread_t *thread, int prio);
 extern int      thread_alloc(usize stack_size, int cflags, thread_t **ptp);
 extern int      thread_reap(thread_t *thread, thread_info_t *info, void **retval);
 
+extern int      thread_queue_get_thread(queue_t *queue, tid_t tid, tstate_t state, thread_t **ptp);
 extern int      thread_join_group(thread_t *thread);
 extern int      thread_create_group(thread_t *thread);
-
-extern int      thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, int cflags, thread_t **ptp);
 
 extern int      thread_builtin_init(void);
 

@@ -28,19 +28,12 @@ int thread_reap(thread_t *thread, thread_info_t *info, void **retval) {
     //get the return value.
     if (retval) *retval = (void *)thread->t_info.ti_exit;
 
-    // Detach thread from all queues
-    if (thread->t_global_qnode.queue)
-        embedded_queue_remove(thread->t_global_qnode.queue, &thread->t_global_qnode);
+    if (thread_isdetached(thread)) {
+        thread_unlock(thread);
+        if (retval) *retval = (void *)thread->t_info.ti_exit;
+        return 0;
+    }
 
-    if (thread->t_group_qnode.queue)
-        embedded_queue_remove(thread->t_group_qnode.queue, &thread->t_group_qnode);
-
-    if (thread->t_run_qnode.queue)
-        embedded_queue_remove(thread->t_run_qnode.queue, &thread->t_run_qnode);
-
-    if (thread->t_wait_qnode.queue)
-        embedded_queue_remove(thread->t_wait_qnode.queue, &thread->t_wait_qnode);
-
-    todo("'Implement me :)'\n");
+    thread_free(thread);
     return 0;
 }

@@ -8,7 +8,7 @@ int queue_init(queue_t *queue) {
     if (queue == NULL)
         return -EINVAL;
     memset(queue, 0, sizeof *queue);
-    queue->q_lock = SPINLOCK_INIT();
+    spinlock_init(&queue->q_lock);
     return 0;
 }
 

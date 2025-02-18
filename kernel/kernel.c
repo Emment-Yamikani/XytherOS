@@ -2,15 +2,14 @@
 #include <sys/thread.h>
 
 void thread(void) {
-    loop() debuglog();
-}
+} BUILTIN_THREAD(thread, thread, NULL);
 
 __noreturn void kthread_main(void) {
     thread_builtin_init();
 
-    for (int i = 0; i < 500; ++i)
-        thread_create(NULL, (void *)thread, NULL, THREAD_CREATE_SCHED, NULL);
+    thread_join(2, NULL, NULL);
 
+    debuglog();
     loop() {
     }
 }
