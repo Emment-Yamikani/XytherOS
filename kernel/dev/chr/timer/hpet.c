@@ -132,23 +132,32 @@ int hpet_init(void) {
 
     HPET = (atomic_u64 *)V2HI(hpet->blk_addr);
 
-    hpet_disable();
+    hpet_disable(); // halt the main counter.
     if ((err = hpet_tmr_init(0)))
         return err;
 
-    HPET_MAIN_COUNTER_VAL = 0;
+    HPET_MAIN_COUNTER_VAL = 0;          // Reset the main counter.
 
+    // Set timer 0 to generate IRQ 2.
     HPET_TMR_SET_INT_RT_CNF(0, IRQ_HPET);
-    tmrcnf = HPET_TMR0_CNF;
-    tmrcnf |= HPET_TMR_VAL_SET_CNF;
-    tmrcnf |= HPET_TMR_PERIODIC_EN;
-    tmrcnf |= HPET_TMR_LEVEL_TRIG_CNF;
-    tmrcnf |= HPET_TMR_INT_EN_CNF;
 
-    HPET_TMR0_CNF = tmrcnf;
+    tmrcnf = HPET_TMR0_CNF;             // Get the cap and cnf register of timer 0.
+    tmrcnf |= HPET_TMR_VAL_SET_CNF;     // Set VAL set bit.
+    tmrcnf |= HPET_TMR_PERIODIC_EN;     // Set to run in periodic mode.
+    tmrcnf |= HPET_TMR_LEVEL_TRIG_CNF;  // Set to run in level-triggered mode.
+    tmrcnf |= HPET_TMR_INT_EN_CNF;      // Enable timer 0 to generate interrupts.
+
+    // if the main counter is 32bit, force the timer to run in 32bit mode.
+    tmrcnf |= HPET_COUNTER_SIZE == 0 ? HPET_TMR_32MODE_CNF : 0;
+
+    HPET_TMR0_CNF = tmrcnf;             // Put the changes into effect.
+    // Set the comparator val registers.
     HPET_TMR0_CMP = (1000000000000000uL / SYS_Hz) / HPET_CLK_PERIOD;
+
+    // Enable the main counter.
     hpet_enable();
 
+    // Enable the timer to fire interrupts via I/O (x) APIC.
     interrupt_controller_enable(IRQ_HPET, getcpuid());
     return 0;
 }
