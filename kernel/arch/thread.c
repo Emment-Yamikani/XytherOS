@@ -19,6 +19,12 @@ int arch_uthread_init(arch_thread_t *arch, thread_entry_t entry, void *arg) {
 #endif
 }
 
+void arch_thread_free(arch_thread_t *arch) {
+#if defined __x86_64__
+    x86_64_thread_free(arch);
+#endif
+}
+
 int arch_kthread_init(arch_thread_t *arch, thread_entry_t entry, void *arg) {
 #if defined __x86_64__
     return x86_64_kthread_init(arch, entry, arg);

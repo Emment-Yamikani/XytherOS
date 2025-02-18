@@ -10,3 +10,5 @@ extern int x86_64_thread_execve(arch_thread_t *arch, thread_entry_t entry,
 extern int x86_64_thread_setkstack(arch_thread_t *arch);
 extern int x86_64_thread_fork(arch_thread_t *dst, arch_thread_t *src);
 extern void x86_64_signal_return(void);
+
+extern void x86_64_thread_free(arch_thread_t *arch);
