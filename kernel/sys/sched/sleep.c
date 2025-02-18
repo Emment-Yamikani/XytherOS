@@ -4,6 +4,7 @@
 
 void sched_yield(void) {
     current_lock();
+    current_enter_state(T_READY);
     sched();
     current_unlock();
 }
