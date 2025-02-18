@@ -328,12 +328,6 @@ static void MLFQ_balance(void) {
     MLFQ_push();
 }
 
-void scheduler_tick(void) {
-    if ((jiffies_get() % SYS_Hz) == 0) {
-        MLFQ_balance();
-    }
-}
-
 static void hanlde_thread_state(void) {
     int err = 0;
 
@@ -421,3 +415,12 @@ void sched(void) {
     cpu->ncli   = ncli;
     enable_preemption();
 }
+
+static __noreturn void scheduler_load_balancer(void) {
+    loop() {
+        if ((jiffies_get() % SYS_Hz) == 0) {
+            MLFQ_balance();
+        }
+        cpu_pause();
+    }
+} BUILTIN_THREAD(scheduler_load_balancer, scheduler_load_balancer, NULL);
