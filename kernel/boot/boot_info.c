@@ -1,3 +1,4 @@
+#include <bits/errno.h>
 #include <boot/boot.h>
 #include <core/assert.h>
 #include <string.h>
@@ -160,6 +161,9 @@ void multiboot_info_process(multiboot_info_t *mbi) {
         bootinfo.fb.height = mbi->framebuffer_height;
         bootinfo.fb.addr   = V2HI(mbi->framebuffer_addr);
         bootinfo.fb.size   = mbi->framebuffer_height * mbi->framebuffer_pitch;
+
+        int err;
+        assert_eq(err = framebuffer_gfx_init(), 0, "Error[%s]: FRAMEBUFFER init failed\n", perror(err));
     }
 
     // Get bootloader name

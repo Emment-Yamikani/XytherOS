@@ -14,8 +14,8 @@ DEV_DECL_OPS(static, fb);
 static int fb_vmr_fault(vmr_t *region, vm_fault_t *fault);
 
 static dev_t            fbdev;
-fb_fixinfo_t     fix_info       = {0};
-fb_varinfo_t     var_info       = {0};
+fb_fixinfo_t            fix_info       = {0};
+fb_varinfo_t            var_info       = {0};
 static framebuffer_t    fbs[NFBDEV]    = {0};
 
 static vmr_ops_t fb_vmrops = {
@@ -37,7 +37,9 @@ int framebuffer_gfx_init(void) {
         return -ENOENT;
 
     memset(fbs, 0, sizeof fbs);
+
     memset(&fix_info, 0, sizeof fix_info);
+
     memset(&var_info, 0, sizeof var_info);
 
     fix_info.addr       = bootinfo.fb.addr;
@@ -63,7 +65,6 @@ int framebuffer_gfx_init(void) {
     fbs[0].fixinfo      = &fix_info;
     fbs[0].varinfo      = &var_info;
     fbs[0].priv         = &bootinfo.fb;
-    earlycons_use_gfx   = 1;
     return 0;
 }
 

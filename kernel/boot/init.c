@@ -20,10 +20,13 @@ void early_init(void) {
     assert_eq(err = timer_init(), 0,
         "Error[%s]: initializing timers.\n", perror(err));
 
+    ap_signal();
+
+    // TODO: add anything else to kthread_main().
+
     assert_eq(err = thread_create(NULL, (thread_entry_t)kthread_main, NULL, THREAD_CREATE_SCHED, NULL), 0,
         "Failed to create main kernel thread: err: %s\n", perror(err));
 
-    ap_signal();
     scheduler();
 
     loop() asm volatile ("pause");

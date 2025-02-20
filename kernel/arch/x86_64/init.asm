@@ -203,7 +203,6 @@ start64:
     mov     qword [rdi], 0      ; Unmap PML4E0
     invlpg  [0]                 ; Invalidate TLB entry for address 0
 
-    ;call    earlycons_init
     call    early_init
 
     ; Halt the CPU (end of initialization)
