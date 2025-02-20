@@ -104,8 +104,8 @@ int thread_create_group(thread_t *thread) {
     if (thread->t_group)
         return -EALREADY;
 
-    if (NULL == (queue = kmalloc(sizeof *queue)))
-        return -ENOMEM;
+    if ((err = queue_alloc(&queue)))
+        return err;
 
     if ((err = queue_init(queue))) {
         goto error;
@@ -128,7 +128,7 @@ int thread_create_group(thread_t *thread) {
 
     return 0;
 error:
-    if (queue) kfree(queue);
+    if (queue) queue_free(queue);
     if (cred) {
         todo("FIXME!\n"); }
     if (fctx) {
@@ -235,7 +235,7 @@ int thread_join(tid_t tid, thread_info_t *info, void **prp) {
 
     queue_lock(current->t_group);
     
-    if ((err = thread_queue_get_thread(current->t_group, tid, 0, &thread))) {
+    if ((err = thread_queue_get_thread(current->t_group, tid, T_ZOMBIE, &thread))) {
         queue_unlock(current->t_group);
         return err;
     }

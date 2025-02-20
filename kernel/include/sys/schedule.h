@@ -53,5 +53,7 @@ extern __noreturn void scheduler(void);
 extern void sched_yield(void);
 
 extern int sched_wakeup_all(queue_t *wait_queue, size_t *pnt);
+extern int sched_wakeup_specific(queue_t *wait_queue, tid_t tid);
 extern int sched_wakeup(queue_t *wait_queue, queue_relloc_t whence);
+extern int sched_detach_and_wakeup(queue_t *wait_queue, thread_t *thread);
 extern int sched_wait(queue_t *wait_queue, tstate_t state, queue_relloc_t whence, spinlock_t *lock);

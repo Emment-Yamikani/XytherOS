@@ -1,5 +1,6 @@
-#include <sys/thread.h>
 #include <core/debug.h>
+#include <sys/schedule.h>
+#include <sys/thread.h>
 
 void thread_exit(uintptr_t exit_code) {
     current_assert();
@@ -30,10 +31,52 @@ int thread_reap(thread_t *thread, thread_info_t *info, void **retval) {
 
     if (thread_isdetached(thread)) {
         thread_unlock(thread);
-        if (retval) *retval = (void *)thread->t_info.ti_exit;
         return 0;
     }
 
     thread_free(thread);
     return 0;
+}
+
+int thread_kill(tid_t tid) {
+    int         err     = 0;
+
+    if (tid <= 0)
+        return -EINVAL;
+
+try:
+    queue_lock(current->t_group);
+    embedded_queue_foreach(current->t_group, thread_t, thread, t_group_qnode) {
+        thread_lock(thread);
+
+        if (thread_gettid(thread) == tid) {
+            thread_set(thread, THREAD_KILLED);
+
+            if (thread->t_wait_queue) {
+                if (queue_trylock(thread->t_wait_queue)) {
+                    thread_unlock(thread);
+                    queue_unlock(current->t_group);
+                    goto try;
+                }
+
+                if ((err = sched_detach_and_wakeup(thread->t_wait_queue, thread))) {
+                    thread_unlock(thread);
+                    queue_unlock(current->t_group);
+                    queue_unlock(thread->t_wait_queue);
+                    return err;
+                }
+
+                queue_unlock(thread->t_wait_queue);
+            }
+
+            thread_unlock(thread);
+            queue_unlock(current->t_group);
+            return 0;
+        }
+
+        thread_unlock(thread);
+    }
+
+    queue_unlock(current->t_group);
+    return -ESRCH;
 }
