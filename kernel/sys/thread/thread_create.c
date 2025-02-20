@@ -272,7 +272,7 @@ void thread_free(thread_t *thread) {
 
     if (thread->t_group) {
         queue_lock(thread->t_group);
-        embedded_queue_remove(queue, &thread->t_group);
+        embedded_queue_remove(queue, &thread->t_group_qnode);
         queue_unlock(thread->t_group);
     }
 
