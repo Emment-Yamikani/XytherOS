@@ -6,8 +6,8 @@
 struct queue;
 
 typedef enum {
-    QUEUE_ALLOW_DUPLICATES = 0,
-    QUEUE_ENFORCE_UNIQUE = 1
+    QUEUE_ALLOW_DUPLICATES  = 0,
+    QUEUE_ENFORCE_UNIQUE    = 1,
 } queue_uniqueness_t;
 
 // rellocation points, used with queue rellocation functions.
@@ -20,7 +20,6 @@ typedef struct queue_node {
     struct queue_node   *prev;
     void                *data;
     struct queue_node   *next;
-    struct queue        *queue;
 } queue_node_t;
 
 typedef struct queue {

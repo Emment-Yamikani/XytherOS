@@ -43,7 +43,6 @@ void queue_flush(queue_t *queue) {
             queue->tail = prev;
 
         queue->q_count--;
-        node->queue = NULL;
         kfree(node);
     }
 
@@ -52,8 +51,7 @@ void queue_flush(queue_t *queue) {
 }
 
 void queue_free(queue_t *queue) {
-    if (!queue_islocked(queue))
-        queue_lock(queue);
+    queue_recursive_lock(queue);
     queue_flush(queue);
     queue_unlock(queue);
     kfree(queue);
@@ -129,7 +127,6 @@ int enqueue(queue_t *queue, void *data, queue_uniqueness_t uniqueness, queue_nod
     }
 
     queue->tail = node;
-    node->queue = queue;
     queue->q_count++;
 
     if (pnp)
@@ -166,7 +163,6 @@ int enqueue_head(queue_t *queue, void *data, queue_uniqueness_t uniqueness, queu
     }
 
     queue->head = node;
-    node->queue = queue;
     queue->q_count++;
 
     if (pnp)
@@ -207,7 +203,6 @@ int dequeue(queue_t *queue, void **pdp) {
             queue->tail = prev;
 
         queue->q_count--;
-        node->queue = NULL;
         kfree(node);
 
         return 0;
@@ -240,7 +235,6 @@ int dequeue_tail(queue_t *queue, void **pdp) {
             queue->tail = prev;
 
         queue->q_count--;
-        node->queue = NULL;
         kfree(node);
 
         return 0;
@@ -278,7 +272,6 @@ int queue_remove_node(queue_t *queue, queue_node_t *__node) {
                 queue->tail = prev;
 
             queue->q_count--;
-            node->queue = NULL;
             kfree(node);
             return 0;
         }
@@ -308,7 +301,6 @@ int queue_remove(queue_t *queue, void *data) {
                 queue->tail = prev;
 
             queue->q_count--;
-            node->queue = NULL;
             kfree(node);
             return 0;
         }
@@ -325,9 +317,6 @@ int queue_rellocate_node(queue_t *queue, queue_node_t *node, queue_relloc_t when
         return -EINVAL;
 
     queue_assert_locked(queue);
-
-    if (node->queue != queue)
-        return -EPERM;
     
     if (whence != QUEUE_RELLOC_HEAD && whence != QUEUE_RELLOC_TAIL)
         return -EINVAL;
@@ -504,7 +493,6 @@ int queue_node_migrate(queue_t *dstq, queue_t *srcq, usize start_pos, usize num_
 
     // Update the node->queue pointer to point to dstq
     forlinked(node, first_node, node->next) {
-        node->queue = dstq;
         // debug("node{%p}->{%p}\n", node, node->next);
     }
 

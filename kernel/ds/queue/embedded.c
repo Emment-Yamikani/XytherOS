@@ -21,7 +21,6 @@ void embedded_queue_flush(queue_t *queue) {
 
         queue->q_count--;
 
-        node->queue = NULL;
         node->next  = NULL;
         node->prev  = NULL;
     }
@@ -83,7 +82,6 @@ int embedded_enqueue(queue_t *queue, queue_node_t *qnode, queue_uniqueness_t uni
     }
 
     queue->tail  = qnode;
-    qnode->queue = queue;
 
     queue->q_count++;
     return 0;
@@ -110,7 +108,6 @@ int embedded_enqueue_head(queue_t *queue, queue_node_t *qnode, queue_uniqueness_
     }
 
     queue->head  = qnode;
-    qnode->queue = queue;
 
     queue->q_count++;
     return 0;
@@ -149,7 +146,6 @@ int embedded_dequeue(queue_t *queue, queue_node_t **pnp) {
 
         queue->q_count--;
 
-        node->queue = NULL;
         node->next  = NULL;
         node->prev  = NULL;
 
@@ -185,7 +181,6 @@ int embedded_dequeue_tail(queue_t *queue, queue_node_t **pnp) {
 
         queue->q_count--;
 
-        node->queue = NULL;
         node->next  = NULL;
         node->prev  = NULL;
 
@@ -230,7 +225,6 @@ int embedded_queue_detach(queue_t *queue, queue_node_t *qnode) {
 
     queue->q_count--;
 
-    qnode->queue = NULL;
     qnode->next  = NULL;
     qnode->prev  = NULL;
 
@@ -263,7 +257,6 @@ int embedded_queue_replace(queue_t *queue, queue_node_t *qnode0, queue_node_t *q
     // Iterate through the queue to find the node containing `qnode0`.
     forlinked(node, queue->head, node->next) {
         if (node == qnode0) {
-            qnode1->queue= queue;
             qnode1->next = node->next;
             qnode1->prev = node->prev;
 
@@ -285,7 +278,6 @@ int embedded_queue_replace(queue_t *queue, queue_node_t *qnode0, queue_node_t *q
 
             node->next = NULL;
             node->prev = NULL;
-            node->queue= NULL;
             return 0;
         }
     }
@@ -323,7 +315,6 @@ int embedded_queue_migrate(queue_t *dst, queue_t *src, usize pos, usize n, queue
 
     // Find the ending node.
     for (usize i = 1; i < n; ++i) {
-        last->queue = dst; // update the node->queue pointer.
         last = last->next;
     }
 

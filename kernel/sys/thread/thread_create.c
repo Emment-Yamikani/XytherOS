@@ -92,9 +92,9 @@ int thread_alloc(usize kstack_size, int flags, thread_t **ptp) {
 
     /* Initialize scheduling information */
     sched = &tinfo->ti_sched;
+    sched->ts_ctime         = epoch_get();
     sched->ts_affin.cpu_set = -1; /* -1 means all CPUs allowed */
     sched->ts_affin.type    = SOFT_AFFINITY;
-    sched->ts_ctime         = epoch_get();
 
     /* Initialize thread qnodes */
     thread->t_wait_qnode.data   = (void *)thread;
@@ -266,29 +266,24 @@ void thread_free(thread_t *thread) {
     thread_recursive_lock(thread);
 
     // Detach thread from all queues
-    if (thread->t_global_qnode.queue) {
-        queue = thread->t_global_qnode.queue;
-        queue_lock(queue);
-        embedded_queue_remove(queue, &thread->t_global_qnode);
-        queue_unlock(queue);
+    queue_lock(global_thread_queue);
+    embedded_queue_remove(global_thread_queue, &thread->t_global_qnode);
+    queue_unlock(global_thread_queue);
+
+    if (thread->t_group) {
+        queue_lock(thread->t_group);
+        embedded_queue_remove(queue, &thread->t_group);
+        queue_unlock(thread->t_group);
     }
 
-    if (thread->t_group_qnode.queue) {
-        queue = thread->t_group_qnode.queue;
-        queue_lock(queue);
-        embedded_queue_remove(queue, &thread->t_group_qnode);
-        queue_unlock(queue);
-    }
-
-    if (thread->t_run_qnode.queue) {
-        queue = thread->t_run_qnode.queue;
-        queue_lock(queue);
+    if (thread->t_run_queue) {
+        queue_lock(thread->t_run_queue);
         embedded_queue_remove(queue, &thread->t_run_qnode);
-        queue_unlock(queue);
+        queue_unlock(thread->t_run_queue);
     }
 
-    if (thread->t_wait_qnode.queue) {
-        queue = thread->t_wait_qnode.queue;
+    if (thread->t_wait_queue) {
+        queue = thread->t_wait_queue;
         queue_lock(queue);
         embedded_queue_remove(queue, &thread->t_wait_qnode);
         queue_unlock(queue);

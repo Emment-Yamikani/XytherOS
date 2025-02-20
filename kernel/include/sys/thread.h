@@ -176,7 +176,11 @@ typedef struct thread_t {
 
     queue_node_t    t_global_qnode; /**< Global Queue node for this thread */
     queue_node_t    t_group_qnode;  /**< Queue node for this thread group */
+
+    queue_t         *t_run_queue;
     queue_node_t    t_run_qnode;    /**< Run Queue node for this thread */
+
+    queue_t         *t_wait_queue;
     queue_node_t    t_wait_qnode;   /**< Wait Queue node for this thread */
 
     spinlock_t      t_lock;         /**< Lock protecting the thread structure */
@@ -213,6 +217,7 @@ typedef struct thread_t {
 #define THREAD_SUSPEND              BS(13)  /**< Thread execution is suspended */
 #define THREAD_KILLEXCEPT           BS(14)  /**< Special kill exception flag */
 #define THREAD_LOCK_GROUP           BS(15)  /**< Lock thread group before locking thread structure */
+#define THREAD_WAKINGUP             BS(16)  /**< Thread is being woken up. */
 
 /*=====================================================================
  *  Thread Locking and Flag Manipulation Macros
@@ -453,11 +458,12 @@ extern builtin_thread_t __builtin_thrds_end[];
  *====================================================================*/
 
 /* Thread and process function prototype */
-extern tid_t    gettid(void);
-
 extern tid_t    thread_gettid(thread_t *thread);
 extern pid_t    thread_getpid(thread_t *thread);
+
+extern tid_t    gettid(void);
 extern tid_t    thread_self(void);
+extern int      thread_kill(tid_t tid);
 extern void     thread_exit(uintptr_t exit_code);
 extern int      thread_join(tid_t tid, thread_info_t *info, void **prp);
 extern int      thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, int cflags, thread_t **ptp);
@@ -465,6 +471,7 @@ extern int      thread_create(thread_attr_t *attr, thread_entry_t entry, void *a
 extern void     thread_free(thread_t *thread);
 extern int      thread_schedule(thread_t *thread);
 extern int      thread_get_prio(thread_t *thread);
+extern int      thread_wakeup(thread_t *thread);
 extern int      thread_set_prio(thread_t *thread, int prio);
 extern int      thread_alloc(usize stack_size, int cflags, thread_t **ptp);
 extern int      thread_reap(thread_t *thread, thread_info_t *info, void **retval);
