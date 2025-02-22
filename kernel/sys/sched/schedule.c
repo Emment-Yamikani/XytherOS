@@ -212,13 +212,13 @@ __unused static void MLFQ_pull(void) {
 
         // Attempt to acquire locks.
         loop() {
-            if (queue_trylock(&target_level->run_queue) == 0) {
-                if (queue_trylock(&level->run_queue) == 0) {
+            if (queue_trylock(&target_level->run_queue)) {
+                if (queue_trylock(&level->run_queue)) {
                     break;
                 }
                 queue_unlock(&target_level->run_queue);  // Release first lock before continuing.
             }
-            jiffies_timed_wait(5);
+            jiffies_timed_wait(2);
         }
 
         // Successfully acquired both locks, proceed with migration.
@@ -287,8 +287,8 @@ static void MLFQ_push(void) {
         target_level = MLFQ_get_level(target_mlfq, level - current_mlfq->level);
         assert(target_level, "Invalid target level.\n");
 
-        if (queue_trylock(&level->run_queue) == 0) {
-            if (queue_trylock(&target_level->run_queue)) {
+        if (queue_trylock(&level->run_queue)) {
+            if (queue_trylock(&target_level->run_queue) == 0) {
                 // Locks not avalable.
                 queue_lock(&level->run_queue);
                 /**
