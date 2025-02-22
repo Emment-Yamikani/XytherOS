@@ -9,6 +9,7 @@ void spinlock_init(spinlock_t *lk) {
         .file   = NULL,
         .owner  = NULL,
         .locked = false,
-        .threaded = 0
     };
+
+    arch_raw_lock_init(&lk->guard);
 }

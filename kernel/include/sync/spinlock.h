@@ -9,11 +9,10 @@
 typedef struct spinlock_t_t {
     arch_raw_lock_t guard;
     uint            locked;
-    int             threaded;
     void            *owner;
 
-    int     line;
-    char    *file;
+    int             line;
+    char            *file;
 } spinlock_t;
 
 #define SPINLOCK_INIT() ((spinlock_t){ \
@@ -34,14 +33,13 @@ extern void spinlock_init(spinlock_t *lk);
 static inline int holding(spinlock_t *lk) {
     int self;
     spin_assert(lk);
-    self = (lk)->threaded ? (lk)->owner == current : (lk)->owner == cpu;
+    self = lk->owner == current || lk->owner == cpu;
     return (lk)->locked && self;
 }
 
 #define spin_acquire(lk) ({                                                                  \
     spin_assert(lk);                                                                         \
     pushcli();                                                                               \
-    memory_barrier();                                                                        \
                                                                                              \
     arch_raw_lock_acquire(&(lk)->guard);                                                     \
     assert_eq(holding(lk), 0, "Spinlock already held @ [%s:%d].\n", (lk)->file, (lk)->line); \
@@ -61,7 +59,6 @@ static inline int holding(spinlock_t *lk) {
     (lk)->locked = 1;                                                                        \
     (lk)->file = __FILE__;                                                                   \
     (lk)->line = __LINE__;                                                                   \
-    (lk)->threaded = current ? 1 : 0;                                                        \
     (lk)->owner = current ? (void *)current : (void *)cpu;                                   \
                                                                                              \
     arch_raw_lock_release(&(lk)->guard);                                                     \
@@ -81,14 +78,11 @@ static inline int holding(spinlock_t *lk) {
     arch_raw_lock_acquire(&(lk)->guard);                   \
     assert_eq(holding(lk), 1, "Spinlock must be held.\n"); \
                                                            \
-    (lk)->locked = 0;                                      \
     (lk)->line = 0;                                        \
     (lk)->file = NULL;                                     \
-    (lk)->threaded = 0;                                    \
     (lk)->owner = NULL;                                    \
-                                                           \
+    (lk)->locked = 0;                                      \
     arch_raw_lock_release(&(lk)->guard);                   \
-    memory_barrier();                                      \
     popcli();                                              \
     popcli();                                              \
 })
@@ -104,14 +98,9 @@ static inline int holding(spinlock_t *lk) {
     spin_assert(lk);                     \
     pushcli();                           \
     arch_raw_lock_acquire(&(lk)->guard); \
-    memory_barrier();                    \
-                                         \
     locked = holding(lk);                \
-                                         \
     arch_raw_lock_release(&(lk)->guard); \
-    memory_barrier();                    \
     popcli();                            \
-                                         \
     locked;                              \
 })
 
@@ -129,22 +118,20 @@ static inline int holding(spinlock_t *lk) {
 })
 
 #define spin_trylock(lk) ({                                                                  \
-    int not_locked = 1;                                                                      \
+    int success = 0;                                                                         \
                                                                                              \
     spin_assert(lk);                                                                         \
     pushcli();                                                                               \
-    memory_barrier();                                                                        \
                                                                                              \
     arch_raw_lock_acquire(&(lk)->guard);                                                     \
     assert_eq(holding(lk), 0, "Spinlock already held @ [%s:%d].\n", (lk)->file, (lk)->line); \
                                                                                              \
     if ((lk)->locked == 0)                                                                   \
     {                                                                                        \
-        not_locked = 0;                                                                      \
+        success = 1;                                                                         \
         (lk)->locked = 1;                                                                    \
         (lk)->file = __FILE__;                                                               \
         (lk)->line = __LINE__;                                                               \
-        (lk)->threaded = current ? 1 : 0;                                                    \
         (lk)->owner = current ? (void *)current : (void *)cpu;                               \
     }                                                                                        \
     else                                                                                     \
@@ -154,5 +141,5 @@ static inline int holding(spinlock_t *lk) {
                                                                                              \
     arch_raw_lock_release(&(lk)->guard);                                                     \
     memory_barrier();                                                                        \
-    not_locked;                                                                              \
+    success;                                                                                 \
 })

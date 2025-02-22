@@ -16,6 +16,13 @@
 typedef int arch_raw_lock_t;
 
 /**
+ * @brief Initializes a raw lock.
+ * 
+ * Set's the lock to zero.
+ */
+extern void arch_raw_lock_init(arch_raw_lock_t *lk);
+
+/**
  * @brief Acquires the spinlock.
  *
  * This function implements a busy-wait loop (spinlock) that repeatedly tries
@@ -44,6 +51,6 @@ extern void arch_raw_lock_release(arch_raw_lock_t *lk);
  * If the lock was already held (nonzero), the function returns a nonzero value.
  *
  * @param lk Pointer to the lock variable.
- * @return int 0 if the lock was acquired; nonzero otherwise.
+ * @return int 1 if the lock was acquired; zero otherwise.
  */
 extern int arch_raw_lock_trylock(arch_raw_lock_t *lk);
