@@ -68,20 +68,44 @@ int thread_schedule(thread_t *thread) {
     return sched_enqueue(thread);
 }
 
+int thread_get_info(tid_t tid, thread_info_t *ip) {
+    if (ip == NULL)
+        return -EINVAL;
+
+    queue_lock(global_thread_queue);
+
+    embedded_queue_foreach(global_thread_queue, thread_t, thread, t_global_qnode) {
+        thread_lock(thread);
+        if (thread_gettid(thread) == tid) {
+            *ip = thread->t_info;
+            thread_unlock(thread);
+            queue_unlock(global_thread_queue);
+            return 0;
+        }
+        thread_unlock(thread);
+    }
+    queue_unlock(global_thread_queue);
+
+    return -ESRCH;
+}
+
 void thread_info_dump(thread_info_t *info) {
     printk(
-        "ti_tid:        %d\n"
-        "ti_ktid:       %d\n"
-        "ti_tgid:       %d\n"
-        "ti_entry:      %p\n"
-        "ti_state:      %s\n"
-        "ti_errno:      %d\n"
-        "ti_flags:      %lX\n"
-        "ti_exit_code:  %lX\n",
+        "\n++   Thread Info Dump   ++\n"
+        "+-------------------------+\n"
+        "  ti_tid:        %8d |\n"
+        "  ti_ktid:       %8d |\n"
+        "  ti_tgid:       %8d |\n"
+        "  ti_entry:      %8X |\n"
+        "  ti_state:      %8s |\n"
+        "  ti_errno:      %8d |\n"
+        "  ti_flags:      %8lX |\n"
+        "  ti_exit_code:  %8lX |\n"
+        "+-------------------------+\n",
         info->ti_tid,
         info->ti_ktid,
         info->ti_tgid,
-        info->ti_entry,
+        V2LO(info->ti_entry),
         tget_state(info->ti_state),
         info->ti_errno,
         info->ti_flags,

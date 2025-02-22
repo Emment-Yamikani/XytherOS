@@ -159,6 +159,7 @@ int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, int cfla
     // create a self detatching thread.
     cflags |= t_attr.detachstate ? THREAD_CREATE_DETACHED : 0;
 
+    // user requested a USER thread creation?
     if (cflags & THREAD_CREATE_USER) {
         uc_stack_t  uc_stack = {0};
         vmr_t       *ustack  = NULL;
@@ -213,7 +214,7 @@ int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, int cfla
         if ((err = thread_join_group(thread))) {
             goto error;
         }
-    } else {
+    } else { // create a kernel thread instead.
         // allocate the thread struct and kernel struct.
         if ((err = thread_alloc(t_attr.stacksz, cflags, &thread)))
             return err;
@@ -233,11 +234,19 @@ int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, int cfla
                 goto error;
             }
         }
-
     }
 
     // set the thread's entry point.
     thread->t_info.ti_entry  = entry;
+
+    // Insert this new thread in the global thread queue.
+    queue_lock(global_thread_queue);
+    if ((err = embedded_enqueue(global_thread_queue, &thread->t_global_qnode, QUEUE_ENFORCE_UNIQUE))) {
+        queue_unlock(global_thread_queue);
+        goto error;
+    }
+
+    queue_unlock(global_thread_queue);
 
     // schedule the newly created thread?
     if (cflags & THREAD_CREATE_SCHED) {

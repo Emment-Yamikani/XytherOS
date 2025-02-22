@@ -23,27 +23,30 @@ int sched_wait(queue_t *wait_queue, tstate_t state, queue_relloc_t whence, spinl
     queue_lock(wait_queue);
     current_lock();
 
+    // Insert the current thread into the wait queue.
     if ((err = embedded_enqueue_whence(wait_queue, &current->t_wait_qnode, QUEUE_ENFORCE_UNIQUE, whence))) {
         current_unlock();
         queue_unlock(wait_queue);
         return err;
     }
-    queue_unlock(wait_queue);
+
+    queue_unlock(wait_queue);   // relinquish wait_queue lock.
 
     // set the wait queue back pointer.
     current->t_wait_queue = wait_queue;
 
-    current_enter_state(state);
+    current_enter_state(state); // enter the respective waiting state.
 
-    if (lock) spin_unlock(lock);
+    if (lock) spin_unlock(lock); // releasse the lock.
 
     sched();
 
-    if (lock) spin_lock(lock);
+    if (lock) spin_lock(lock);   // re-acquire the lock.
 
-    if (current_iskilled()) {
+    // check if current thread was sent cancelation request.
+    if (current_iscanceled()) {
         current_unlock();
-        return -EINTR;
+        return -EINTR; // thread was sent a cancelation request.
     }
 
     current_unlock();
@@ -83,7 +86,7 @@ int sched_detach_and_wakeup(queue_t *wait_queue, thread_t *thread) {
     if ((err = sched_wake_thread(thread)))
         return err;
 
-    // reset the wait queue back pointer to NULL.
+    // reset the wait queue's back pointer to NULL.
     thread->t_wait_queue = NULL;
 
     return 0;
