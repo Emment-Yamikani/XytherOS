@@ -185,7 +185,7 @@ typedef struct thread_t {
 
     spinlock_t      t_lock;         /**< Lock protecting the thread structure */
 
-    /* Fields shared with other threads in the same proces */
+    /* Fields shared with other threads in the same thread group */
     proc_info_t     *t_proc;        /**< Associated process information */
     cred_t          *t_cred;        /**< Credentials */
     file_ctx_t      *t_fctx;        /**< File context */
@@ -202,7 +202,7 @@ typedef struct thread_t {
 
 /* Thread state flag */
 #define THREAD_USER                 BS(0)   /**< Thread is a user thread */
-#define THREAD_KILLED               BS(1)   /**< Thread has been killed */
+#define THREAD_CANCEL               BS(1)   /**< Thread has been canceled */
 #define THREAD_PARK                 BS(2)   /**< Park flag is set */
 #define THREAD_WAKE                 BS(3)   /**< Wakeup flag is set */
 #define THREAD_HANDLING_SIG         BS(4)   /**< Thread is handling a signal */
@@ -217,7 +217,6 @@ typedef struct thread_t {
 #define THREAD_SUSPEND              BS(13)  /**< Thread execution is suspended */
 #define THREAD_KILLEXCEPT           BS(14)  /**< Special kill exception flag */
 #define THREAD_LOCK_GROUP           BS(15)  /**< Lock thread group before locking thread structure */
-#define THREAD_WAKINGUP             BS(16)  /**< Thread is being woken up. */
 
 /*=====================================================================
  *  Thread Locking and Flag Manipulation Macros
@@ -295,7 +294,7 @@ typedef struct thread_t {
 #define thread_iswake(t)            thread_test(t, THREAD_WAKE)
 #define thread_isdetached(t)        thread_test(t, THREAD_DETACHED)
 #define thread_issigctx(t)          thread_test(t, THREAD_HANDLING_SIG)
-#define thread_iskilled(t)          thread_test(t, THREAD_KILLED)
+#define thread_iscanceled(t)        thread_test(t, THREAD_CANCEL)
 
 #define thread_setmain(t)           thread_set(t, THREAD_MAIN)
 #define thread_setlast(t)           thread_set(t, THREAD_LAST)
@@ -304,7 +303,7 @@ typedef struct thread_t {
 #define thread_setwake(t)           thread_set(t, THREAD_WAKE)
 #define thread_setdetached(t)       thread_set(t, THREAD_DETACHED)
 #define thread_setsigctx(t)         thread_set(t, THREAD_HANDLING_SIG)
-#define thread_setkill(t)           thread_set(t, THREAD_KILLED)
+#define thread_setkill(t)           thread_set(t, THREAD_CANCEL)
 
 #define thread_mask_park(t)         thread_mask(t, THREAD_PARK)
 #define thread_mask_wake(t)         thread_mask(t, THREAD_WAKE)
@@ -318,7 +317,7 @@ typedef struct thread_t {
 #define current_iswake()            thread_iswake(current)
 #define current_isdetached()        thread_isdetached(current)
 #define current_issigctx()          thread_issigctx(current)
-#define current_iskilled()          thread_iskilled(current)
+#define current_iscanceled()        thread_iscanceled(current)
 
 #define current_setmain()           thread_setmain(current)
 #define current_setlast()           thread_setlast(current)
@@ -463,7 +462,7 @@ extern pid_t    thread_getpid(thread_t *thread);
 
 extern tid_t    gettid(void);
 extern tid_t    thread_self(void);
-extern int      thread_kill(tid_t tid);
+extern int      thread_cancel(tid_t tid);
 extern void     thread_exit(uintptr_t exit_code);
 extern int      thread_join(tid_t tid, thread_info_t *info, void **prp);
 extern int      thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, int cflags, thread_t **ptp);
@@ -472,6 +471,7 @@ extern void     thread_free(thread_t *thread);
 extern int      thread_schedule(thread_t *thread);
 extern int      thread_get_prio(thread_t *thread);
 extern int      thread_wakeup(thread_t *thread);
+extern int      thread_get_info(tid_t tid, thread_info_t *ip);
 extern int      thread_set_prio(thread_t *thread, int prio);
 extern int      thread_alloc(usize stack_size, int cflags, thread_t **ptp);
 extern int      thread_reap(thread_t *thread, thread_info_t *info, void **retval);

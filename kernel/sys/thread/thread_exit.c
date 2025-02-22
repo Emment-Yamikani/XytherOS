@@ -38,7 +38,7 @@ int thread_reap(thread_t *thread, thread_info_t *info, void **retval) {
     return 0;
 }
 
-int thread_kill(tid_t tid) {
+int thread_cancel(tid_t tid) {
     int         err     = 0;
 
     if (tid <= 0)
@@ -50,10 +50,9 @@ try:
         thread_lock(thread);
 
         if (thread_gettid(thread) == tid) {
-            thread_set(thread, THREAD_KILLED);
 
             if (thread->t_wait_queue) {
-                if (queue_trylock(thread->t_wait_queue)) {
+                if (!queue_trylock(thread->t_wait_queue)) {
                     thread_unlock(thread);
                     queue_unlock(current->t_group);
                     goto try;
@@ -68,6 +67,9 @@ try:
 
                 queue_unlock(thread->t_wait_queue);
             }
+
+            thread_set(thread, THREAD_CANCEL);
+            thread->t_info.ti_ktid = gettid();
 
             thread_unlock(thread);
             queue_unlock(current->t_group);
