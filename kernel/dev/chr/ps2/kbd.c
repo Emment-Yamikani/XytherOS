@@ -107,9 +107,7 @@ static ssize_t ps2kbd_read(struct devid *dd __unused, off_t off __unused, void *
         buffer_lock();
         // nothing to read, goto sleep.
         if (ringbuf_isempty(&kbd_buffer)) {
-            current_lock();
             sched_wait(kbd_waiter, T_SLEEP, QUEUE_RELLOC_TAIL, &kbd_buffer.lock);
-            current_unlock();
         }
         ringbuf_read(&kbd_buffer, (char *)buf + cnt, 1);
         buffer_unlock();
