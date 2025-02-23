@@ -16,7 +16,16 @@ To get started with XytherOS, follow these steps:
    ```sh
    git clone https://github.com/emment-yamikani/xytheros.git
    ```
-2. Build the OS using the provided toolchain:
+2. Build the OS using the latest GNU cross compiler toolchain:
+### NOTE: Before building.
+   Ensure you are using the latest version of GCC cross compiler and Binutils. Preferably greater than gcc-14.2.0 && binutils-2.44. Run the shell script:
+
+   ```sh
+   ./build_cross.sh
+   ```
+
+   This will build and install gcc-14.2.0 and binutils-2.44. For different versions please modify `build_cross.sh` with respective versions greater than the defaults.
+   
    ```sh
    make all
    ```
