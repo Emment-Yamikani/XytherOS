@@ -1,4 +1,4 @@
-/* Copyright (C) 2013-2020 Free Software Foundation, Inc.
+/* Copyright (C) 2013-2024 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -49,6 +49,9 @@ typedef _Atomic long atomic_long;
 typedef _Atomic unsigned long atomic_ulong;
 typedef _Atomic long long atomic_llong;
 typedef _Atomic unsigned long long atomic_ullong;
+#ifdef __CHAR8_TYPE__
+typedef _Atomic __CHAR8_TYPE__ atomic_char8_t;
+#endif
 typedef _Atomic __CHAR16_TYPE__ atomic_char16_t;
 typedef _Atomic __CHAR32_TYPE__ atomic_char32_t;
 typedef _Atomic __WCHAR_TYPE__ atomic_wchar_t;
@@ -76,7 +79,9 @@ typedef _Atomic __INTMAX_TYPE__ atomic_intmax_t;
 typedef _Atomic __UINTMAX_TYPE__ atomic_uintmax_t;        
 
 
+#if !(defined __STDC_VERSION__ && __STDC_VERSION__ > 201710L)
 #define ATOMIC_VAR_INIT(VALUE)	(VALUE)
+#endif
 
 /* Initialize an atomic object pointed to by PTR with VAL.  */
 #define atomic_init(PTR, VAL)                           \
@@ -97,6 +102,9 @@ extern void atomic_signal_fence (memory_order);
 
 #define ATOMIC_BOOL_LOCK_FREE		__GCC_ATOMIC_BOOL_LOCK_FREE
 #define ATOMIC_CHAR_LOCK_FREE		__GCC_ATOMIC_CHAR_LOCK_FREE
+#ifdef __GCC_ATOMIC_CHAR8_T_LOCK_FREE
+#define ATOMIC_CHAR8_T_LOCK_FREE	__GCC_ATOMIC_CHAR8_T_LOCK_FREE
+#endif
 #define ATOMIC_CHAR16_T_LOCK_FREE	__GCC_ATOMIC_CHAR16_T_LOCK_FREE
 #define ATOMIC_CHAR32_T_LOCK_FREE	__GCC_ATOMIC_CHAR32_T_LOCK_FREE
 #define ATOMIC_WCHAR_T_LOCK_FREE	__GCC_ATOMIC_WCHAR_T_LOCK_FREE
@@ -107,7 +115,7 @@ extern void atomic_signal_fence (memory_order);
 #define ATOMIC_POINTER_LOCK_FREE	__GCC_ATOMIC_POINTER_LOCK_FREE
 
 
-/* Note that these macros require __typeof__ and __auto_type to remove
+/* Note that these macros require __auto_type to remove
    _Atomic qualifiers (and const qualifiers, if those are valid on
    macro operands).
    
@@ -122,7 +130,7 @@ extern void atomic_signal_fence (memory_order);
   __extension__								\
   ({									\
     __auto_type __atomic_store_ptr = (PTR);				\
-    __typeof__ (*__atomic_store_ptr) __atomic_store_tmp = (VAL);	\
+    __typeof__ ((void)0, *__atomic_store_ptr) __atomic_store_tmp = (VAL);	\
     __atomic_store (__atomic_store_ptr, &__atomic_store_tmp, (MO));	\
   })
 
@@ -134,7 +142,7 @@ extern void atomic_signal_fence (memory_order);
   __extension__								\
   ({									\
     __auto_type __atomic_load_ptr = (PTR);				\
-    __typeof__ (*__atomic_load_ptr) __atomic_load_tmp;			\
+    __typeof__ ((void)0, *__atomic_load_ptr) __atomic_load_tmp;			\
     __atomic_load (__atomic_load_ptr, &__atomic_load_tmp, (MO));	\
     __atomic_load_tmp;							\
   })
@@ -146,8 +154,8 @@ extern void atomic_signal_fence (memory_order);
   __extension__								\
   ({									\
     __auto_type __atomic_exchange_ptr = (PTR);				\
-    __typeof__ (*__atomic_exchange_ptr) __atomic_exchange_val = (VAL);	\
-    __typeof__ (*__atomic_exchange_ptr) __atomic_exchange_tmp;		\
+    __typeof__ ((void)0, *__atomic_exchange_ptr) __atomic_exchange_val = (VAL);	\
+    __typeof__ ((void)0, *__atomic_exchange_ptr) __atomic_exchange_tmp;		\
     __atomic_exchange (__atomic_exchange_ptr, &__atomic_exchange_val,	\
 		       &__atomic_exchange_tmp, (MO));			\
     __atomic_exchange_tmp;						\
@@ -161,7 +169,7 @@ extern void atomic_signal_fence (memory_order);
   __extension__								\
   ({									\
     __auto_type __atomic_compare_exchange_ptr = (PTR);			\
-    __typeof__ (*__atomic_compare_exchange_ptr) __atomic_compare_exchange_tmp \
+    __typeof__ ((void)0, *__atomic_compare_exchange_ptr) __atomic_compare_exchange_tmp \
       = (DES);								\
     __atomic_compare_exchange (__atomic_compare_exchange_ptr, (VAL),	\
 			       &__atomic_compare_exchange_tmp, 0,	\
@@ -176,7 +184,7 @@ extern void atomic_signal_fence (memory_order);
   __extension__								\
   ({									\
     __auto_type __atomic_compare_exchange_ptr = (PTR);			\
-    __typeof__ (*__atomic_compare_exchange_ptr) __atomic_compare_exchange_tmp \
+    __typeof__ ((void)0, *__atomic_compare_exchange_ptr) __atomic_compare_exchange_tmp \
       = (DES);								\
     __atomic_compare_exchange (__atomic_compare_exchange_ptr, (VAL),	\
 			       &__atomic_compare_exchange_tmp, 1,	\
@@ -239,5 +247,9 @@ extern void atomic_flag_clear (volatile atomic_flag *);
 #define atomic_flag_clear(PTR)	__atomic_clear ((PTR), __ATOMIC_SEQ_CST)
 extern void atomic_flag_clear_explicit (volatile atomic_flag *, memory_order);
 #define atomic_flag_clear_explicit(PTR, MO)   __atomic_clear ((PTR), (MO))
+
+#if defined __STDC_VERSION__ && __STDC_VERSION__ > 201710L
+#define __STDC_VERSION_STDATOMIC_H__	202311L
+#endif
 
 #endif  /* _STDATOMIC_H */

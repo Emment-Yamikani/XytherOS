@@ -4,10 +4,21 @@
 #include <mm/kalloc.h>
 #include <string.h>
 
+int queue_node_init(queue_node_t *qnode, void *data) {
+    if (qnode == NULL)
+        return -EINVAL;
+
+    qnode->data = data;
+    qnode->prev = qnode->next = NULL;
+    return 0;
+}
+
 int queue_init(queue_t *queue) {
     if (queue == NULL)
         return -EINVAL;
-    memset(queue, 0, sizeof *queue);
+
+    queue->q_count = 0;
+    queue->head = queue->tail = NULL;
     spinlock_init(&queue->q_lock);
     return 0;
 }

@@ -28,14 +28,8 @@ typedef struct spinlock_t_t {
 
 extern void spinlock_init(spinlock_t *lk);
 
-
 /* Call with lk->guard held and preemption disabled.*/
-static inline int holding(spinlock_t *lk) {
-    int self;
-    spin_assert(lk);
-    self = lk->owner == current || lk->owner == cpu;
-    return (lk)->locked && self;
-}
+extern int holding(const spinlock_t *lk);
 
 #define spin_acquire(lk) ({                                                                  \
     spin_assert(lk);                                                                         \

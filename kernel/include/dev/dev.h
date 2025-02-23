@@ -1,9 +1,9 @@
 #pragma once
 
-#include <fs/fs.h>
-#include <dev/rtc.h>
 #include <core/module.h>
 #include <core/types.h>
+#include <dev/rtc.h>
+#include <fs/fs.h>
 #include <lib/printk.h>
 #include <sync/spinlock.h>
 

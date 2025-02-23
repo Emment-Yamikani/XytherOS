@@ -13,3 +13,8 @@ void spinlock_init(spinlock_t *lk) {
 
     arch_raw_lock_init(&lk->guard);
 }
+
+int holding(const spinlock_t *lk) {
+    spin_assert(lk);
+    return lk->locked && (lk->owner == current || (lk)->owner == cpu);
+}

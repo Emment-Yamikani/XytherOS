@@ -865,6 +865,9 @@ size_t printk(const char *restrict format, ...) {
   return ret;
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Winfinite-recursion"
+
 void panic(const char *restrict format, ...) {
   va_list va;
   va_start(va, format);
@@ -880,6 +883,8 @@ void panic(const char *restrict format, ...) {
     hlt();
   }
 }
+#pragma GCC diagnostic pop
+
 
 size_t sprintf(char *buffer, const char *format, ...) {
   va_list va;

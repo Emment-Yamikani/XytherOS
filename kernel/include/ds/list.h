@@ -113,10 +113,12 @@ static inline void INIT_LIST_HEAD(list_head_t *list) {
  *
  * @param pos Pointer to the current list node.
  * @param head Pointer to the list head.
- * @param member The name of the list node member within the structure.
  */
-#define list_foreach(pos, head, member) \
-    for (pos = head->next, *n = pos->next; pos != head; pos = n, n = n->next)
+#define list_foreach(pos, head) \
+    for (pos = head->next; pos != head; pos = pos->next)
+
+#define list_foreach_safe(pos, next, head) \
+    for (pos = head->next, next = pos->next; pos != head; pos = next, next = next->next)
 
 /**
  * @def list_foreach_reverse(pos, head, member)
@@ -124,10 +126,12 @@ static inline void INIT_LIST_HEAD(list_head_t *list) {
  *
  * @param pos Pointer to the current list node.
  * @param head Pointer to the list head.
- * @param member The name of the list node member within the structure.
  */
-#define list_foreach_reverse(pos, head, member) \
-    for (pos = head->prev, *p = pos->prev; pos != head; pos = p, p = p->prev)
+#define list_foreach_reverse(pos, head) \
+    for (pos = head->prev; pos != head; pos = pos->prev)
+
+#define list_foreach_reverse_safe(pos, prev, head) \
+    for (pos = head->prev, prev = pos->prev; pos != head; pos = prev, prev = prev->prev)
 
 /**
  * @def list_foreach_entry(item, head, member)
@@ -241,21 +245,21 @@ extern void list_remove(list_head_t *node);
 extern void list_remove_tail(list_head_t *head);
 
 /**
- * @brief Internal function to migrate a node.
+ * @brief Internal function to rellocate a node.
  *
- * @param node The node to migrate.
+ * @param node The node to rellocate.
  * @param prev The previous node.
  * @param next The next node.
  */
-extern void __list_migrate(list_head_t *node, list_head_t *prev, list_head_t *next);
+extern void __list_rellocate_node(list_head_t *node, list_head_t *prev, list_head_t *next);
 
 /**
- * @brief Migrates a node to the beginning of another list.
+ * @brief Rellocates a node to the beginning of another list.
  *
- * @param node The node to migrate.
+ * @param node The node to rellocate.
  * @param head The destination list head.
  */
-extern void list_migrate(list_head_t *node, list_head_t *head);
+extern void list_rellocate_node(list_head_t *node, list_head_t *head);
 
 /**
  * @brief Replaces an old node with a new node.
@@ -292,3 +296,29 @@ extern void list_merge(list_head_t *list1, list_head_t *list2);
  * @param end The ending node of the slice (exclusive).
  */
 extern void list_slice_and_merge(list_head_t *src_list, list_head_t *dest_list, list_head_t *start, list_head_t *end);
+
+/**
+ * @brief Calculates the length of a list.
+ *
+ * @param head Pointer to the list head.
+ * @return The number of nodes in the list.
+ */
+extern usize list_length(list_head_t *head);
+
+
+typedef enum {
+    LIST_RELLOC_HEAD, // Relative to the head of the list
+    LIST_RELLOC_TAIL  // Relative to the tail of the list
+} list_relloc_t;
+
+/**
+ * @brief Migrates a slice of nodes from one list to another.
+ *
+ * @param dst Destination list where nodes will be moved.
+ * @param src Source list from which nodes will be taken.
+ * @param start_pos Starting position in the source list.
+ * @param num_nodes Number of nodes to migrate.
+ * @param whence Reference point for start_pos (head or tail).
+ * @return 0 on success, -EINVAL on failure (e.g., invalid parameters).
+ */
+extern int list_migrate_range(list_head_t *dst, list_head_t *src, usize start_pos, usize num_nodes, list_relloc_t whence);

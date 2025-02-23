@@ -80,6 +80,8 @@ typedef struct queue {
 
 extern int queue_init(queue_t *queue);
 
+extern int queue_node_init(queue_node_t *qnode, void *data);
+
 // @brief free memory allocated via queue_alloc()
 extern void queue_free(queue_t *queue);
 

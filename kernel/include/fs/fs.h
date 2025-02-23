@@ -1,15 +1,15 @@
 #pragma once
 
-#include <sync/spinlock.h>
 #include <core/types.h>
 #include <ds/queue.h>
+#include <fs/cred.h>
 #include <fs/dentry.h>
+#include <fs/fcntl.h>
 #include <fs/inode.h>
 #include <fs/mount.h>
-#include <fs/fcntl.h>
-#include <fs/stat.h>
-#include <fs/cred.h>
 #include <fs/path.h>
+#include <fs/stat.h>
+#include <sync/spinlock.h>
 
 #define MAXFNAME 255
 
