@@ -20,7 +20,7 @@ To get started with XytherOS, follow these steps:
 ### NOTE: Before building.
    Ensure you are using the latest version of GCC cross compiler and Binutils. Preferably greater than gcc-14.2.0 && binutils-2.44. Run the shell script:
 
-   **This was tested on Manjaroo Linux; So it may be different on your host OS.**
+   **This was tested on Manjaro Linux; So it may be different on your host OS.**
 
    ```sh
    ./build_cross.sh
