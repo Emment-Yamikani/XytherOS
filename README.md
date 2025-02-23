@@ -32,7 +32,7 @@ We welcome contributions! If you're interested in improving XytherOS, please fol
 - Follow the coding standards and document your code properly.
 
 ## License
-XytherOS is released under the [Your License Name] license. See `LICENSE` for more details.
+XytherOS is released under the MIT license. See `LICENSE` for more details.
 
 ## Contact
 For discussions, issues, and feature requests, feel free to open an issue or reach out to the community.
