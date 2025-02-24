@@ -132,7 +132,7 @@ int thread_alloc(usize kstack_size, int flags, thread_t **ptp) {
  * @param[in]  attr   Pointer to a thread_attr_t structure (or NULL for defaults).
  * @param[in]  entry  Entry point function for the thread.
  * @param[in]  arg    Argument passed to the thread entry point.
- * @param[in]  flags  Creation flags. Use THREAD_CREATE_USER for user threads and
+ * @param[in]  cflags Creation flags. Use THREAD_CREATE_USER for user threads and
  *                    additional flags (e.g. THREAD_CREATE_DETACHED, THREAD_CREATE_GROUP,
  *                    THREAD_CREATE_SCHED) as appropriate.
  * @param[out] ptp    Pointer to where the created thread_t pointer is stored.

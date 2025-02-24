@@ -447,7 +447,7 @@ void x86_64_fullvm_unmap(uintptr_t pml4) {
     x86_64_swtchvm(oldpml4, NULL);
 }
 
-__unused static int x86_64_kvmcpy(uintptr_t dstp) {
+static int x86_64_kvmcpy(uintptr_t dstp) {
     int     err     = 0;
     pte_t   *dstv   = NULL;
 
@@ -679,4 +679,29 @@ int x86_64_getmapping(uintptr_t addr, pte_t **pte) {
         *pte = PTE(i4, i3, i2, i1);
     }
     return 0;
+}
+
+int x86_64_pml4alloc(uintptr_t *ref) {
+    int         err     = 0;
+    uintptr_t   pml4    = 0;
+
+    if (ref == NULL)
+        return -EINVAL;
+
+    if ((err = pmman.get_page(GFP_NORMAL | GFP_ZERO, (void **)&pml4))) {
+        return err;
+    }
+
+    if ((err = x86_64_kvmcpy(pml4)))
+        goto error;
+
+    *ref = pml4;
+    return 0;
+error:
+    pmman.free(pml4);
+    return err;
+}
+
+void x86_64_pml4free(uintptr_t pgdir) {
+    if (pgdir) pmman.free(pgdir);
 }

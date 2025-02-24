@@ -141,17 +141,17 @@ void thread_info_dump(thread_info_t *info);
 
 /**
  * @brief Process information structure */
-typedef struct __proc_info_t proc_info_t;
-struct __proc_info_t {
+typedef struct __proc_t proc_t;
+struct __proc_t {
     pid_t           pid;            /**< Process ID */
     pid_t           sid;            /**< Session ID */
     pid_t           pgid;           /**< Process group ID */
-    proc_info_t     *parent;        /**< Pointer to the parent process */
+    char            *name;          /**< Process name */
+    proc_t          *parent;        /**< Pointer to the parent process */
     proc_state_t    state;          /**< Process state */
     uintptr_t       flags;          /**< Process flags */
     uintptr_t       exit;           /**< Process exit status */
     thread_entry_t  entry;          /**< Process entry point */
-    char            *name;          /**< Process name */
     cond_t          child_event;    /**< Condition variable for child wait events */
     queue_t         children;       /**< Queue of child processes */
 
@@ -186,7 +186,7 @@ typedef struct thread_t {
     spinlock_t      t_lock;         /**< Lock protecting the thread structure */
 
     /* Fields shared with other threads in the same thread group */
-    proc_info_t     *t_proc;        /**< Associated process information */
+    proc_t     *t_proc;        /**< Associated process information */
     cred_t          *t_cred;        /**< Credentials */
     file_ctx_t      *t_fctx;        /**< File context */
     mmap_t          *t_mmap;        /**< Memory mapping for the process */
@@ -465,6 +465,7 @@ extern tid_t    thread_self(void);
 extern int      thread_cancel(tid_t tid);
 extern void     thread_exit(uintptr_t exit_code);
 extern int      thread_join(tid_t tid, thread_info_t *info, void **prp);
+extern int      thread_execve(thread_t *thread, const char *argp[], const char *envp[]);
 extern int      thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, int cflags, thread_t **ptp);
 
 extern void     thread_free(thread_t *thread);
@@ -493,3 +494,6 @@ extern int      setpgrp(void);
 extern int      getpgid(pid_t pid);
 extern pid_t    setpgid(pid_t pid, pid_t pgid);
 extern int      execve(const char *pathname, char *const argv[], char *const envp[]);
+
+extern int      proc_spawn_init(const char *path);
+extern int      proc_alloc(const char *name, thread_t **ptp);

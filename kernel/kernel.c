@@ -6,7 +6,6 @@
 #include <sys/thread.h>
 #include <sync/mutex.h>
 
-
 __noreturn void kthread_main(void) {
     int err;
 
@@ -15,6 +14,8 @@ __noreturn void kthread_main(void) {
     // assert_eq(err = vfs_init(), 0, "Failed to initialize VFS!, error: %s\n", perror(err));
 
     thread_builtin_init(); // start builtin threads.
+
+    assert_eq(err = proc_spawn_init("/init"), 0, "Error: %s\n", perror(err));
 
     loop() {
     }

@@ -1,12 +1,13 @@
 #include <bits/errno.h>
+#include <core/debug.h>
 #include <string.h>
 #include <sys/thread.h>
 
 int thread_execve(thread_t *thread, const char *argp[], const char *envp[]) {
     int         err, argc;
-    vmr_t       *ustack_vmr = NULL;
     uc_stack_t  uc_stack_tmp;
-    char        **argpcpy, *envpcpy;
+    vmr_t       *ustack_vmr = NULL;
+    char        **argpcpy, **envpcpy;
 
     if (thread == NULL) 
         return -EINVAL;
@@ -28,7 +29,7 @@ int thread_execve(thread_t *thread, const char *argp[], const char *envp[]) {
         .ss_sp      = (void *)__vmr_upper_bound(ustack_vmr)
     };
 
-    if ((err = arch_thread_execve(&thread->t_arch, thread->t_info.ti_entry, argc, argpcpy, envpcpy)))
+    if ((err = arch_thread_execve(&thread->t_arch, thread->t_info.ti_entry, argc, (const char **)argpcpy, (const char **)envpcpy)))
         goto error;    
 
     return 0;
