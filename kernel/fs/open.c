@@ -174,7 +174,13 @@ int     openat(int fd, const char *pathname, int oflags, mode_t mode) {
         return err;
     
     dlock(file->f_dentry);
-    dentry = ddup(file->f_dentry);
+    if ((err = dopen(file->f_dentry))) {
+        dunlock(file->f_dentry);
+        funlock(file);
+        return err;
+    }
+
+    dentry = file->f_dentry;
     funlock(file);
 
     if ((err = vfs_resolve_path(pathname, dentry, current_cred(), oflags, &path))) {

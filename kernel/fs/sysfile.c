@@ -203,8 +203,20 @@ int     file_copy(file_ctx_t *dst, file_ctx_t *src) {
     if (src->fc_cwd != src->fc_root)
         dlock(src->fc_root);
 
-    dst->fc_cwd     = ddup(src->fc_cwd);
-    dst->fc_root    = ddup(src->fc_root);
+    if (NULL == (dst->fc_cwd  = dget(src->fc_cwd))) {
+        if (src->fc_cwd != src->fc_root)
+            dunlock(src->fc_root);
+        dunlock(src->fc_cwd);
+        return -EINVAL;
+    }
+
+    if (NULL == (dst->fc_root = dget(src->fc_root))) {
+        if (src->fc_cwd != src->fc_root)
+            dunlock(src->fc_root);
+        dunlock(src->fc_cwd);
+        return -EINVAL;
+    }
+
 
     if (src->fc_cwd != src->fc_root)
         dunlock(src->fc_root);
@@ -601,10 +613,8 @@ int     pipe(int fds[2]) {
     fds[1] = fildes1;
     return 0;
 error:
-    if (d0)
-        drelease(d0);
-    if (d1)
-        drelease(d1);
+    if (d0) dclose(d0);
+    if (d1) dclose(d1);
 
     // TODO: release the pipe descriptor.
     printk("Failed to create a pipe, error: %d\n");

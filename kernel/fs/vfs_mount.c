@@ -92,7 +92,7 @@ static int mnt_insert(fs_mount_t *mnt, dentry_t *target) {
             dlock(parent);
         }
 
-        ddup(parent);        // Increment reference count
+        dopen(parent);        // Increment reference count
         if (parent_locked)
             dunlock(parent);
         
@@ -104,14 +104,14 @@ static int mnt_insert(fs_mount_t *mnt, dentry_t *target) {
         }
 
         if ((err = dbind(parent, mnt->mnt_root))) {
-            dput(parent);
+            dclose(parent);
             if (parent_locked)
                 dunlock(parent);
             if (root_locked)
                 dunlock(mnt->mnt_root);
             return err;
         }
-        dput(parent);
+        dclose(parent);
         if (parent_locked)
             dunlock(parent);
     } else { // Root-level mount (e.g., "/")

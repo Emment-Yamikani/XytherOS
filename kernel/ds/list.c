@@ -1,5 +1,4 @@
 #include <bits/errno.h>
-#include <core/types.h>
 #include <ds/list.h>
 
 int list_empty(list_head_t *head) {

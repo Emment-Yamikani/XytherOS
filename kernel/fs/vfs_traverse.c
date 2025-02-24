@@ -44,7 +44,7 @@ int vfs_traverse_path(vfspath_t *path, cred_t *cred, int oflags) {
                 else
                     path->directory = current_fctx()->fc_cwd;
                 dlock(path->directory);
-                ddup(path->directory);
+                dopen(path->directory);
             }
             fctx_unlock(current_fctx());
         } 
@@ -69,7 +69,7 @@ int vfs_traverse_path(vfspath_t *path, cred_t *cred, int oflags) {
                     dclose(path->directory);
                 path->directory = current_fctx()->fc_root;
                 dlock(path->directory);
-                ddup(path->directory);
+                dopen(path->directory);
             }
             fctx_unlock(current_fctx());
         }
@@ -278,7 +278,7 @@ int vfs_resolve_path(const char *pathname, dentry_t *dir,  cred_t *cred, int ofl
          * This will ensure that opening a device multiplexer will result in
          * creation of a unique device file descriptor.
          * TODO: assess the effectiveness of this design decision.*/
-        ddup(path->dentry);
+        dopen(path->dentry);
         dunlock(path->dentry);
         oldip = path->dentry->d_inode;
         if (oldip != NULL) {
@@ -286,7 +286,7 @@ int vfs_resolve_path(const char *pathname, dentry_t *dir,  cred_t *cred, int ofl
             if ((err = iopen(oldip, &newip))) {
                 iunlock(oldip);
                 dlock(path->dentry);
-                dput(path->dentry);
+                dclose(path->dentry);
                 *rp = path;
                 return err;
             }
@@ -303,7 +303,7 @@ int vfs_resolve_path(const char *pathname, dentry_t *dir,  cred_t *cred, int ofl
             } else iunlock(oldip);
         }
         dlock(path->dentry);
-        dput(path->dentry);
+        dclose(path->dentry);
     }
 
     *rp = path;

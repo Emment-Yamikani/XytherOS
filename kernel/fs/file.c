@@ -21,7 +21,11 @@ int fctx_alloc(file_ctx_t **ret) {
     if ((err = vfs_lookup("/", NULL, O_EXCL, &cwdir)))
         goto error;
 
-    rootdir = ddup(cwdir);
+    if ((err = dopen(cwdir)))
+        goto error;
+
+    rootdir = cwdir;
+
     dunlock(cwdir);
 
     memset(fctx, 0, sizeof *fctx);

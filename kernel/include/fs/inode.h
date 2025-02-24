@@ -3,6 +3,7 @@
 #include <core/types.h>
 #include <sync/spinlock.h>
 #include <ds/queue.h>
+#include <ds/list.h>
 #include <fs/stat.h>
 #include <fs/icache.h>
 #include <sync/cond.h>
@@ -66,8 +67,10 @@ typedef struct inode {
     superblock_t    *i_sb;      // Superblock to while this inode belongs.
     struct iops     *i_ops;     // Filesystem specific inode operations. 
     void            *i_priv;    // Filesystem specific private data.
-    struct dentry   *i_alias;   // Alias to this inode (can be multiple).
     icache_t        *i_cache;   // Page cache for this inode.
+
+    list_head_t     i_alias;    // Alias to this inode (can be multiple).
+    spinlock_t      i_alias_lock;
 
     cond_t          *i_writers; // writers condition variable.
     cond_t          *i_readers; // readers condition variable.

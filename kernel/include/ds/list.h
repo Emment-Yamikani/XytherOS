@@ -1,6 +1,7 @@
 #pragma once
 
 #include <core/defs.h>
+#include <core/types.h>
 
 /**
  * @file list.h

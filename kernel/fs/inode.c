@@ -129,48 +129,25 @@ void irelease(inode_t *ip) {
 }
 
 int idel_alias(inode_t *inode, dentry_t *dentry) {
-    dentry_t *prev = NULL, *next = NULL;
-
     iassert_locked(inode);
     dassert_locked(dentry);
 
     if (dentry->d_inode != inode)
         return -EINVAL;
-    
-    if (inode->i_alias == NULL)
-        return -ENOENT;
 
-    prev = dentry->d_alias_prev;
-    next = dentry->d_alias_next;
+    spin_lock(&inode->i_alias_lock);
 
-    if (prev)
-        dlock(prev);
-    if (next)
-        dlock(next);
+    list_remove(&dentry->d_alias);
 
-    if (next)
-        next->d_alias_prev = prev;
+    spin_unlock(&inode->i_alias_lock);
 
-    if (prev)
-        prev->d_alias_next = next;
-    else
-        inode->i_alias = next;
-
-    if (next)
-        dunlock(next);
-    if (prev)
-        dunlock(prev);
-
-    dentry->d_alias_next = NULL;
-    dentry->d_alias_prev = NULL;
-
+    dclose(dentry);
     irelease(inode);
     return 0;
 }
 
 int iadd_alias(inode_t *inode, dentry_t *dentry) {
-    dentry_t *last = NULL;
-    dentry_t *next = NULL;
+    int      err = 0;
 
     if (inode == NULL || dentry == NULL)
         return -EINVAL;
@@ -178,32 +155,16 @@ int iadd_alias(inode_t *inode, dentry_t *dentry) {
     iassert_locked(inode);
     dassert_locked(dentry);
 
-    forlinked(node, inode->i_alias, next) {
-        dlock(node);
-        next = node->d_alias_next;
-        last = node;
-        
-        /// unlock node in case we still have a next alias.
-        /// this is done so that when the loop ends
-        /// the last node in alias list is passed locked.
-        if (next)
-            dunlock(node);
-    }
+    if ((err = dopen(dentry)))
+        return err;
 
-    dentry->d_alias_next = NULL;
-    dentry->d_alias_prev = NULL;
+    spin_lock(&inode->i_alias_lock);
 
-    if (last) {
-        dentry->d_alias_prev= ddup(last);
-        last->d_alias_next  = ddup(dentry);
+    list_add_tail(&dentry->d_alias, &inode->i_alias);
 
-        /// Unlock the last alias node.
-        /// Remember we locked this node in to forlinked() loop above?,
-        /// Yeah, so do this to prevent deadlock.
-        dunlock(last);
-    } else {
-        inode->i_alias = ddup(dentry);
-    }
+    spin_unlock(&inode->i_alias_lock);
+
+    dentry->d_inode = inode;
 
     /// Increase the reference count to this inode
     /// because we have added an inode alias.

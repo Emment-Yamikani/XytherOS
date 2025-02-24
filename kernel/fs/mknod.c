@@ -16,8 +16,7 @@ int vfs_mknodat(dentry_t *dir, const char *pathname,
         mode |= S_IFREG; // Default to regular file
     }
     
-    if (!S_ISCHR(mode)  && !S_ISBLK(mode)  &&
-        !S_ISFIFO(mode) && !S_ISSOCK(mode) && !S_ISREG(mode)) {
+    if (!S_ISCHR(mode)  && !S_ISBLK(mode)  && !S_ISFIFO(mode) && !S_ISSOCK(mode) && !S_ISREG(mode)) {
         return -EINVAL; // Invalid argument
     }
 
