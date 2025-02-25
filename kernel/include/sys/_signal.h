@@ -62,63 +62,43 @@ typedef sigset_t __sigset_t;
 
 #define SIGBAD(signo) ({ ((signo) < 1 || (signo) > NSIG); })
 
-#define sigemptyset(set) ({   \
-    int err = 0;              \
-    if ((set) == NULL)        \
-        err = -EINVAL;        \
-    else                      \
-        *(set) = (sigset_t)0; \
-    err;                      \
-})
+static inline int sigemptyset(sigset_t *set) {
+    if ((set) == NULL)
+        return -EINVAL;
+    *set = (sigset_t)0;
+    return 0;
+}
 
-#define sigfillset(set) ({     \
-    int err = 0;               \
-    if ((set) == NULL)         \
-        err = -EINVAL;         \
-    else                       \
-        *(set) = ~(sigset_t)0; \
-    err;                       \
-})
+static inline int sigfillset(sigset_t *set) {
+    if ((set) == NULL)
+        return -EINVAL;
+    *set = ~(sigset_t)0;
+    return 0;
+}
 
-#define sigaddset(set, signo) ({                \
-    int err = 0;                                \
-    if ((set) == NULL || SIGBAD(signo))         \
-        err = -EINVAL;                          \
-    else                                        \
-        *(set) |= (sigset_t)(1 << ((signo)-1)); \
-    err;                                        \
-})
+static inline int sigaddset(sigset_t *set, int signo) {
+    if ((set) == NULL || SIGBAD(signo))
+        return -EINVAL;
+    *set |= (sigset_t)(1 << (signo-1));
+    return 0;
+}
 
-#define sigdelset(set, signo) ({                 \
-    int err = 0;                                 \
-    if ((set) == NULL || SIGBAD(signo))          \
-        err = -EINVAL;                           \
-    else                                         \
-        *(set) &= ~(sigset_t)(1 << ((signo)-1)); \
-    err;                                         \
-})
+static inline int sigdelset(sigset_t *set, int signo) {
+    if ((set) == NULL || SIGBAD(signo))
+        return -EINVAL;
+    *set &= ~(sigset_t)(1 << (signo-1));
+    return 0;
+}
 
-#define sigismember(set, signo) ({                            \
-    int err = 0;                                              \
-    if ((set) == NULL || SIGBAD(signo))                       \
-        err = -EINVAL;                                        \
-    else                                                      \
-        err = ((*(set) & (sigset_t)(1 << ((signo)-1))) != 0); \
-    err;                                                      \
-})
-
-extern int pause(void);
-extern int raise(int signo);
-extern int kill(pid_t pid, int signo);
-extern unsigned long alarm(unsigned sec);
-extern sigfunc_t signal(int signo, sigfunc_t func);
+static inline int sigismember(sigset_t *set, int signo) {
+    if ((set) == NULL || SIGBAD(signo))
+        return -EINVAL;
+    return (*set & ((sigset_t)(1 << (signo - 1)))) ? 1 : 0;
+}
 
 #define SIG_BLOCK   (1)
 #define SIG_UNBLOCK (2)
 #define SIG_SETMASK (3)
-
-extern int sigpending(sigset_t *set);
-extern int sigprocmask(int how, const sigset_t *restrict set, sigset_t *restrict oset);
 
 /*
 If signo is SIGCHLD, do not generate this signal
@@ -214,27 +194,52 @@ typedef struct {
 } sigaction_t;
 
 struct queue;
-typedef struct __sig_desc_t {
+typedef struct __signal_t {
     sigset_t    sig_mask;           // signal set mask.
     queue_t     sig_queue[NSIG];    // queues of siginfo_t * pointers for each signal instance.
     sigaction_t sig_action[NSIG];   // signal action entry for each signal.
     spinlock_t  sig_lock;           // spinlock to protect this struct.
-} sig_desc_t;
+} signal_t;
 
-#define sigdesc_assert(desc)            ({ assert(desc, "No signal description."); })
-#define sigdesc_lock(desc)              ({ sigdesc_assert(desc); spin_lock(&(desc)->sig_lock); })
-#define sigdesc_unlock(desc)            ({ sigdesc_assert(desc); spin_unlock(&(desc)->sig_lock); })
-#define sigdesc_islocked(desc)          ({ sigdesc_assert(desc); spin_islocked(&(desc)->sig_lock); })
-#define sigdesc_assert_locked(desc)     ({ sigdesc_assert(desc); spin_assert_locked(&(desc)->sig_lock); })
+#define signal_assert(desc)            ({ assert(desc, "No signal description."); })
+#define signal_lock(desc)              ({ signal_assert(desc); spin_lock(&(desc)->sig_lock); })
+#define signal_unlock(desc)            ({ signal_assert(desc); spin_unlock(&(desc)->sig_lock); })
+#define signal_islocked(desc)          ({ signal_assert(desc); spin_islocked(&(desc)->sig_lock); })
+#define signal_assert_locked(desc)     ({ signal_assert(desc); spin_assert_locked(&(desc)->sig_lock); })
 
-extern void sig_desc_free(sig_desc_t *desc);
-extern int sig_desc_alloc(sig_desc_t **pdesc);
-extern void sigdequeue_pending(queue_t *queue, siginfo_t **ret);
-extern int sigenqueue_pending(queue_t *sigqueue, siginfo_t *info);
+/**     THREAD SPECIFIC SIGNAL HANDLING FUNCTIONS */
 
-extern int pthread_kill(tid_t thread, int signo);
-extern int sigwait(const sigset_t *restrict set, int *restrict signop);
-extern int pthread_sigmask(int how, const sigset_t *restrict set, sigset_t *restrict oset);
-extern int sigaction(int signo, const sigaction_t *restrict act, sigaction_t *restrict oact);
+extern int  pause(void);
+extern int  raise(int signo);
+extern ulong alarm(unsigned sec);
+extern int  sigpending(sigset_t *set);
+extern int  kill(pid_t pid, int signo);
+extern int  sigprocmask(int how, const sigset_t *restrict set, sigset_t *restrict oset);
+extern int  sigwait(const sigset_t *restrict set, int *restrict signop);
+extern int  sigaction(int signo, const sigaction_t *restrict act, sigaction_t *restrict oact);
 
-extern int signal_dispatch(void);
+/**     THREAD SPECIFIC SIGNAL HANDLING FUNCTIONS */
+
+extern int  pthread_kill(tid_t thread, int signo);
+extern int  pthread_sigmask(int how, const sigset_t *restrict set, sigset_t *restrict oset);
+
+/**     HELPER FUNCTIONS */
+
+extern int  signal_alloc(signal_t **psp);
+extern void signal_free(signal_t *sigdesc);
+
+extern void siginfo_free(siginfo_t *siginfo);
+extern void siginfo_dump(siginfo_t *siginfo);
+extern int  siginfo_alloc(int signo, siginfo_t **psiginfo);
+
+extern int  signal_enqueue(signal_t *sigdesc, siginfo_t *siginfo);
+extern int  signal_dequeue(signal_t *sigdesc, siginfo_t **siginfo);
+
+extern int  sigqueue_enqueue(queue_t *sigqueue, siginfo_t *siginfo);
+extern int  sigqueue_dequeue(queue_t *sigqueue, siginfo_t **siginfo);
+
+extern int  signal_dispatch(void);
+
+extern int  thread_sigmask(thread_t *thread, int how, const sigset_t *restrict set, sigset_t *restrict oset);
+
+extern int  sigmask(sigset_t *sigset, int how, const sigset_t *restrict set, sigset_t *restrict oset);

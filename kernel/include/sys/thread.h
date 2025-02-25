@@ -186,12 +186,12 @@ typedef struct thread_t {
     spinlock_t      t_lock;         /**< Lock protecting the thread structure */
 
     /* Fields shared with other threads in the same thread group */
-    proc_t     *t_proc;        /**< Associated process information */
+    proc_t          *t_proc;        /**< Associated process information */
     cred_t          *t_cred;        /**< Credentials */
     file_ctx_t      *t_fctx;        /**< File context */
     mmap_t          *t_mmap;        /**< Memory mapping for the process */
     queue_t         *t_group;       /**< Thread group queue */
-    sig_desc_t      *t_signals;     /**< Per-process signal descriptor */
+    signal_t        *t_signals;     /**< Per-process signal descriptor */
 } __aligned(16) thread_t;
 
 /* Thread creation flag */

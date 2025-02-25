@@ -118,7 +118,7 @@ int thread_create_group(thread_t *thread) {
     cred_t          *cred    = NULL;
     file_ctx_t      *fctx    = NULL;
     queue_t         *queue   = NULL;
-    sig_desc_t      *signals = NULL;
+    signal_t        *signals = NULL;
 
     if (thread == NULL)
         return -EINVAL;
