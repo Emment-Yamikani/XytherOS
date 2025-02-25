@@ -52,20 +52,22 @@ try:
         if (thread_gettid(thread) == tid) {
 
             if (thread->t_wait_queue) {
-                if (!queue_trylock(thread->t_wait_queue)) {
+                queue_t *wait_queue = thread->t_wait_queue;
+
+                if (!queue_trylock(wait_queue)) {
                     thread_unlock(thread);
                     queue_unlock(current->t_group);
                     goto try;
                 }
 
-                if ((err = sched_detach_and_wakeup(thread->t_wait_queue, thread))) {
+                if ((err = sched_detach_and_wakeup(wait_queue, thread))) {
                     thread_unlock(thread);
                     queue_unlock(current->t_group);
-                    queue_unlock(thread->t_wait_queue);
+                    queue_unlock(wait_queue);
                     return err;
                 }
 
-                queue_unlock(thread->t_wait_queue);
+                queue_unlock(wait_queue);
             }
 
             thread_set(thread, THREAD_CANCEL);
