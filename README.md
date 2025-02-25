@@ -1,5 +1,7 @@
 # XytherOS: Where Imagination Meets Execution
 
+   ![Qemu Screenshot](kernel/xytherOs_logo.png)
+
 ## Introduction
 Welcome to XytherOS, a cutting-edge operating system designed for developers, hobbyists, and OS enthusiasts who seek a balance between creativity and technical excellence. XytherOS is built with flexibility, performance, and innovation in mind, providing a robust platform for experimentation and execution.
 
