@@ -65,8 +65,10 @@ static int sched_wake_thread(thread_t *thread) {
         return -EINVAL;
     }
 
-    if (thread_ispark(thread))
+    if (thread_ispark(thread)) {
         thread_setwake(thread);
+        thread_mask_park(thread);
+    }
 
     return thread_schedule(thread);
 }

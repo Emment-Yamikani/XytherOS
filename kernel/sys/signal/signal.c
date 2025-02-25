@@ -126,18 +126,27 @@ void siginfo_free(siginfo_t *siginfo) {
     kfree(siginfo);
 }
 
-int siginfo_alloc(int signo, siginfo_t **psiginfo) {
+int siginfo_init(siginfo_t *siginfo, int signo, union sigval val) {
+    if (siginfo == NULL || SIGBAD(signo))
+        return -EINVAL;
+
+    siginfo->si_value = val;
+    siginfo->si_signo = signo;
+    siginfo->si_pid   = getpid();
+
+    return 0;
+}
+
+int siginfo_alloc(siginfo_t **psiginfo) {
     siginfo_t *siginfo;
 
-    if (SIGBAD(signo) || psiginfo == NULL)
+    if (psiginfo == NULL)
         return -EINVAL;
 
     if (NULL == (siginfo = kmalloc(sizeof *siginfo)))
         return -ENOMEM;
 
     memset(siginfo, 0, sizeof *siginfo);
-
-    siginfo->si_signo = signo;
 
     *psiginfo = siginfo;
 

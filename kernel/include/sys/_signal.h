@@ -1,5 +1,6 @@
 #pragma once
 
+#include <bits/errno.h>
 #include <core/types.h>
 #include <sync/spinlock.h>
 #include <ds/queue.h>
@@ -90,7 +91,7 @@ static inline int sigdelset(sigset_t *set, int signo) {
     return 0;
 }
 
-static inline int sigismember(sigset_t *set, int signo) {
+static inline int sigismember(const sigset_t *set, int signo) {
     if ((set) == NULL || SIGBAD(signo))
         return -EINVAL;
     return (*set & ((sigset_t)(1 << (signo - 1)))) ? 1 : 0;
@@ -221,6 +222,7 @@ extern int  sigaction(int signo, const sigaction_t *restrict act, sigaction_t *r
 /**     THREAD SPECIFIC SIGNAL HANDLING FUNCTIONS */
 
 extern int  pthread_kill(tid_t thread, int signo);
+extern int  pthread_sigqueue(tid_t tid, int signo, union sigval sigval);
 extern int  pthread_sigmask(int how, const sigset_t *restrict set, sigset_t *restrict oset);
 
 /**     HELPER FUNCTIONS */
@@ -228,9 +230,10 @@ extern int  pthread_sigmask(int how, const sigset_t *restrict set, sigset_t *res
 extern int  signal_alloc(signal_t **psp);
 extern void signal_free(signal_t *sigdesc);
 
-extern void siginfo_free(siginfo_t *siginfo);
 extern void siginfo_dump(siginfo_t *siginfo);
-extern int  siginfo_alloc(int signo, siginfo_t **psiginfo);
+extern void siginfo_free(siginfo_t *siginfo);
+extern int  siginfo_alloc(siginfo_t **psiginfo);
+extern int  siginfo_init(siginfo_t *siginfo, int signo, union sigval val);
 
 extern int  signal_enqueue(signal_t *sigdesc, siginfo_t *siginfo);
 extern int  signal_dequeue(signal_t *sigdesc, siginfo_t **siginfo);
@@ -240,6 +243,8 @@ extern int  sigqueue_dequeue(queue_t *sigqueue, siginfo_t **siginfo);
 
 extern int  signal_dispatch(void);
 
-extern int  thread_sigmask(thread_t *thread, int how, const sigset_t *restrict set, sigset_t *restrict oset);
-
 extern int  sigmask(sigset_t *sigset, int how, const sigset_t *restrict set, sigset_t *restrict oset);
+
+extern int  thread_sigsend(thread_t *thread, siginfo_t *siginfo);
+extern int  thread_kill(thread_t *thread, int signo, union sigval value);
+extern int  thread_sigmask(thread_t *thread, int how, const sigset_t *restrict set, sigset_t *restrict oset);
