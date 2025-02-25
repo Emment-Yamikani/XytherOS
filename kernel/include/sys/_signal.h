@@ -241,7 +241,7 @@ extern int  signal_dequeue(signal_t *sigdesc, siginfo_t **siginfo);
 extern int  sigqueue_enqueue(queue_t *sigqueue, siginfo_t *siginfo);
 extern int  sigqueue_dequeue(queue_t *sigqueue, siginfo_t **siginfo);
 
-extern int  signal_dispatch(void);
+extern void  signal_dispatch(void);
 
 extern int  sigmask(sigset_t *sigset, int how, const sigset_t *restrict set, sigset_t *restrict oset);
 

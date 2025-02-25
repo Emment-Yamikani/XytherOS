@@ -16,6 +16,8 @@ void thread_handle_even(ucontext_t *uctx) {
     if (!uctx || !current)
         return;
 
+    signal_dispatch();
+
     if (atomic_read(&current->t_info.ti_sched.ts_timeslice) == 0)
         sched_yield();
 }
