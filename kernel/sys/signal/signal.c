@@ -193,7 +193,7 @@ int signal_enqueue(signal_t *sigdesc, siginfo_t *siginfo) {
 
     queue_lock(&sigdesc->sig_queue[siginfo->si_signo - 1]);
     if ((err = sigqueue_enqueue(&sigdesc->sig_queue[siginfo->si_signo - 1], siginfo))) {
-        if (!queue_count(&sigdesc->sig_queue[siginfo->si_signo])) {
+        if (!queue_count(&sigdesc->sig_queue[siginfo->si_signo - 1])) {
             sigdelset(&sigdesc->sigpending, siginfo->si_signo);
         }
     }
@@ -201,26 +201,50 @@ int signal_enqueue(signal_t *sigdesc, siginfo_t *siginfo) {
     return err;
 }
 
-int signal_dequeue(signal_t *sigdesc, siginfo_t **psiginfo) {
-    if (sigdesc == NULL || psiginfo == NULL)
+int signal_dequeue(thread_t *thread, siginfo_t **psiginfo) {
+    int err = 0;
+    siginfo_t *siginfo = NULL;
+
+    if (thread == NULL || psiginfo == NULL)
         return -EINVAL;
 
-    signal_assert_locked(sigdesc);
+    thread_assert_locked(thread);
 
-    for (usize signo = 0; signo < NSIG; ++signo) {
-        if (sigismember(&sigdesc->sigpending, signo + 1)) {
-            if (!sigismember(&sigdesc->sig_mask, signo + 1)) {
-                queue_lock(&sigdesc->sig_queue[signo]);
-                int err = sigqueue_dequeue(&sigdesc->sig_queue[signo], psiginfo);
-                if (!queue_count(&sigdesc->sig_queue[signo])) {
-                    sigdelset(&sigdesc->sigpending, signo + 1);
+    for (int signo = 0; signo < NSIG; ++signo) {
+        if (sigismember(&thread->t_sigpending, signo + 1)) {
+            if (!sigismember(&thread->t_sigmask, signo + 1)) {
+                queue_lock(&thread->t_sigqueue[signo]);
+                if ((err = sigqueue_dequeue(&thread->t_sigqueue[signo], &siginfo)) == 0) {
+                    if (!queue_count(&thread->t_sigqueue[signo])) {
+                        sigdelset(&thread->t_sigpending, signo + 1);
+                    }
+                    sigaddset(&thread->t_sigmask, signo + 1);
                 }
-                queue_unlock(&sigdesc->sig_queue[signo]);
+                queue_unlock(&thread->t_sigqueue[signo]);
+                *psiginfo = siginfo;
                 return err;
             }
         }
     }
 
+    signal_lock(thread->t_signals);
+    for (int signo = 0; signo < NSIG; ++signo) {
+        if (sigismember(&thread->t_signals->sigpending, signo + 1)) {
+            if (!sigismember(&thread->t_signals->sig_mask, signo + 1)) {
+                queue_lock(&thread->t_signals->sig_queue[signo]);
+                if ((err = sigqueue_dequeue(&thread->t_signals->sig_queue[signo], &siginfo)) == 0) {
+                    if (!queue_count(&thread->t_signals->sig_queue[signo])) {
+                        sigdelset(&thread->t_signals->sigpending, signo + 1);
+                    }
+                    sigaddset(&thread->t_signals->sig_mask, signo + 1);
+                }
+                queue_unlock(&thread->t_signals->sig_queue[signo]);
+                *psiginfo = siginfo;
+                return err;
+            }
+        }
+    }
+    signal_unlock(thread->t_signals);
     return -ENOENT;
 }
 
@@ -245,3 +269,4 @@ void sigqueue_flush(queue_t *sigqueue) {
         siginfo_free(siginfo);
     }
 }
+

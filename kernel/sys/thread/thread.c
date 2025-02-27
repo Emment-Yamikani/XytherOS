@@ -135,12 +135,17 @@ int thread_create_group(thread_t *thread) {
         goto error;
     }
 
+    if ((err = signal_alloc(&signals))) {
+        goto error;
+    }
+
     queue_lock(queue);
     if ((err = embedded_enqueue(queue, &thread->t_group_qnode, QUEUE_ENFORCE_UNIQUE))) {
         queue_unlock(queue);
         goto error;    
     }
     queue_unlock(queue);
+
 
     thread_setmain(thread);
 
@@ -157,8 +162,7 @@ error:
         todo("FIXME!\n"); }
     if (fctx) {
         todo("FIXME!\n"); }
-    if (signals) {
-        todo("FIXME!\n"); }
+    if (signals) signal_free(signals);
     return err;
 }
 

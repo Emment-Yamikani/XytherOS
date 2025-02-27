@@ -21,9 +21,9 @@ __noreturn void kthread_main(void) {
     thread_builtin_init(); // start builtin threads.
 
     // assert_eq(err = proc_spawn_init("/init"), 0, "Error: %s\n", perror(err));
-    
+
     int err;
-    assert_eq(err = pthread_kill(2, 1), 0, "Failed to kill thread.\n");
+    assert_eq(err = pthread_kill(2, SIGINT), 0, "Failed to kill thread.\n");
 
     debuglog();
     loop() {

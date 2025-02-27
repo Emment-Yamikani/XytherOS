@@ -1,4 +1,5 @@
 #include <bits/errno.h>
+#include <core/debug.h>
 #include <sys/_signal.h>
 #include <sys/schedule.h>
 #include <sys/thread.h>
@@ -16,6 +17,7 @@ int thread_sigsend(thread_t *thread, siginfo_t *siginfo) {
         queue_unlock(&thread->t_sigqueue[siginfo->si_signo - 1]);
         return err;
     }
+    queue_unlock(&thread->t_sigqueue[siginfo->si_signo - 1]);
 
     if (thread_issleep(thread)) {
         queue_t *wait_queue = thread->t_wait_queue;
@@ -33,8 +35,8 @@ int thread_sigsend(thread_t *thread, siginfo_t *siginfo) {
         queue_unlock(wait_queue);
     }
 
-    queue_unlock(&thread->t_sigqueue[siginfo->si_signo - 1]);
-    return err;
+    sigaddset(&thread->t_sigpending, siginfo->si_signo);
+    return 0;
 }
 
 int thread_kill(thread_t *thread, int signo, union sigval value) {
