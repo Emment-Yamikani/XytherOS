@@ -1,9 +1,115 @@
+/**
+ * @file signal.c
+ * @brief Signal handling implementation for xytherOS.
+ * 
+ * Provides functions for allocating, enqueuing, dequeuing, and processing signals
+ * for threads within the kernel.
+ */
+
 #include <bits/errno.h>
 #include <core/debug.h>
 #include <mm/kalloc.h>
 #include <string.h>
 #include <sys/thread.h>
 
+/**
+ * @brief Retrieve the signal handler for a given thread.
+ * 
+ * @param thread The thread whose signal handler is being requested.
+ * @param signo The signal number.
+ * @return The signal handler function pointer.
+ */
+__sighandler_t sig_handler(thread_t *thread, int signo);
+
+/**
+ * @brief Allocates memory for a new signal descriptor.
+ * 
+ * @param psp Pointer to store the allocated signal descriptor.
+ * @return 0 on success, negative error code on failure.
+ */
+int signal_alloc(signal_t **psp);
+
+/**
+ * @brief Frees the memory allocated for a signal descriptor.
+ * 
+ * @param sigdesc Pointer to the signal descriptor to free.
+ */
+void signal_free(signal_t *sigdesc);
+
+/**
+ * @brief Frees memory allocated for a signal information structure.
+ * 
+ * @param siginfo Pointer to the signal information structure.
+ */
+void siginfo_free(siginfo_t *siginfo);
+
+/**
+ * @brief Initializes a siginfo structure with signal details.
+ * 
+ * @param siginfo Pointer to the siginfo structure to initialize.
+ * @param signo The signal number.
+ * @param val Signal value (additional data).
+ * @return 0 on success, -EINVAL if the signal number is invalid.
+ */
+int siginfo_init(siginfo_t *siginfo, int signo, union sigval val);
+
+/**
+ * @brief Allocates memory for a siginfo structure.
+ * 
+ * @param psiginfo Pointer to store the allocated siginfo structure.
+ * @return 0 on success, negative error code on failure.
+ */
+int siginfo_alloc(siginfo_t **psiginfo);
+
+/**
+ * @brief Prints the contents of a siginfo structure.
+ * 
+ * @param siginfo Pointer to the siginfo structure.
+ */
+void siginfo_dump(siginfo_t *siginfo);
+
+/**
+ * @brief Enqueues a signal in the process's pending signal queue.
+ * 
+ * @param sigdesc The signal descriptor of the target process.
+ * @param siginfo The signal information structure.
+ * @return 0 on success, negative error code on failure.
+ */
+int signal_enqueue(signal_t *sigdesc, siginfo_t *siginfo);
+
+/**
+ * @brief Dequeues the next pending signal from the process's signal queue.
+ * 
+ * @param sigdesc The signal descriptor of the target process.
+ * @param psiginfo Pointer to store the dequeued signal information.
+ * @return 0 on success, -ENOENT if no signals are pending.
+ */
+int signal_dequeue(signal_t *sigdesc, siginfo_t **psiginfo);
+
+/**
+ * @brief Enqueues a signal into a queue.
+ * 
+ * @param sigqueue The queue to enqueue the signal into.
+ * @param siginfo The signal information to enqueue.
+ * @return 0 on success, negative error code on failure.
+ */
+int sigqueue_enqueue(queue_t *sigqueue, siginfo_t *siginfo);
+
+/**
+ * @brief Dequeues a signal from a queue.
+ * 
+ * @param sigqueue The queue to dequeue from.
+ * @param psiginfo Pointer to store the dequeued signal information.
+ * @return 0 on success, negative error code on failure.
+ */
+int sigqueue_dequeue(queue_t *sigqueue, siginfo_t **psiginfo);
+
+/**
+ * @brief Flushes all signals from a signal queue.
+ * 
+ * @param sigqueue The queue to flush.
+ */
+void sigqueue_flush(queue_t *sigqueue);
 
 const char *signal_str[] = {
     [SIGABRT - 1]   = "SIGABRT",
