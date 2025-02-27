@@ -208,7 +208,7 @@ int signal_dequeue(thread_t *thread, siginfo_t **psiginfo) {
     if (thread == NULL || psiginfo == NULL)
         return -EINVAL;
 
-    thread_assert_locked(thread);
+    thread_lock(thread);
 
     for (int signo = 0; signo < NSIG; ++signo) {
         if (sigismember(&thread->t_sigpending, signo + 1)) {
@@ -222,6 +222,7 @@ int signal_dequeue(thread_t *thread, siginfo_t **psiginfo) {
                 }
                 queue_unlock(&thread->t_sigqueue[signo]);
                 *psiginfo = siginfo;
+                thread_unlock(thread);
                 return err;
             }
         }
@@ -236,15 +237,18 @@ int signal_dequeue(thread_t *thread, siginfo_t **psiginfo) {
                     if (!queue_count(&thread->t_signals->sig_queue[signo])) {
                         sigdelset(&thread->t_signals->sigpending, signo + 1);
                     }
+                    sigaddset(&thread->t_sigmask, signo + 1);
                     sigaddset(&thread->t_signals->sig_mask, signo + 1);
                 }
                 queue_unlock(&thread->t_signals->sig_queue[signo]);
                 *psiginfo = siginfo;
+                thread_unlock(thread);
                 return err;
             }
         }
     }
     signal_unlock(thread->t_signals);
+    thread_unlock(thread);
     return -ENOENT;
 }
 

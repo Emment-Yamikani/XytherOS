@@ -7,12 +7,9 @@ void signal_dispatch(void) {
     if (!current)
         return;
 
-    current_lock();
     if (signal_dequeue(current, &siginfo)) {
-        current_unlock();
         return;
     }
-    current_unlock();
 
     siginfo_dump(siginfo);
 }
