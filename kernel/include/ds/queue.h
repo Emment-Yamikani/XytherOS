@@ -43,7 +43,7 @@ typedef struct queue {
  */
 #define QUEUE(name)     queue_t *name = QUEUE_NEW()
 
-#define queue_assert(queue)         ({ assert((queue), "No queue"); })
+#define queue_assert(queue)         ({ assert((queue), "No queue.\n"); })
 #define queue_lock(queue)           ({ queue_assert(queue); spin_lock(&(queue)->q_lock); })
 #define queue_unlock(queue)         ({ queue_assert(queue); spin_unlock(&(queue)->q_lock); })
 #define queue_trylock(queue)        ({ queue_assert(queue); spin_trylock(&(queue)->q_lock); })

@@ -40,12 +40,16 @@
 
 #define NSIG        32
 
-typedef void        (*sigfunc_t)();
+/**
+ * @brief Action to be taken when a signal arrives.
+ * argument list left empty because this will be used as sa_handler or sa_sigaction*/
+typedef void        (*__sighandler_t)();
 
+#define SIG_ERR     ((__sighandler_t) -1)  /* error setting signal disposition. */
+#define SIG_DFL     ((__sighandler_t) 0)   /* default action taken. */
+#define SIG_IGN     ((__sighandler_t) 1)   /* ignore this signal. */
 
-#define SIG_ERR     ((sigfunc_t)-1)  // error setting signal disposition.
-#define SIG_DFL     ((sigfunc_t)0)   // default action taken.
-#define SIG_IGN     ((sigfunc_t)1)   // ignore this signal.
+/** DEFAULT ACTION FOR SINGNAL(n) */
 
 #define SIG_IGNORE      (1)
 #define SIG_ABRT        (2)
@@ -186,17 +190,16 @@ typedef struct __uc_stack_t {
     i32     ss_flags;   /* flags */
 } __packed uc_stack_t;
 
-typedef struct {
-    void        (*sa_handler)(int); /* addr of signal handler, or SIG_IGN, or SIG_DFL */
-    sigset_t    sa_mask;            /* additional signals to block */
-    int         sa_flags;           /* signal options, Figure 10.16 */
-    /* alternate handler */
-    void        (*sa_sigaction)(int, siginfo_t *, void *ucontext);
+typedef struct sigaction {
+    __sighandler_t  sa_handler; /* addr of signal handler, SIG_IGN, or SIG_DFL */
+    int             sa_flags;   /* signal options */
+    sigset_t        sa_mask;    /* additional signals to block */
 } sigaction_t;
 
 struct queue;
 typedef struct __signal_t {
     sigset_t    sig_mask;           // signal set mask.
+    sigset_t    sigpending;         /**< Set of pending signals: this is a sticky set a signal is only reset if all pending instances are delivered. */
     queue_t     sig_queue[NSIG];    // queues of siginfo_t * pointers for each signal instance.
     sigaction_t sig_action[NSIG];   // signal action entry for each signal.
     spinlock_t  sig_lock;           // spinlock to protect this struct.
@@ -211,8 +214,7 @@ typedef struct __signal_t {
 /**     THREAD SPECIFIC SIGNAL HANDLING FUNCTIONS */
 
 extern int  pause(void);
-extern int  raise(int signo);
-extern ulong alarm(unsigned sec);
+extern uint alarm(unsigned sec);
 extern int  sigpending(sigset_t *set);
 extern int  kill(pid_t pid, int signo);
 extern int  sigprocmask(int how, const sigset_t *restrict set, sigset_t *restrict oset);
@@ -226,6 +228,18 @@ extern int  pthread_sigqueue(tid_t tid, int signo, union sigval sigval);
 extern int  pthread_sigmask(int how, const sigset_t *restrict set, sigset_t *restrict oset);
 
 /**     HELPER FUNCTIONS */
+
+static inline int sig_default_action(int signo) {
+    
+}
+
+static inline __sighandler_t sig_handler(signal_t *sigdesc, int signo) {
+    return sigdesc->sig_action[signo - 1].sa_handler;
+}
+
+static inline bool sig_ignored(__sighandler_t handler, int signo) {
+    return handler == SIG_IGN || (handler == SIG_DFL && sig_default_action(signo));
+}
 
 extern int  signal_alloc(signal_t **psp);
 extern void signal_free(signal_t *sigdesc);

@@ -172,6 +172,7 @@ typedef struct thread_t {
     thread_info_t   t_info;         /**< General thread information */
     cond_t          t_event;        /**< Condition variable for thread events */
     sigset_t        t_sigmask;      /**< Signal mask for the thread */
+    sigset_t        t_sigpending;   /**< Set of pending signals: this is a sticky set a signal is only reset if all pending instances are delivered. */
     queue_t         t_sigqueue[NSIG];/**< Per-thread signal queues */
 
     queue_node_t    t_global_qnode; /**< Global Queue node for this thread */
@@ -257,7 +258,7 @@ typedef struct thread_t {
 /**
  * @brief Test a thread's flags. */
 #define thread_test(t, f) ({                      \
-    bool locked = thread_recursive_lock(t);        \
+    bool locked = thread_recursive_lock(t);       \
     flags64_t flags = (t)->t_info.ti_flags & (f); \
     if (locked)                                   \
         thread_unlock(t);                         \

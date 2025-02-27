@@ -172,7 +172,6 @@ void siginfo_dump(siginfo_t *siginfo) {
         siginfo->si_status,
         siginfo->si_value.sigval_ptr
     );
-
 }
 
 int signal_enqueue(signal_t *sigdesc, siginfo_t *siginfo) {
@@ -183,33 +182,37 @@ int signal_enqueue(signal_t *sigdesc, siginfo_t *siginfo) {
 
     signal_assert_locked(sigdesc);
 
-    queue_lock(&sigdesc->sig_queue[siginfo->si_signo]);
+    if ((err = sigaddset(&sigdesc->sigpending, siginfo->si_signo)))
+        return err;
 
-    err = sigqueue_enqueue(&sigdesc->sig_queue[siginfo->si_signo], siginfo);
-
-    queue_unlock(&sigdesc->sig_queue[siginfo->si_signo]);
+    queue_lock(&sigdesc->sig_queue[siginfo->si_signo - 1]);
+    if ((err = sigqueue_enqueue(&sigdesc->sig_queue[siginfo->si_signo - 1], siginfo))) {
+        if (!queue_count(&sigdesc->sig_queue[siginfo->si_signo])) {
+            sigdelset(&sigdesc->sigpending, siginfo->si_signo);
+        }
+    }
+    queue_unlock(&sigdesc->sig_queue[siginfo->si_signo - 1]);
     return err;
 }
 
 int signal_dequeue(signal_t *sigdesc, siginfo_t **psiginfo) {
-    int         err;
-
     if (sigdesc == NULL || psiginfo == NULL)
         return -EINVAL;
 
     signal_assert_locked(sigdesc);
 
     for (usize signo = 0; signo < NSIG; ++signo) {
-        queue_lock(&sigdesc->sig_queue[signo]);
-        if (queue_count(&sigdesc->sig_queue[signo])) {
+        if (sigismember(&sigdesc->sigpending, signo + 1)) {
             if (!sigismember(&sigdesc->sig_mask, signo + 1)) {
-                err = sigqueue_dequeue(&sigdesc->sig_queue[signo], psiginfo);
+                queue_lock(&sigdesc->sig_queue[signo]);
+                int err = sigqueue_dequeue(&sigdesc->sig_queue[signo], psiginfo);
+                if (!queue_count(&sigdesc->sig_queue[signo])) {
+                    sigdelset(&sigdesc->sigpending, signo + 1);
+                }
                 queue_unlock(&sigdesc->sig_queue[signo]);
                 return err;
-
             }
         }
-        queue_unlock(&sigdesc->sig_queue[signo]);
     }
 
     return -ENOENT;

@@ -8,8 +8,7 @@ int sigmask(sigset_t *sigset, int how, const sigset_t *restrict set, sigset_t *r
     if (sigset == NULL)
         return -EINVAL;
 
-    if (oset)
-        *oset = *sigset;
+    if (oset) *oset = *sigset;
 
     if (set == NULL)
         return 0;
@@ -33,6 +32,13 @@ int sigmask(sigset_t *sigset, int how, const sigset_t *restrict set, sigset_t *r
     }
 
     return err;
+}
+
+int thread_sigmask(thread_t *thread, int how, const sigset_t *restrict set, sigset_t *restrict oset) {
+    if (thread == NULL)
+        return -EINVAL;
+    thread_assert_locked(thread);
+    return sigmask(&thread->t_sigmask, how, set, oset);
 }
 
 int pthread_sigmask(int how, const sigset_t *restrict set, sigset_t *restrict oset) {
