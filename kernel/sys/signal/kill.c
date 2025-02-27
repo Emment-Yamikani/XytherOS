@@ -1,5 +1,6 @@
 #include <bits/errno.h>
 #include <sys/_signal.h>
+#include <sys/schedule.h>
 #include <sys/thread.h>
 
 int thread_sigsend(thread_t *thread, siginfo_t *siginfo) {

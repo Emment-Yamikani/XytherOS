@@ -2,7 +2,8 @@
 #include <core/debug.h>
 #include <mm/kalloc.h>
 #include <string.h>
-#include <sys/_signal.h>
+#include <sys/thread.h>
+
 
 const char *signal_str[] = {
     [SIGABRT - 1]   = "SIGABRT",
@@ -73,6 +74,11 @@ const int sig_defaults[] = {
     [SIGXCPU - 1]   = SIG_TERM,         // | teminate or terminate+core
     [SIGXFSZ - 1]   = SIG_TERM,         // | teminate or terminate+core
 };
+
+__sighandler_t sig_handler(thread_t *thread, int signo) {
+    signal_assert_locked(thread->t_signals);
+    return thread->t_signals->sig_action[signo - 1].sa_handler;
+}
 
 int signal_alloc(signal_t **psp) {
     int         err;
@@ -230,4 +236,12 @@ int sigqueue_dequeue(queue_t *sigqueue, siginfo_t **psiginfo) {
         return -EINVAL;
     queue_assert_locked(sigqueue);
     return dequeue(sigqueue, (void **)psiginfo);
+}
+
+void sigqueue_flush(queue_t *sigqueue) {
+    queue_assert_locked(sigqueue);
+    queue_foreach(sigqueue, siginfo_t *, siginfo) {
+        queue_remove_node(sigqueue, siginfo_node);
+        siginfo_free(siginfo);
+    }
 }

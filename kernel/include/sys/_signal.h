@@ -67,6 +67,8 @@ typedef sigset_t __sigset_t;
 
 #define SIGBAD(signo) ({ ((signo) < 1 || (signo) > NSIG); })
 
+#define SIGMASK(signo)  (1ul << (signo - 1))
+
 static inline int sigemptyset(sigset_t *set) {
     if ((set) == NULL)
         return -EINVAL;
@@ -93,6 +95,10 @@ static inline int sigdelset(sigset_t *set, int signo) {
         return -EINVAL;
     *set &= ~(sigset_t)(1 << (signo-1));
     return 0;
+}
+
+static inline void sigdelsetmask(sigset_t *set, uint mask) {
+    *set &= ~(sigset_t)mask;
 }
 
 static inline int sigismember(const sigset_t *set, int signo) {
@@ -230,15 +236,18 @@ extern int  pthread_sigmask(int how, const sigset_t *restrict set, sigset_t *res
 /**     HELPER FUNCTIONS */
 
 static inline int sig_default_action(int signo) {
-    
+    return sig_defaults[signo - 1];
 }
 
-static inline __sighandler_t sig_handler(signal_t *sigdesc, int signo) {
-    return sigdesc->sig_action[signo - 1].sa_handler;
+static inline bool sig_ignore(int signo) {
+    return sig_default_action(signo) == SIG_IGNORE;
 }
 
-static inline bool sig_ignored(__sighandler_t handler, int signo) {
-    return handler == SIG_IGN || (handler == SIG_DFL && sig_default_action(signo));
+extern __sighandler_t sig_handler(thread_t *thread, int signo);
+
+static inline bool sig_handler_ignored(__sighandler_t handler, int signo) {
+    return handler == SIG_IGN ||
+           (handler == SIG_DFL && sig_ignore(signo));
 }
 
 extern int  signal_alloc(signal_t **psp);
@@ -252,6 +261,7 @@ extern int  siginfo_init(siginfo_t *siginfo, int signo, union sigval val);
 extern int  signal_enqueue(signal_t *sigdesc, siginfo_t *siginfo);
 extern int  signal_dequeue(signal_t *sigdesc, siginfo_t **siginfo);
 
+extern void sigqueue_flush(queue_t *sigqueue);
 extern int  sigqueue_enqueue(queue_t *sigqueue, siginfo_t *siginfo);
 extern int  sigqueue_dequeue(queue_t *sigqueue, siginfo_t **siginfo);
 
