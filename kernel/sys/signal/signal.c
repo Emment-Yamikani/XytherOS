@@ -228,7 +228,6 @@ int signal_dequeue(thread_t *thread, siginfo_t **psiginfo) {
         }
     }
 
-    signal_lock(thread->t_signals);
     for (int signo = 0; signo < NSIG; ++signo) {
         if (sigismember(&thread->t_signals->sigpending, signo + 1)) {
             if (!sigismember(&thread->t_signals->sig_mask, signo + 1)) {
@@ -247,7 +246,7 @@ int signal_dequeue(thread_t *thread, siginfo_t **psiginfo) {
             }
         }
     }
-    signal_unlock(thread->t_signals);
+
     thread_unlock(thread);
     return -ENOENT;
 }

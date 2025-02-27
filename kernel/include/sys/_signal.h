@@ -243,6 +243,27 @@ static inline bool sig_ignore(int signo) {
     return sig_default_action(signo) == SIG_IGNORE;
 }
 
+
+static inline bool sig_abort(int signo) {
+    return sig_default_action(signo) == SIG_ABRT;
+}
+
+static inline bool sig_terminate(int signo) {
+    return sig_default_action(signo) == SIG_TERM;
+}
+
+static inline bool sig_term_dumpcore(int signo) {
+    return sig_default_action(signo) == SIG_TERM_CORE;
+}
+
+static inline bool sig_stop(int signo) {
+    return sig_default_action(signo) == SIG_STOP;
+}
+
+static inline bool sig_continue(int signo) {
+    return sig_default_action(signo) == SIG_CONT;
+}
+
 extern __sighandler_t sig_handler(thread_t *thread, int signo);
 
 static inline bool sig_handler_ignored(__sighandler_t handler, int signo) {
