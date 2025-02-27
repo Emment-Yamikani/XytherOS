@@ -4,9 +4,6 @@
 void signal_dispatch(void) {
     siginfo_t *siginfo = NULL;
 
-    if (!current)
-        return;
-
     if (signal_dequeue(current, &siginfo)) {
         return;
     }
