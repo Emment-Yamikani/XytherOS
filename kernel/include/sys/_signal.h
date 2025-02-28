@@ -280,7 +280,7 @@ extern int  siginfo_alloc(siginfo_t **psiginfo);
 extern int  siginfo_init(siginfo_t *siginfo, int signo, union sigval val);
 
 extern int  signal_enqueue(signal_t *sigdesc, siginfo_t *siginfo);
-extern int  signal_dequeue(thread_t *thread, siginfo_t **siginfo);
+extern int  signal_dequeue(thread_t *thread, sigaction_t *oact, siginfo_t **psiginfo);
 
 extern void sigqueue_flush(queue_t *sigqueue);
 extern int  sigqueue_enqueue(queue_t *sigqueue, siginfo_t *siginfo);
