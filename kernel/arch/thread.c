@@ -55,7 +55,7 @@ void arch_signal_return(void) {
 #endif
 }
 
-int arch_signal_dispatch(arch_thread_t *thread, thread_entry_t entry, siginfo_t *info, sigaction_t *sigact) {
+int arch_signal_dispatch(arch_thread_t *thread, __sighandler_t entry, siginfo_t *info, sigaction_t *sigact) {
 #if defined (__x86_64__)
     return x86_64_signal_dispatch( thread, entry, info, sigact);
 #endif

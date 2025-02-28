@@ -40,10 +40,8 @@ void signal_dispatch(void) {
         do_default_action(siginfo);
     }
 
-    arch_signal_dispatch(
-        &current->t_arch, (thread_entry_t)handler, siginfo,
-        &current->t_signals->sig_action[siginfo->si_signo - 1]
-    );
+    sigaction_t *act = &current->t_signals->sig_action[siginfo->si_signo - 1];
+    arch_signal_dispatch(&current->t_arch, handler, siginfo, act);
 
     signal_unlock(current->t_signals);
     siginfo_free(siginfo);

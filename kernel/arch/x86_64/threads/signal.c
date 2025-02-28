@@ -63,7 +63,7 @@ void x86_64_signal_start(u64 *kstack, mcontext_t *mctx) {
     current_unlock();
 }
 
-int x86_64_signal_dispatch( arch_thread_t   *thread, thread_entry_t  entry, siginfo_t *info, sigaction_t *sigact) {
+int x86_64_signal_dispatch( arch_thread_t *thread, __sighandler_t entry, siginfo_t *info, sigaction_t *sigact) {
     i64         ncli            = 1;
     i64         intena          = 0;
     flags64_t   was_handling    = 0;
@@ -77,8 +77,7 @@ int x86_64_signal_dispatch( arch_thread_t   *thread, thread_entry_t  entry, sigi
     siginfo_t   *siginfo        = NULL;
     void        *rsvd_stack     = NULL;
 
-    if (thread == NULL || entry == NULL ||
-        info   == NULL || sigact== NULL)
+    if (!thread || !entry || !info || !sigact)
         return -EINVAL;
 
     if (thread->t_thread == NULL)
