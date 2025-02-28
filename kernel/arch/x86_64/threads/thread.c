@@ -37,7 +37,7 @@ int x86_64_kthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) 
     mcontext_t  *mctx   = NULL;
     u64         *kstack = NULL;
 
-    if (thread == NULL || thread->t_thread == NULL || entry == NULL)
+    if (!thread || !thread->t_thread || !entry)
         return -EINVAL;
 
     thread_assert_locked(thread->t_thread);
@@ -77,7 +77,7 @@ int x86_64_uthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) 
     u64         *kstack = NULL;
     u64         *ustack = NULL;
 
-    if (thread == NULL || thread->t_thread == NULL || entry == NULL)
+    if (!thread || !thread->t_thread || !entry)
         return -EINVAL;
 
     thread_assert_locked(thread->t_thread);
@@ -129,7 +129,7 @@ int x86_64_thread_execve(arch_thread_t *thread, thread_entry_t entry, int argc, 
     u64         *ustack     = NULL;
     u64         *kstack     = NULL;
 
-    if (thread == NULL || thread->t_thread == NULL || entry == NULL)
+    if (!thread || !thread->t_thread || !entry)
         return -EINVAL;
 
     thread_assert_locked(thread->t_thread);
@@ -181,7 +181,7 @@ int x86_64_thread_execve(arch_thread_t *thread, thread_entry_t entry, int argc, 
 int x86_64_thread_setkstack(arch_thread_t *thread) {
     u64     kstack  = 0;
 
-    if (thread == NULL || thread->t_thread == NULL)
+    if (!thread || !thread->t_thread)
         return -EINVAL;
 
     thread_assert_locked(thread->t_thread);
@@ -199,7 +199,7 @@ int x86_64_thread_fork(arch_thread_t *dst, arch_thread_t *src) {
     context_t   *ctx    = NULL;
     u64         *kstack = NULL;
 
-    if (dst == NULL || dst->t_thread == NULL || src == NULL || src->t_thread)
+    if (!dst || !dst->t_thread || !src || !src->t_thread)
         return -EINVAL;
 
     thread_assert_locked(dst->t_thread);
