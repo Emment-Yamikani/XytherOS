@@ -14,7 +14,7 @@ static int thread_sigpending(thread_t *thread, sigset_t *set) {
         if (sigismember(&thread->t_sigpending, signo + 1) ||
             sigismember(&thread->t_signals->sigpending, signo + 1)) {
             if (sigismember(&thread->t_sigmask, signo + 1)) {
-                sigaddset(set, signo + 1);
+                sigsetadd(set, signo + 1);
                 npending++;
             }
         }

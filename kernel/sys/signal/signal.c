@@ -99,7 +99,7 @@ int signal_alloc(signal_t **psp) {
 
     memset(sigdesc, 0, sizeof *sigdesc);
 
-    sigemptyset(&sigdesc->sig_mask);
+    sigsetempty(&sigdesc->sig_mask);
 
     for (usize signo = 0; signo < NSIG; ++signo) {
         if ((err = queue_init(&sigdesc->sig_queue[signo]))) {
@@ -195,13 +195,13 @@ int signal_enqueue(signal_t *sigdesc, siginfo_t *siginfo) {
 
     signal_assert_locked(sigdesc);
 
-    if ((err = sigaddset(&sigdesc->sigpending, siginfo->si_signo)))
+    if ((err = sigsetadd(&sigdesc->sigpending, siginfo->si_signo)))
         return err;
 
     queue_lock(&sigdesc->sig_queue[siginfo->si_signo - 1]);
     if ((err = sigqueue_enqueue(&sigdesc->sig_queue[siginfo->si_signo - 1], siginfo))) {
         if (!queue_count(&sigdesc->sig_queue[siginfo->si_signo - 1])) {
-            sigdelset(&sigdesc->sigpending, siginfo->si_signo);
+            sigsetdel(&sigdesc->sigpending, siginfo->si_signo);
         }
     }
     queue_unlock(&sigdesc->sig_queue[siginfo->si_signo - 1]);
@@ -215,30 +215,30 @@ int signal_enqueue(signal_t *sigdesc, siginfo_t *siginfo) {
  * locks the corresponding signal queue, attempts to dequeue the signal, and
  * updates the pending set and thread’s signal mask as needed.
  *
- * @param pending_set      The set of pending signals (either thread or process level).
- * @param thread_mask      The thread’s signal mask (to block the signal upon dequeue).
- * @param queue            The queue from which to dequeue the signal.
- * @param sig              The signal number (1-indexed).
- * @param proc_mask        Pointer to the process-level mask (if update_proc_mask is true).
- * @param psiginfo         Output pointer for the dequeued signal information.
+ * @param thread[in]        The thread or process for whom signals maybe pending.
+ * @param signo[in]         The thread’s signal mask (to block the signal upon dequeue).
+ * @param proc_level[in]    The signal level to dequeue (either 'false' for thread or 'true' process level).
+ * @param psiginfo[out]     Output pointer for the dequeued signal information.
  *
  * @return 0 on success, or an error code (e.g. -ENOENT if not eligible).
  */
-static int try_dequeue_signal(sigset_t *pending_set, sigset_t *thread_mask, queue_t *queue, int sig, siginfo_t **psiginfo) {
-    int err;
+static int try_dequeue_signal(thread_t *thread, int signo, bool proc_level, siginfo_t **psiginfo) {
+    int         err     = 0;
+    queue_t     *queue  = NULL;
+    sigset_t    *pending= NULL;
 
-    /* Check if the signal is pending and not currently blocked in the thread */
-    if (!sigismember(pending_set, sig) || sigismember(thread_mask, sig))
+    pending = proc_level ? &thread->t_signals->sigpending : &thread->t_sigpending;
+    if (!sigismember(pending, signo) || sigismember(&thread->t_sigmask, signo))
         return -ENOENT;
 
+    queue = proc_level ? &thread->t_signals->sig_queue[signo - 1] : &thread->t_sigqueue[signo - 1];
     queue_lock(queue);
     err = sigqueue_dequeue(queue, psiginfo);
-    if (err == 0) {
-        /* If the queue is empty after dequeueing, remove from the pending set */
+    if (err == 0){
         if (!queue_count(queue))
-            sigdelset(pending_set, sig);
-        /* Block the signal in the thread’s mask to prevent re-delivery */
-        sigaddset(thread_mask, sig);
+            sigsetdel(pending, signo);
+        sigsetadd(&thread->t_sigmask, signo);
+        thread->t_arch.t_uctx->uc_sigmask = thread->t_sigmask;
     }
     queue_unlock(queue);
     return err;
@@ -257,8 +257,8 @@ static int try_dequeue_signal(sigset_t *pending_set, sigset_t *thread_mask, queu
  * @return 0 on success, or an error code (e.g., -ENOENT if no signal is found).
  */
 int signal_dequeue(thread_t *thread, siginfo_t **psiginfo) {
-    int err = 0;
-    siginfo_t *siginfo = NULL;
+    int         err     = 0;
+    siginfo_t   *siginfo= NULL;
 
     if (thread == NULL || psiginfo == NULL)
         return -EINVAL;
@@ -266,32 +266,22 @@ int signal_dequeue(thread_t *thread, siginfo_t **psiginfo) {
     /* Lock the thread to safely access its signal data */
     thread_lock(thread);
 
-    /* First, check thread-specific pending signals. */
-    for (int sig = 1; sig <= NSIG; ++sig) {
-        if (sigismember(&thread->t_sigpending, sig)) {
-            err = try_dequeue_signal(&thread->t_sigpending, &thread->t_sigmask,
-                                     &thread->t_sigqueue[sig - 1], sig, &siginfo);
-            if (err != -ENOENT) {
-                *psiginfo = siginfo;
-                thread_unlock(thread);
-                return err;
-            }
+    for (int signo = 1; signo <= NSIG; ++signo) {
+        err = try_dequeue_signal(thread, signo, false, &siginfo);
+        if (err != -ENOENT) {
+            *psiginfo = siginfo;
+            thread_unlock(thread);
+            return err;
         }
     }
 
     /* Next, check process-wide pending signals. */
-    for (int sig = 1; sig <= NSIG; ++sig) {
-        if (sigismember(&thread->t_signals->sigpending, sig)) {
-            /* Only dequeue if the process-wide mask does not block this signal */
-            if (!sigismember(&thread->t_signals->sig_mask, sig)) {
-                err = try_dequeue_signal(&thread->t_signals->sigpending, &thread->t_sigmask,
-                                         &thread->t_signals->sig_queue[sig - 1], sig, &siginfo);
-                if (err != -ENOENT) {
-                    *psiginfo = siginfo;
-                    thread_unlock(thread);
-                    return err;
-                }
-            }
+    for (int signo = 1; signo <= NSIG; ++signo) {
+        err = try_dequeue_signal(thread, signo, true, &siginfo);
+        if (err != -ENOENT) {
+            *psiginfo = siginfo;
+            thread_unlock(thread);
+            return err;
         }
     }
 

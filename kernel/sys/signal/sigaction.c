@@ -14,7 +14,7 @@ static int do_sigaction(int signo, sigaction_t *act, sigaction_t *oact) {
     if (oact) *oact = *p_act;
     
     if (act) {
-        sigdelsetmask(&act->sa_mask, SIGMASK(SIGKILL) | SIGMASK(SIGSTOP));
+        sigsetdelmask(&act->sa_mask, SIGMASK(SIGKILL) | SIGMASK(SIGSTOP));
 
         *p_act = *act;
         
@@ -29,7 +29,7 @@ static int do_sigaction(int signo, sigaction_t *act, sigaction_t *oact) {
                     queue_lock(&thread->t_sigqueue[signo - 1]);
                     sigqueue_flush(&thread->t_sigqueue[signo - 1]);
                     queue_lock(&thread->t_sigqueue[signo - 1]);
-                    sigdelset(&thread->t_sigpending, signo);
+                    sigsetdel(&thread->t_sigpending, signo);
                 }
                 thread_unlock(thread);
             }

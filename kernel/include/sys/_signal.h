@@ -2,6 +2,7 @@
 
 #include <bits/errno.h>
 #include <core/types.h>
+#include <string.h>
 #include <sync/spinlock.h>
 #include <ds/queue.h>
 
@@ -62,49 +63,61 @@ extern const char *signal_str[];
 
 extern const int sig_defaults[];
 
-typedef unsigned long sigset_t;
-typedef sigset_t __sigset_t;
+//bits per unsigned int.
+#define __BITS_PER_UINT (sizeof(uint) * 8)
+#define __NR_INT        (__BITS_PER_UINT / NSIG)
+
+typedef struct {
+    uint sigset[__NR_INT];
+} sigset_t, __sigset_t;
 
 #define SIGBAD(signo) ({ ((signo) < 1 || (signo) > NSIG); })
 
 #define SIGMASK(signo)  (1ul << (signo - 1))
 
-static inline int sigemptyset(sigset_t *set) {
-    if ((set) == NULL)
+static inline void sigsetempty(sigset_t *set) {
+    memset(set, 0, sizeof *set);
+}
+
+static inline void sigsetfill(sigset_t *set) {
+    memset(set, -1, sizeof *set);
+}
+
+static inline int sigsetadd(sigset_t *set, int signo) {
+    if (SIGBAD(signo))
         return -EINVAL;
-    *set = (sigset_t)0;
+    set->sigset[(signo - 1) / __BITS_PER_UINT] |= 1u << ((signo - 1) % __BITS_PER_UINT);
     return 0;
 }
 
-static inline int sigfillset(sigset_t *set) {
-    if ((set) == NULL)
+static inline int sigsetdel(sigset_t *set, int signo) {
+    if (SIGBAD(signo))
         return -EINVAL;
-    *set = ~(sigset_t)0;
+    set->sigset[(signo - 1) / __BITS_PER_UINT] &= ~(1u << ((signo - 1) % __BITS_PER_UINT));
     return 0;
 }
 
-static inline int sigaddset(sigset_t *set, int signo) {
-    if ((set) == NULL || SIGBAD(signo))
-        return -EINVAL;
-    *set |= (sigset_t)(1 << (signo-1));
-    return 0;
+static inline void sigsetaddsetmask(sigset_t *set, sigset_t mask) {
+    set->sigset[0] |= mask.sigset[0];
 }
 
-static inline int sigdelset(sigset_t *set, int signo) {
-    if ((set) == NULL || SIGBAD(signo))
-        return -EINVAL;
-    *set &= ~(sigset_t)(1 << (signo-1));
-    return 0;
+static inline void sigsetdelsetmask(sigset_t *set, sigset_t mask) {
+    set->sigset[0] &= ~mask.sigset[0];
 }
 
-static inline void sigdelsetmask(sigset_t *set, uint mask) {
-    *set &= ~(sigset_t)mask;
+static inline void sigsetaddmask(sigset_t *set, uint mask) {
+    set->sigset[0] |= mask;
+}
+
+static inline void sigsetdelmask(sigset_t *set, uint mask) {
+    set->sigset[0] &= ~mask;
 }
 
 static inline int sigismember(const sigset_t *set, int signo) {
-    if ((set) == NULL || SIGBAD(signo))
+    if (SIGBAD(signo))
         return -EINVAL;
-    return (*set & ((sigset_t)(1 << (signo - 1)))) ? 1 : 0;
+    return (set->sigset[(signo - 1) / __BITS_PER_UINT] &
+            (1u << ((signo - 1) % __BITS_PER_UINT))) ? 1 : 0;
 }
 
 #define SIG_BLOCK   (1)

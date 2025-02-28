@@ -27,22 +27,24 @@ void signal_dispatch(void) {
     __sighandler_t  handler     = NULL;
 
     signal_lock(current->t_signals);
-    if (signal_dequeue(current, &siginfo)) {
-        signal_unlock(current->t_signals);
-        return;
-    }
+    if (signal_dequeue(current, &siginfo))
+        goto done;
 
     handler = sig_handler(current, siginfo->si_signo);
 
     if (sig_handler_ignored(handler, siginfo->si_signo)) { // Signal ignored explicitly or implicitly?
         do_ignore(siginfo);
+        goto done;
     } else if (handler == SIG_DFL) { // Take default action?
         do_default_action(siginfo);
+        goto done;
     }
 
     sigaction_t *act = &current->t_signals->sig_action[siginfo->si_signo - 1];
     arch_signal_dispatch(&current->t_arch, handler, siginfo, act);
 
+done:
     signal_unlock(current->t_signals);
-    siginfo_free(siginfo);
+    if (siginfo)
+        siginfo_free(siginfo);
 }

@@ -35,7 +35,7 @@ int thread_sigsend(thread_t *thread, siginfo_t *siginfo) {
         queue_unlock(wait_queue);
     }
 
-    sigaddset(&thread->t_sigpending, siginfo->si_signo);
+    sigsetadd(&thread->t_sigpending, siginfo->si_signo);
     return 0;
 }
 

@@ -26,6 +26,12 @@ void trap(ucontext_t *uctx) {
     mcontext_t *mctx = &uctx->uc_mcontext;
 
     if (current) {
+        current->t_arch.t_uctx = uctx;
+        uctx->uc_stack = current_isuser() ? current->t_arch.t_kstack : current->t_arch.t_ustack;
+        uctx->uc_link  = current->t_arch.t_uctx;
+        current->t_arch.t_uctx = uctx;
+        uctx->uc_flags = 0;
+        sigsetempty(&uctx->uc_sigmask);
     }
 
     thread_handle_even(uctx);
