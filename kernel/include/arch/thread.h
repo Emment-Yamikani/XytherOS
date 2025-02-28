@@ -46,7 +46,7 @@ extern void arch_thread_exit(uintptr_t exit_code);
  */
 extern int arch_kthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg);
 extern int arch_uthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg);
-extern int x86_64_signal_dispatch(arch_thread_t *thread, __sighandler_t entry, siginfo_t *info, sigaction_t *sigact);
+extern int x86_64_signal_dispatch(arch_thread_t *thread, sigaction_t *sigact, siginfo_t *info);
 
 extern int arch_thread_execve(arch_thread_t *thread, thread_entry_t entry, int argc, const char *argp[], const char *envp[]);
 
@@ -54,6 +54,6 @@ extern int arch_thread_setkstack(arch_thread_t *arch);
 extern int arch_thread_fork(arch_thread_t *dst, arch_thread_t *src);
 
 extern void arch_signal_return(void);
-extern int arch_signal_dispatch(arch_thread_t *thread, __sighandler_t entry, siginfo_t *info, sigaction_t *sigact);
+extern int arch_signal_dispatch(arch_thread_t *thread, sigaction_t *sigact, siginfo_t *info);
 
 extern void arch_thread_free(arch_thread_t *arch);

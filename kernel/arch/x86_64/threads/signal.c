@@ -63,7 +63,7 @@ void x86_64_signal_start(u64 *kstack, mcontext_t *mctx) {
     current_unlock();
 }
 
-int x86_64_signal_dispatch( arch_thread_t *thread, __sighandler_t entry, siginfo_t *info, sigaction_t *sigact) {
+int x86_64_signal_dispatch( arch_thread_t *thread, sigaction_t *act, siginfo_t *info) {
     i64         ncli            = 1;
     i64         intena          = 0;
     flags64_t   was_handling    = 0;
@@ -77,37 +77,33 @@ int x86_64_signal_dispatch( arch_thread_t *thread, __sighandler_t entry, siginfo
     siginfo_t   *siginfo        = NULL;
     void        *rsvd_stack     = NULL;
 
-    if (!thread || !entry || !info || !sigact)
-        return -EINVAL;
-
-    if (thread->t_thread == NULL)
+    if (!thread || !thread->t_thread || !act || !act->sa_handler)
         return -EINVAL;
     
     thread_assert_locked(thread->t_thread);
 
     mctx = (mcontext_t *)(thread->t_sstack.ss_sp - sizeof *mctx);
 
+    printk("ss_stck: %p\n", thread->t_sstack.ss_sp);
     memset(mctx, 0, sizeof *mctx);
 
     if (current_isuser()) {
-        if (sigact->sa_flags & SA_ONSTACK) {
+        if (act->sa_flags & SA_ONSTACK) {
             stack   = thread->t_altstack;
             stack.ss_sp = ((thread->t_flags & ARCH_EXEC_ONSTACK) ?
                 (void *)ALIGN16(thread->t_uctx->uc_mcontext.rsp) :
                 thread->t_altstack.ss_sp);
-            stack.ss_size   = thread->t_altstack.ss_size - 
-                (thread->t_altstack.ss_sp - stack.ss_sp);
+            stack.ss_size   = thread->t_altstack.ss_size - (thread->t_altstack.ss_sp - stack.ss_sp);
             stack.ss_flags  = thread->t_altstack.ss_flags;
         } else {
             stack.ss_sp     = (void *)ALIGN16(thread->t_uctx->uc_mcontext.rsp);
-            stack.ss_size   = thread->t_ustack.ss_size - 
-                (thread->t_ustack.ss_sp - stack.ss_sp);
+            stack.ss_size   = thread->t_ustack.ss_size - (thread->t_ustack.ss_sp - stack.ss_sp);
             stack.ss_flags  = thread->t_ustack.ss_flags;
         }
 
         ustack  = stack.ss_sp;
 
-        if (sigact->sa_flags & SA_SIGINFO) {
+        if (act->sa_flags & SA_SIGINFO) {
             for (tmpctx = thread->t_uctx; tmpctx; tmpctx = tmpctx->uc_link)
                 ustack  = (u64 *)((u64)ustack - sizeof *uctx);
 
@@ -162,10 +158,10 @@ int x86_64_signal_dispatch( arch_thread_t *thread, __sighandler_t entry, siginfo
     }
 
     mctx->rflags    = LF_IF;
-    mctx->rip       = (u64)entry;
+    mctx->rip       = (u64)act->sa_handler;
     mctx->rdi       = (u64)info->si_signo;
     
-    if (sigact->sa_flags & SA_SIGINFO) {
+    if (act->sa_flags & SA_SIGINFO) {
         mctx->rsi   = (u64) (current_isuser() ? siginfo : info);
         mctx->rdx   = (u64) (current_isuser() ? uctx : thread->t_uctx);
     }

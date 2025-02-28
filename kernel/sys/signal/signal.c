@@ -252,40 +252,47 @@ static int try_dequeue_signal(thread_t *thread, int signo, bool proc_level, sigi
  * it is dequeued and the signal is blocked in the thread’s mask.
  *
  * @param thread   Pointer to the thread structure.
+ * @param oact     Pointer to a sigaction struct to hold the old sigaction.
  * @param psiginfo Output pointer that will be set to the dequeued signal info.
  *
  * @return 0 on success, or an error code (e.g., -ENOENT if no signal is found).
  */
-int signal_dequeue(thread_t *thread, siginfo_t **psiginfo) {
+int signal_dequeue(thread_t *thread, sigaction_t *oact, siginfo_t **psiginfo) {
     int         err     = 0;
     siginfo_t   *siginfo= NULL;
 
     if (thread == NULL || psiginfo == NULL)
         return -EINVAL;
 
-    /* Lock the thread to safely access its signal data */
-    thread_lock(thread);
+    signal_lock(thread->t_signals);
 
-    for (int signo = 1; signo <= NSIG; ++signo) {
-        err = try_dequeue_signal(thread, signo, false, &siginfo);
+    for (int signo = 0; signo < NSIG; ++signo) {
+        err = try_dequeue_signal(thread, signo + 1, false, &siginfo);
         if (err != -ENOENT) {
             *psiginfo = siginfo;
-            thread_unlock(thread);
+            if (oact) {
+                *oact = thread->t_signals->sig_action[signo];
+            }
+            signal_unlock(thread->t_signals);
             return err;
         }
     }
 
     /* Next, check process-wide pending signals. */
-    for (int signo = 1; signo <= NSIG; ++signo) {
-        err = try_dequeue_signal(thread, signo, true, &siginfo);
+    for (int signo = 0; signo < NSIG; ++signo) {
+        err = try_dequeue_signal(thread, signo + 1, true, &siginfo);
         if (err != -ENOENT) {
             *psiginfo = siginfo;
-            thread_unlock(thread);
+            if (oact) {
+                *oact = thread->t_signals->sig_action[signo];
+            }
+            signal_unlock(thread->t_signals);
             return err;
         }
     }
 
-    thread_unlock(thread);
+    signal_unlock(thread->t_signals);
+
     return -ENOENT;
 }
 

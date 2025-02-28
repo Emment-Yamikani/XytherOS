@@ -356,7 +356,7 @@ extern int signal_enqueue(signal_t *sigdesc, siginfo_t *siginfo);
  * @param psiginfo Pointer to store the dequeued signal information.
  * @return 0 on success, -ENOENT if no signals are pending.
  */
-extern int signal_dequeue(thread_t *thread, siginfo_t **psiginfo);
+extern int signal_dequeue(thread_t *thread, sigaction_t *oact, siginfo_t **psiginfo);
 
 /**
  * @brief Enqueues a signal into a queue.

@@ -11,6 +11,10 @@ void thread(void) {
     loop();
 } BUILTIN_THREAD(thread, thread, NULL);
 
+void signal_handler(int signo, siginfo_t *siginfo, ucontext_t *uctx) {
+    printk("Hello '%s', siginfo: %d, uctx: %p\n", signal_str[signo - 1], siginfo->si_signo, uctx);
+}
+
 __noreturn void kthread_main(void) {
     // int err;
 
@@ -22,7 +26,15 @@ __noreturn void kthread_main(void) {
 
     // assert_eq(err = proc_spawn_init("/init"), 0, "Error: %s\n", perror(err));
 
+    sigaction_t act;
+    act.sa_flags    = SA_SIGINFO;
+    act.sa_handler  = signal_handler;
+    sigsetempty(&act.sa_mask);
+
+    sigaction(SIGCANCEL, &act, NULL);
+
     int err;
+    assert_eq(err = pthread_kill(2, SIGCANCEL), 0, "Failed to kill thread.\n");
     assert_eq(err = pthread_kill(2, SIGCANCEL), 0, "Failed to kill thread.\n");
 
     debuglog();

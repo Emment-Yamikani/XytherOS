@@ -23,15 +23,15 @@ static void do_default_action(siginfo_t *siginfo) {
 }
 
 void signal_dispatch(void) {
+    sigaction_t     oact        = {0};
     siginfo_t       *siginfo    = NULL;
     __sighandler_t  handler     = NULL;
 
-    signal_lock(current->t_signals);
-    if (signal_dequeue(current, &siginfo))
+    current_lock();
+    if (signal_dequeue(current, &oact, &siginfo))
         goto done;
 
-    handler = sig_handler(current, siginfo->si_signo);
-
+    handler = oact.sa_handler;
     if (sig_handler_ignored(handler, siginfo->si_signo)) { // Signal ignored explicitly or implicitly?
         do_ignore(siginfo);
         goto done;
@@ -40,11 +40,15 @@ void signal_dispatch(void) {
         goto done;
     }
 
-    sigaction_t *act = &current->t_signals->sig_action[siginfo->si_signo - 1];
-    arch_signal_dispatch(&current->t_arch, handler, siginfo, act);
+    if ((oact.sa_flags & SA_SIGINFO) == 0) {
+        siginfo_free(siginfo);
+        siginfo = NULL;
+    }
+
+    arch_signal_dispatch(&current->t_arch, &oact, siginfo);
 
 done:
-    signal_unlock(current->t_signals);
+    current_unlock();
     if (siginfo)
         siginfo_free(siginfo);
 }
