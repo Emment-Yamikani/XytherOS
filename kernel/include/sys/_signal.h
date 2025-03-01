@@ -98,11 +98,13 @@ static inline int sigsetdel(sigset_t *set, int signo) {
 }
 
 static inline void sigsetaddsetmask(sigset_t *set, sigset_t mask) {
-    set->sigset[0] |= mask.sigset[0];
+    for (usize i = 0; i < NELEM(set->sigset); ++i)
+        set->sigset[i] |= mask.sigset[i];
 }
 
 static inline void sigsetdelsetmask(sigset_t *set, sigset_t mask) {
-    set->sigset[0] &= ~mask.sigset[0];
+    for (usize i = 0; i < NELEM(set->sigset); ++i)
+        set->sigset[i] &= ~mask.sigset[i];
 }
 
 static inline void sigsetaddmask(sigset_t *set, uint mask) {
@@ -202,6 +204,12 @@ typedef struct {
     int             si_status;  /* Exit value or signal */
     union sigval    si_value;   /* Signal value */
 } siginfo_t;
+
+#define MINSIGSTKSZ KiB(4)
+#define SIGSTKSZ    KiB(8)
+
+#define SS_DISABLE  1
+#define SS_ONSTACK  2
 
 typedef struct __uc_stack_t {
     void    *ss_sp;     /* stack base or pointer */

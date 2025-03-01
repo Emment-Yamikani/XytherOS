@@ -265,7 +265,7 @@ typedef struct thread_t {
     flags64_t flags = (t)->t_info.ti_flags & (f); \
     if (locked)                                   \
         thread_unlock(t);                         \
-    flags;                                        \
+    flags ? true : false;                         \
 })
 
 /**

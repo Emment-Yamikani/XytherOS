@@ -12,7 +12,7 @@ static void isr_ne(int trapno) {
     todo("trap(%d)\n", trapno);
 }
 
-void thread_handle_even(ucontext_t *uctx) {
+void thread_handle_event(ucontext_t *uctx) {
     if (!uctx || !current)
         return;
 
@@ -33,8 +33,6 @@ void trap(ucontext_t *uctx) {
         uctx->uc_flags = 0;
         sigsetempty(&uctx->uc_sigmask);
     }
-
-    thread_handle_even(uctx);
 
     switch (mctx->trapno) {
     case T_LEG_SYSCALL:
@@ -74,5 +72,7 @@ void trap(ucontext_t *uctx) {
     if ((mctx->trapno >= IRQ_OFFSET) && (mctx->trapno < T_LEG_SYSCALL))
         lapic_eoi();
 
-    thread_handle_even(uctx);
+    thread_handle_event(uctx);
 }
+
+#include <signal.h>

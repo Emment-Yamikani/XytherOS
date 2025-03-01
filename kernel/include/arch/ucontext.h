@@ -8,7 +8,7 @@
 #define x86_64_tf_isuser(tf)    ({((tf)->errno & 0x4) ? 1 : 0; })
 
 typedef struct __context_t context_t;
-typedef struct __context_t {
+struct __context_t {
     context_t *link;
     u64 r15;
     u64 r14;
@@ -18,7 +18,7 @@ typedef struct __context_t {
     u64 rbx;
     u64 rbp;
     u64 rip;
-} context_t;
+};
 
 // No. of registers in caller-callee context.
 #define NREGCTX ((sizeof (context_t)) / sizeof (uintptr_t))
@@ -92,7 +92,7 @@ typedef struct __ucontext_t {
     sigset_t    uc_sigmask; /* signals blocked when this context */
                             /* is active */
     uc_stack_t  uc_stack;   /* stack used by this context */
-    i32         uc_resvd;
+    i32         __padding;
     i64         uc_flags;   /* flags*/
     mcontext_t  uc_mcontext;/* machine-specific representation of */
                             /* saved context */

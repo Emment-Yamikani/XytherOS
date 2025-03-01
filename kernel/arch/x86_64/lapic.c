@@ -157,8 +157,12 @@ void lapic_timerintr(void) {
 
     if (current) {
         current_lock();
-        if (current->t_info.ti_sched.ts_timeslice)
-            current->t_info.ti_sched.ts_timeslice--;
+        /// used up entire timesclice, so downgrade it one priority level.
+        if (--current->t_info.ti_sched.ts_timeslice == 0) {
+            // Check to prevent underflow.
+            if (current->t_info.ti_sched.ts_prio > 0)
+                current->t_info.ti_sched.ts_prio -= 1;
+        }
         current_unlock();
     }
 }

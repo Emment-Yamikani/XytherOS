@@ -22,14 +22,41 @@ static void do_default_action(siginfo_t *siginfo) {
     }
 }
 
+static void signal_mask_block(int signo, sigaction_t *act, sigset_t *oset) {
+    sigset_t set;
+    
+    sigsetempty(&set);
+
+    // Block delivery of signo to this thread while we handle it.
+    if (!(act->sa_flags & SA_NODEFER)) {
+        sigsetadd(&set, signo);
+    }
+
+    // Block all signals that are set in sa_mask.
+    sigsetaddsetmask(&set, act->sa_mask);
+
+    // Block signals specified in 'set'.
+    sigmask(&current->t_sigmask, SIG_BLOCK, &set, oset);
+}
+
+static void signal_mask_restore(sigset_t *oset) {
+    sigmask(&current->t_sigmask, SIG_SETMASK, oset, NULL);
+}
+
 void signal_dispatch(void) {
+    sigset_t        oset;
     sigaction_t     oact        = {0};
     siginfo_t       *siginfo    = NULL;
     __sighandler_t  handler     = NULL;
-
+    
     current_lock();
-    if (signal_dequeue(current, &oact, &siginfo))
-        goto done;
+    if (signal_dequeue(current, &oact, &siginfo)) {
+        current_unlock();
+        return;
+    }
+
+    // block the set of signals we don't want to interrupt this context/
+    signal_mask_block(siginfo->si_signo, &oact, &oset);
 
     handler = oact.sa_handler;
     if (sig_handler_ignored(handler, siginfo->si_signo)) { // Signal ignored explicitly or implicitly?
@@ -40,14 +67,12 @@ void signal_dispatch(void) {
         goto done;
     }
 
-    if ((oact.sa_flags & SA_SIGINFO) == 0) {
-        siginfo_free(siginfo);
-        siginfo = NULL;
-    }
-
+    debuglog();
     arch_signal_dispatch(&current->t_arch, &oact, siginfo);
-
+    debuglog();
+    
 done:
+    signal_mask_restore(&oset); // restore old signal set.
     current_unlock();
     if (siginfo)
         siginfo_free(siginfo);

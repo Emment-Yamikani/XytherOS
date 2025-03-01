@@ -50,8 +50,14 @@ int getcpuid(void) {
 void disable_preemption(void) {
     pushcli();
 }
+
 void enable_preemption(void) {
     popcli();
+}
+
+void cpu_swap_preepmpt(isize *ncli, isize *intena) {
+    swapi64(&cpu->ncli, ncli);
+    swapi64(&cpu->intena, intena);
 }
 
 int cpu_online(void) {

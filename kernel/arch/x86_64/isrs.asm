@@ -104,7 +104,7 @@ global trapret
 extern trap
 
 ; Save CPU context
-%macro save_context 0
+%macro save_mctx  0
     push    rax
     push    rbx
     push    rcx
@@ -127,7 +127,7 @@ extern trap
 %endmacro
 
 ; Restore CPU context
-%macro restore_context 0
+%macro rstor_mctx 0
     pop     fs
     pop     rax
     mov     ds, ax
@@ -152,7 +152,7 @@ extern trap
 ; Common stub for ISRs and IRQs
 stub:
     swapgs                      ; Swap GS base (if needed for user-space handling)
-    save_context                ; Save CPU registers
+    save_mctx                   ; Save CPU registers
 
     ; Reserve space for ucontext_t struct (uc_link, uc_sigmask, uc_stack)
     sub     rsp, 48
@@ -165,7 +165,7 @@ stub:
     add     rsp, 48             ; Remove reserved space for ucontext_t
 
 trapret:
-    restore_context             ; Restore CPU registers
+    rstor_mctx                  ; Restore CPU ritrs
     swapgs                      ; Restore GS base (if needed)
     add     rsp, 16             ; Remove interrupt number and error code
     iretq                       ; Return from interrupt

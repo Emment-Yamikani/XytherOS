@@ -237,8 +237,6 @@ static int try_dequeue_signal(thread_t *thread, int signo, bool proc_level, sigi
     if (err == 0){
         if (!queue_count(queue))
             sigsetdel(pending, signo);
-        sigsetadd(&thread->t_sigmask, signo);
-        thread->t_arch.t_uctx->uc_sigmask = thread->t_sigmask;
     }
     queue_unlock(queue);
     return err;

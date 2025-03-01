@@ -50,4 +50,6 @@ extern void set_current(thread_t *thread);
 extern void disable_preemption(void);
 extern void enable_preemption(void);
 
+extern void cpu_swap_preepmpt(isize *ncli, isize *intena);
+
 #define current (get_current())

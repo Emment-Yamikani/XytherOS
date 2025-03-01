@@ -415,21 +415,12 @@ void sched(void) {
     }
 
     disable_preemption();
-    ncli   = cpu->ncli;
-    intena = cpu->intena;
-
-    /// used up entire timesclice, so downgrade it one priority level.
-    if (current->t_info.ti_sched.ts_timeslice == 0) {
-        // Check to prevent underflow.
-        if (current->t_info.ti_sched.ts_prio != 0)
-            current->t_info.ti_sched.ts_prio -= 1;
-    }
+    cpu_swap_preepmpt(&ncli, &intena);
 
     // return to the sscheduler.
     context_switch(&current->t_arch.t_ctx);
 
-    cpu->intena = intena;
-    cpu->ncli   = ncli;
+    cpu_swap_preepmpt(&ncli, &intena);
     enable_preemption();
 }
 

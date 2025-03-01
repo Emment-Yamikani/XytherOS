@@ -1,205 +1,137 @@
-#include <arch/thread.h>
-#include <arch/x86_64/mmu.h>
+#include <arch/cpu.h>
 #include <bits/errno.h>
+#include <core/debug.h>
+#include <string.h>
+#include <sys/schedule.h>
 #include <sys/thread.h>
 
+void x86_64_mctx_init(mcontext_t *mctx, bool user, sigaction_t *act, siginfo_t *siginfo, ucontext_t *uctx) {
+    memset(mctx, 0, sizeof *mctx);
+    if (user) {
+        mctx->cs = SEG_UCODE64 << 3;
+        mctx->ds = SEG_UDATA64 << 3;
+        mctx->fs = SEG_UDATA64 << 3;
+        mctx->ss = SEG_UDATA64 << 3;
+    } else {
+        mctx->cs = SEG_KCODE64 << 3;
+        mctx->ds = SEG_KDATA64 << 3;
+        mctx->fs = SEG_KDATA64 << 3;
+        mctx->ss = SEG_KDATA64 << 3;
+    }
+
+    mctx->rip   = (u64)act->sa_handler;
+    mctx->rflags= LF_IF;
+    mctx->rdi   = (u64)siginfo->si_signo;
+
+    if (act->sa_flags & SA_SIGINFO) {
+        mctx->rsi   = (u64)siginfo;
+        mctx->rdx   = (u64)uctx;
+    }
+}
+
+int x86_64_uthread_dispatch(arch_thread_t *arch, sigaction_t *act, siginfo_t *siginfo);
+
+static void x86_64_signal_deliver(arch_thread_t *arch) {
+    bool in_sigctx = thread_issigctx(arch->t_thread);
+
+    thread_setsigctx(arch->t_thread);
+
+    sched();
+
+    if (in_sigctx == false) {
+        thread_mask_sigctx(arch->t_thread);
+    }
+}
 
 void x86_64_signal_return(void) {
-    context_t       *scheduler_ctx  = NULL;
-    context_t       *dispatcher_ctx = NULL;
-    arch_thread_t   *arch           = NULL;
-
-    current_lock();
-
-    arch            = &current->t_arch;
-    scheduler_ctx   = arch->t_ctx;          // schedule();
-    dispatcher_ctx  = scheduler_ctx->link;      // signal_handler();
-    
-    scheduler_ctx->link = dispatcher_ctx->link;
-    dispatcher_ctx->link= scheduler_ctx;
-    arch->t_ctx         = dispatcher_ctx;
-
-    context_switch(&arch->t_ctx);
+    debuglog();
+    loop();
 }
 
-void x86_64_signal_start(u64 *kstack, mcontext_t *mctx) {
-    context_t       *scheduler_ctx  = NULL;
-    context_t       *dispatcher_ctx = NULL;
-    arch_thread_t   *arch           = &current->t_arch;
-
-    /**
-     * Swap contexts otherwise context_switch()
-     * in sched() will exit
-     * the signal handler prematurely.
-     *
-     * Therefore by doing this we intend for
-     * sched() to return to the context prior to
-     * acquisition on this signal(i.e the scheduler_ctx' context)
-     * Thus the thread will execute normally
-     * as though it's not handling any signal.
-     */
-
-    dispatcher_ctx  = arch->t_ctx;      // signal_handler();
-    scheduler_ctx   = dispatcher_ctx->link; // schedule();
-
-    dispatcher_ctx->link    = scheduler_ctx->link;
-    scheduler_ctx->link     = dispatcher_ctx;
-    arch->t_ctx         = scheduler_ctx;
-
-    assert((void *)kstack <= (void *)mctx, "Stack overun detected!");
-
-    kstack = (void *)ALIGN16(kstack);
-    current->t_arch.t_rsvd = kstack;
-
-    assert(is_aligned16(kstack), "Kernel stack is not 16bytes aligned!");
-
-    *--kstack = (u64)x86_64_signal_return;
-
-    if (!current_isuser())
-        mctx->rsp = mctx->rbp = (u64)kstack;
-    else
-        x86_64_thread_setkstack(&current->t_arch);
-
-    current_unlock();
+static void x86_64_signal_start(void) {
+    debuglog();
+    loop();
 }
 
-int x86_64_signal_dispatch( arch_thread_t *thread, sigaction_t *act, siginfo_t *info) {
-    i64         ncli            = 1;
-    i64         intena          = 0;
-    flags64_t   was_handling    = 0;
-    uc_stack_t  stack           = {0};
-    context_t   *ctx            = NULL;
-    mcontext_t  *mctx           = NULL;
-    ucontext_t  *uctx           = NULL;
-    ucontext_t  *tmpctx         = NULL;
-    u64         *kstack         = NULL;
-    u64         *ustack         = NULL;
-    siginfo_t   *siginfo        = NULL;
-    void        *rsvd_stack     = NULL;
 
-    if (!thread || !thread->t_thread || !act || !act->sa_handler)
+static int x86_64_ksignal_dispatch(arch_thread_t *arch, sigaction_t *act, siginfo_t *siginfo) {
+    if (!arch || !arch->t_thread || !act || !act->sa_handler)
         return -EINVAL;
-    
-    thread_assert_locked(thread->t_thread);
 
-    mctx = (mcontext_t *)(thread->t_sstack.ss_sp - sizeof *mctx);
+    if (act->sa_flags & SA_ONSTACK) {
+        context_t   *ctx    = NULL;
+        mcontext_t  *mctx   = NULL;
+        uintptr_t   *kstack = NULL;
 
-    printk("ss_stck: %p\n", thread->t_sstack.ss_sp);
-    memset(mctx, 0, sizeof *mctx);
+        // Ensure a valid altsigstack.
+        if (!arch->t_altstack.ss_sp || !arch->t_altstack.ss_size)
+        return -EINVAL;
+        
+        // Ignore the altsigstack and execute on the current stack?
+        if (arch->t_altstack.ss_flags & SS_DISABLE)
+            goto __no_altstack;
 
-    if (current_isuser()) {
-        if (act->sa_flags & SA_ONSTACK) {
-            stack   = thread->t_altstack;
-            stack.ss_sp = ((thread->t_flags & ARCH_EXEC_ONSTACK) ?
-                (void *)ALIGN16(thread->t_uctx->uc_mcontext.rsp) :
-                thread->t_altstack.ss_sp);
-            stack.ss_size   = thread->t_altstack.ss_size - (thread->t_altstack.ss_sp - stack.ss_sp);
-            stack.ss_flags  = thread->t_altstack.ss_flags;
-        } else {
-            stack.ss_sp     = (void *)ALIGN16(thread->t_uctx->uc_mcontext.rsp);
-            stack.ss_size   = thread->t_ustack.ss_size - (thread->t_ustack.ss_sp - stack.ss_sp);
-            stack.ss_flags  = thread->t_ustack.ss_flags;
-        }
+        // Indicate that the thread will now be executing on altsigstack.
+        arch->t_altstack.ss_flags |= SS_ONSTACK;
 
-        ustack  = stack.ss_sp;
+        kstack      = arch->t_altstack.ss_sp - sizeof *mctx;
+        *--kstack   = (u64)x86_64_signal_return;
+
+        mctx = (mcontext_t *)kstack;
+        memset(mctx, 0, sizeof *mctx);
+
+        mctx->ss    = SEG_KDATA64 << 3;
+        mctx->rbp   = (u64)kstack;
+        mctx->rsp   = (u64)kstack;
+        mctx->rflags= (u64)LF_IF;
+        mctx->cs    = SEG_KCODE64 << 3;
+        mctx->rip   = (u64)act->sa_handler;
+        mctx->rdi   = siginfo->si_signo;
 
         if (act->sa_flags & SA_SIGINFO) {
-            for (tmpctx = thread->t_uctx; tmpctx; tmpctx = tmpctx->uc_link)
-                ustack  = (u64 *)((u64)ustack - sizeof *uctx);
-
-            uctx        = (ucontext_t *)ustack;
-
-            assert(((void *)uctx - 0) >= (stack.ss_sp - stack.ss_size), "User stack overflow detected!!!\n");
-
-            for (tmpctx = thread->t_uctx; tmpctx; tmpctx = tmpctx->uc_link) {
-                uctx->uc_flags      = tmpctx->uc_flags;
-                uctx->uc_resvd      = tmpctx->uc_resvd;
-                uctx->uc_stack      = tmpctx->uc_stack;
-                uctx->uc_sigmask    = tmpctx->uc_sigmask;
-                uctx->uc_mcontext   = tmpctx->uc_mcontext;
-                uctx = uctx->uc_link= tmpctx->uc_link ? (uctx + 1) : NULL;
-            }
-
-            uctx        = (ucontext_t *)ustack;
-            siginfo     = (siginfo_t *)((u64)ustack - sizeof *siginfo);
-
-            assert(((void *)siginfo - 0) >= (stack.ss_sp - stack.ss_size), "User stack overflow detected!!!\n");
-
-            siginfo->si_pid     = info->si_pid;
-            siginfo->si_uid     = info->si_uid;
-            siginfo->si_addr    = info->si_addr;
-            siginfo->si_code    = info->si_code;
-            siginfo->si_value   = info->si_value;
-            siginfo->si_signo   = info->si_signo;
-            siginfo->si_status  = info->si_status;
-
-            ustack      = (u64 *)siginfo;
+            mctx->rsi   = (u64)siginfo;
+            mctx->rdx   = (u64)arch->t_uctx;
         }
 
-        *--ustack   = MAGIC_RETADDR;
-    
-        assert(((void *)ustack - 0) >= (stack.ss_sp - stack.ss_size), "User stack overflow detected!!!\n");
+        mctx->ds    =  SEG_KDATA64 << 3;
+        mctx->fs    =  SEG_KDATA64 << 3;
+        kstack      = (uintptr_t *)mctx;
+        *--kstack   = (u64)trapret;
+        
+        ctx         = (context_t *)((u64)kstack - sizeof *ctx);
+        ctx->rip    = (u64)x86_64_signal_start;
+        ctx->rbp    = mctx->rsp;
+        ctx->link   = arch->t_ctx;
 
-        mctx->ss    = (SEG_UDATA64 << 3) | DPL_USR;
-        mctx->rbp   = (u64)ustack;
-        mctx->rsp   = (u64)ustack;
-        mctx->cs    = (SEG_UCODE64 << 3) | DPL_USR;
-        mctx->fs    = (SEG_UDATA64 << 3) | DPL_USR;
-        mctx->ds    = (SEG_UDATA64 << 3) | DPL_USR;
-    } else {
-        mctx->ss = (SEG_KDATA64 << 3);
-        mctx->cs = (SEG_KCODE64 << 3);
-        mctx->ds = (SEG_KDATA64 << 3);
-        mctx->fs = (SEG_KDATA64 << 3);
-        /**
-         * @brief mctx->rsp and mctx->rbp
-         * are set in x86_64_signal_start().
-         */
+        arch->t_ctx = ctx;
+
+        x86_64_signal_deliver(arch);
+        return 0;
     }
 
-    mctx->rflags    = LF_IF;
-    mctx->rip       = (u64)act->sa_handler;
-    mctx->rdi       = (u64)info->si_signo;
-    
+__no_altstack:
+    current_unlock();
     if (act->sa_flags & SA_SIGINFO) {
-        mctx->rsi   = (u64) (current_isuser() ? siginfo : info);
-        mctx->rdx   = (u64) (current_isuser() ? uctx : thread->t_uctx);
+        act->sa_handler(siginfo->si_signo, siginfo, arch->t_uctx);
+    } else act->sa_handler(siginfo->si_signo);
+    current_lock();
+    return 0;
+}
+
+int x86_64_signal_dispatch(arch_thread_t *arch, sigaction_t *act, siginfo_t *siginfo) {
+    // mcontext_t  *mctx   = NULL;
+    // ucontext_t  *uctx   = NULL;
+    // context_t   *ctx    = NULL;
+    // uintptr_t   *kstack = NULL;
+
+    if (!arch || !arch->t_thread || !act || !act->sa_handler)
+        return -EINVAL;
+    
+    if (current_isuser()) {
+
+    } else {
+        x86_64_ksignal_dispatch(arch, act, siginfo);
     }
-
-    kstack          = (u64 *)mctx;
-    *--kstack       = (u64)trapret;
-    ctx             = (context_t *)((u64)kstack - sizeof *ctx);
-    ctx->rip        = (u64)x86_64_signal_start;
-    ctx->rbp        = (u64)kstack;
-    ctx->link       = thread->t_ctx;
-    thread->t_ctx   = ctx;
-
-    rsvd_stack      = thread->t_rsvd;
-    was_handling    = current_issigctx();
-    current_setmain();
-
-    swapi64(&intena, &cpu->intena);
-    swapi64(&ncli, &cpu->ncli);
-
-    context_switch(&thread->t_ctx);
-
-    swapi64(&cpu->ncli, &ncli);
-    swapi64(&cpu->intena, &intena);
-
-    if (was_handling == 0)
-        current_mask_sigctx();
-
-    /**
-     * thread->t_ctx at this point points to
-     * context_t saved by calling context_switch()
-     * in x86_64_signal_return(): see above.
-     * 
-     * Therefore, we need to restore thread->t_ctx
-     * to the value it had prior to calling
-     * this functino (x86_64_signal_dispatch()).
-    */
-    thread->t_ctx   = thread->t_ctx->link;
-    thread->t_rsvd  = rsvd_stack;
 
     return 0;
 }
