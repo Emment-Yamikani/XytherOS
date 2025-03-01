@@ -244,6 +244,7 @@ extern int  pause(void);
 extern uint alarm(unsigned sec);
 extern int  sigpending(sigset_t *set);
 extern int  kill(pid_t pid, int signo);
+extern int  sigaltstack(const uc_stack_t *ss, uc_stack_t *oss);
 extern int  sigprocmask(int how, const sigset_t *restrict set, sigset_t *restrict oset);
 extern int  sigwait(const sigset_t *restrict set, int *restrict signop);
 extern int  sigaction(int signo, const sigaction_t *restrict act, sigaction_t *restrict oact);

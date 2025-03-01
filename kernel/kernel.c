@@ -5,12 +5,20 @@
 #include <string.h>
 #include <sys/thread.h>
 #include <sync/mutex.h>
+#include <mm/kalloc.h>
 
 CONDITION_VARIABLE(wait);
 
 void thread(void) {
     debuglog();
-    sigaltstack();
+    uc_stack_t stack;
+
+    stack.ss_flags  = 0;
+    stack.ss_size   = SIGSTKSZ;
+    stack.ss_sp     = kmalloc(SIGSTKSZ) + SIGSTKSZ;
+
+    sigaltstack(&stack, NULL);
+
     cond_signal(wait);
     loop();
 } BUILTIN_THREAD(thread, thread, NULL);
