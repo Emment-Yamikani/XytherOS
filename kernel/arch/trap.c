@@ -18,7 +18,7 @@ void dump_tf(mcontext_t *mctx, int halt) {
     }
 
     if (halt) {
-        panic("\n\e[00;014mTRAP:%d\e[0m MCTX: %p CPU%d TID[%d:%d] to_ret->%p\n"
+        panic("\n\e[00;014mTRAP:%d\e[0m MCTX: %p CPU%d TID[%d:%d] ret[%p]\n"
               "\e[00;015merr\e[0m=\e[00;012m%16p\e[0m rfl=\e[00;12m%16p\e[0m cs =\e[00;12m%16p\e[0m\n"
               "\e[00;015mds\e[0m =%16p \e[00;015mfs \e[0m=%16p \e[00;015mss \e[0m=%16p\n"
               "\e[00;015mrax\e[0m=\e[00;012m%16p\e[0m rbx=\e[00;12m%16p\e[0m rcx=\e[00;12m%16p\e[0m\n"
@@ -42,7 +42,7 @@ void dump_tf(mcontext_t *mctx, int halt) {
               stack_sp, stack_sp + stack_sz, stack_sz
         );
     } else {
-        printk("\n\e[00;014mTRAP:%d\e[0m MCTX: %p CPU%d TID[%d:%d] to_ret->%p\n"
+        printk("\n\e[00;014mTRAP:%d\e[0m MCTX: %p CPU%d TID[%d:%d] ret[%p]\n"
               "\e[00;015merr\e[0m=\e[00;012m%16p\e[0m rfl=\e[00;12m%16p\e[0m cs =\e[00;12m%16p\e[0m\n"
               "\e[00;015mds\e[0m =%16p \e[00;015mfs \e[0m=%16p \e[00;015mss \e[0m=%16p\n"
               "\e[00;015mrax\e[0m=\e[00;012m%16p\e[0m rbx=\e[00;12m%16p\e[0m rcx=\e[00;12m%16p\e[0m\n"
@@ -71,22 +71,23 @@ void dump_tf(mcontext_t *mctx, int halt) {
 void dump_ctx(context_t *ctx, int halt) {
     if (halt) {
         panic(
-            "\nctx: %p lnk: %p r11: %p\n"
-            "r12: %p r13: %p r14: %p\n"
-            "r15: %p rbp: %p rbx: %p rip: %p\n",
+            "\n\t\t\t\t\t\tctx: %p\n"
+            "lnk: %p r11: %p r12: %p\n"
+            "r13: %p r14: %p r15: %p\n"
+            "rbp: %p rbx: %p rip: %p\n",
             ctx, ctx->link, ctx->r11,
             ctx->r12, ctx->r13, ctx->r14,
             ctx->r15, ctx->rbp, ctx->rbx, ctx->rip
         );
     } else {
         printk(
-            "\nctx: %p lnk: %p r11: %p\n"
-            "r12: %p r13: %p r14: %p\n"
-            "r15: %p rbp: %p rbx: %p rip: %p\n",
+            "\n\t\t\t\t\t\tctx: %p\n"
+            "lnk: %p r11: %p r12: %p\n"
+            "r13: %p r14: %p r15: %p\n"
+            "rbp: %p rbx: %p rip: %p\n",
             ctx, ctx->link, ctx->r11,
             ctx->r12, ctx->r13, ctx->r14,
-            ctx->r15, ctx->rbp, ctx->rbx, ctx->rip
-        );
+            ctx->r15, ctx->rbp, ctx->rbx, ctx->rip);
     }
 }
 
@@ -120,7 +121,7 @@ void trap(ucontext_t *uctx) {
     case T_LEG_SYSCALL:
         break;
     case T_PF:
-        assert(0, "PF: %p\n", rdcr2());
+        dump_tf(mctx, 1);
     case T_PIT:
         break;
     case T_GP:

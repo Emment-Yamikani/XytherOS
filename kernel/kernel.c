@@ -25,12 +25,11 @@ void thread(void) {
     cond_signal(wait);
     loop() {
         sched_yield();
-        __simulate_trap();
     }
 } BUILTIN_THREAD(thread, thread, NULL);
 
 void signal_handler(int signo, siginfo_t *siginfo, ucontext_t *uctx) {
-    printk("%s(siginfo: %d, uctx: %p);\n", signal_str[signo - 1], siginfo->si_signo, uctx);
+    printk("\n%s(siginfo: %d, uctx: %p);\n", signal_str[signo - 1], siginfo->si_signo, uctx);
 }
 
 __noreturn void kthread_main(void) {

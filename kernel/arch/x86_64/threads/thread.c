@@ -52,7 +52,7 @@ int x86_64_kthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) 
     mctx->ss    = (SEG_KDATA64 << 3);
     mctx->rbp   = (u64)kstack;
     mctx->rsp   = (u64)kstack;
-    mctx->rflags= 0;//LF_IF;
+    mctx->rflags= LF_IF;
     mctx->cs    = (SEG_KCODE64 << 3);
     mctx->rip   = (u64)entry;
     mctx->rdi   = (u64)arg;
@@ -66,7 +66,7 @@ int x86_64_kthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) 
     ctx->rbp    = mctx->rsp;
     ctx->link   = NULL; // starts with no link to old context.
 
-    thread->t_ctx = ctx;
+    thread->t_context = ctx;
     return 0;
 }
 
@@ -118,7 +118,7 @@ int x86_64_uthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) 
     ctx->rbp      = mctx->rsp;
     ctx->link     = NULL; // starts with no link to old context.
 
-    thread->t_ctx   = ctx;
+    thread->t_context   = ctx;
     return 0;
 }
 
@@ -174,7 +174,7 @@ int x86_64_thread_execve(arch_thread_t *thread, thread_entry_t entry, int argc, 
     ctx->rbp      = mctx->rsp;
     ctx->link     = NULL; // starts with no link to old context.
     
-    thread->t_ctx = ctx;
+    thread->t_context = ctx;
     return 0;
 }
 
@@ -223,7 +223,7 @@ int x86_64_thread_fork(arch_thread_t *dst, arch_thread_t *src) {
     ctx->rip    = (u64)x86_64_thread_start;
     ctx->rbp    = (u64)dst->t_rsvd;
     ctx->link   = NULL;
-    dst->t_ctx  = ctx;
+    dst->t_context  = ctx;
     return 0;
 }
 

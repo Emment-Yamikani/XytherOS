@@ -21,7 +21,7 @@
  */
 typedef struct __arch_thread_t {
     thread_t    *t_thread;      // pointer to thread control block.
-    context_t   *t_ctx;         // caller-callee context.
+    context_t   *t_context;         // caller-callee context.
     ucontext_t  *t_uctx;        // execution context status.
     void        *t_rsvd;        // reserved space on kstack, incase of interrupt chaining.
     flags64_t   t_flags;        // flags.

@@ -71,19 +71,12 @@ int pthread_sigqueue(tid_t tid, int signo, union sigval sigval) {
         return -EINVAL;
 
     queue_lock(current->t_group);
-    embedded_queue_foreach(current->t_group, thread_t, thrd, t_group_qnode) {
-        thread_lock(thrd);
-        if (thread_gettid(thrd) == tid) {
-            thread = thrd;
-            goto found;
-        }
-        thread_unlock(thrd);
-    }
-
-found:
+    err = thread_queue_get_thread(current->t_group, tid, 0, &thread);
     queue_unlock(current->t_group);
-    if (thread == NULL)
-        return -ESRCH;
+
+    if (err != 0) {
+        return err;
+    }
 
     err = thread_kill(thread, signo, sigval);
     thread_unlock(thread);

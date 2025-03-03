@@ -386,7 +386,7 @@ __noreturn void scheduler(void) {
         sched_update_thread_metrics(current);
 
         // jmp to thread.
-        context_switch(&current->t_arch.t_ctx);
+        context_switch(&current->t_arch.t_context);
 
         current_assert_locked();
 
@@ -411,7 +411,7 @@ void sched(void) {
     cpu_swap_preepmpt(&ncli, &intena);
 
     // return to the sscheduler.
-    context_switch(&current->t_arch.t_ctx);
+    context_switch(&current->t_arch.t_context);
 
     cpu_swap_preepmpt(&ncli, &intena);
     enable_preemption();
@@ -425,4 +425,4 @@ __noreturn void scheduler_load_balancer(void) {
         cpu_pause();
         sched_yield();
     }
-} //BUILTIN_THREAD(scheduler_load_balancer, scheduler_load_balancer, NULL);
+} BUILTIN_THREAD(scheduler_load_balancer, scheduler_load_balancer, NULL);
