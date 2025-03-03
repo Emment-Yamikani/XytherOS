@@ -66,3 +66,5 @@ extern void irq28(void);
 extern void irq29(void);
 extern void irq30(void);
 extern void irq31(void);
+
+extern void __simulate_trap(void);

@@ -171,8 +171,8 @@ trapret:
     iretq                       ; Return from interrupt
 
 ; Interrupt simulator (for testing)
-global _sim_trap
-_sim_trap:
+global __simulate_trap
+__simulate_trap:
     mov     rax, [rsp]          ; Get the return address (RIP)
     push    rax                 ; Push return address (RIP)
     push    qword 0x10          ; Push data segment selector (DS)
@@ -181,6 +181,6 @@ _sim_trap:
     cli
     push    qword 0x8           ; Push code segment selector (CS)
     push    rax                 ; Push return address (RIP)
-    push    qword 160           ; Push dummy error code
-    push    rdi                 ; Push RDI (additional context)
+    push    qword 0             ; Push dummy error code
+    push    qword 160           ; Push 160 as trapno
     jmp     stub                ; Jump to common handler

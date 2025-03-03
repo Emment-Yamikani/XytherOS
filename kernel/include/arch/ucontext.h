@@ -87,15 +87,11 @@ typedef struct __mcontext_t {
 } mcontext_t/*Machine context*/;
 
 typedef struct __ucontext_t {
-    ucontext_t *uc_link;    /* pointer to context resumed when */
-                            /* this context returns */
-    sigset_t    uc_sigmask; /* signals blocked when this context */
-                            /* is active */
+    ucontext_t *uc_link;    /* pointer to context resumed when this context returns */
+    sigset_t    uc_sigmask; /* signals blocked when this context is active */
     uc_stack_t  uc_stack;   /* stack used by this context */
-    i32         __padding;
+    i32         uc_padding;
     i64         uc_flags;   /* flags*/
-    mcontext_t  uc_mcontext;/* machine-specific representation of */
-                            /* saved context */
+    mcontext_t  uc_mcontext;/* machine-specific representation of saved context */
 } ucontext_t;
-
 #define uctx_isuser(ctx)    ({ ((ctx)->uc_mcontext.cs == (((SEG_UCODE64 << 3) | DPL_USR))) ? 1 : 0; })

@@ -52,7 +52,7 @@ int x86_64_kthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) 
     mctx->ss    = (SEG_KDATA64 << 3);
     mctx->rbp   = (u64)kstack;
     mctx->rsp   = (u64)kstack;
-    mctx->rflags= LF_IF;
+    mctx->rflags= 0;//LF_IF;
     mctx->cs    = (SEG_KCODE64 << 3);
     mctx->rip   = (u64)entry;
     mctx->rdi   = (u64)arg;

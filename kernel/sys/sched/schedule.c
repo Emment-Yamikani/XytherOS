@@ -324,7 +324,7 @@ static void MLFQ_push(void) {
 
         queue_unlock(&level->run_queue);
         queue_unlock(&target_level->run_queue);
-         debug("load: %d, stealing: %d, stolen: %d to prio: %s\n",
+         debug("load: %d, pushing: %d, pushed: %d to prio: %s\n",
            my_load, count, count_pushed, MLFQ_PRIORITY[target_level - target_mlfq->level]);
     }
 }
@@ -374,19 +374,13 @@ __noreturn void scheduler(void) {
         cpu->intena = 0;
         set_current(NULL);
 
-        sti();
+        // sti();
 
         loop() {
             set_current(MLFQ_get_next());
             if (current)
                 break;
-
-            // MLFQ_pull();
-            set_current(MLFQ_get_next());
-
-            if (current)
-                break;
-            hlt();
+            // hlt();
         }
 
         sched_update_thread_metrics(current);
@@ -398,13 +392,12 @@ __noreturn void scheduler(void) {
 
         sched_update_thread_metrics(current);
 
-        disable_preemption();
         hanlde_thread_state();
     }
 }
 
 void sched(void) {
-    isize ncli   = 0;
+    isize ncli   = 1; // don't change this, must always be == 1.
     isize intena = 0;
 
     current_assert_locked();
@@ -424,11 +417,12 @@ void sched(void) {
     enable_preemption();
 }
 
-static __noreturn void scheduler_load_balancer(void) {
+__noreturn void scheduler_load_balancer(void) {
     loop() {
         if ((jiffies_get() % (SYS_Hz * 60)) == 0) {
             MLFQ_balance();
         }
         cpu_pause();
+        sched_yield();
     }
-} BUILTIN_THREAD(scheduler_load_balancer, scheduler_load_balancer, NULL);
+} //BUILTIN_THREAD(scheduler_load_balancer, scheduler_load_balancer, NULL);

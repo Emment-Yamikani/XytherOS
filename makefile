@@ -17,7 +17,7 @@ CINCLUDE	:= $(KERNEL_DIR)/include
 
 # Compiler and Linker Flags
 CFLAGS 		:= -ffreestanding -O2 -g -Wall -Wextra -Werror $(KERNEL_FLAGS) -fno-stack-protector \
-			   -fno-exceptions -fno-pic -mno-red-zone -m64 -mcmodel=large -I$(CINCLUDE) -nostdlib \
+			   -fno-exceptions -fno-pic -mno-red-zone -mno-mmx -msse -m64 -mcmodel=large -I$(CINCLUDE) -nostdlib \
 			   -nostartfiles -nodefaultlibs -std=gnu99 -ffunction-sections -fdata-sections
 
 LDFLAGS 	:= -T $(KERNEL_DIR)/$(KERNEL_LINKER_SCRIPT) --gc-sections -nostdlib -static -m elf_x86_64 \

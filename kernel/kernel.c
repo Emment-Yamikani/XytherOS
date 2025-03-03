@@ -6,6 +6,8 @@
 #include <sys/thread.h>
 #include <sync/mutex.h>
 #include <mm/kalloc.h>
+#include <sys/schedule.h>
+#include <arch/x86_64/isr.h>
 
 CONDITION_VARIABLE(wait);
 
@@ -16,11 +18,15 @@ void thread(void) {
     stack.ss_flags  = 0;
     stack.ss_size   = SIGSTKSZ;
     stack.ss_sp     = kmalloc(SIGSTKSZ) + SIGSTKSZ;
+    printk("ss_sp: %p\n", stack.ss_sp);
 
     sigaltstack(&stack, NULL);
 
     cond_signal(wait);
-    loop();
+    loop() {
+        sched_yield();
+        __simulate_trap();
+    }
 } BUILTIN_THREAD(thread, thread, NULL);
 
 void signal_handler(int signo, siginfo_t *siginfo, ucontext_t *uctx) {
@@ -53,5 +59,6 @@ __noreturn void kthread_main(void) {
 
     debuglog();
     loop() {
+        sched_yield();
     }
 }

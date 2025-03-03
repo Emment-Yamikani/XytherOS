@@ -70,16 +70,23 @@ int pthread_sigqueue(tid_t tid, int signo, union sigval sigval) {
     if (SIGBAD(signo))
         return -EINVAL;
 
-    queue_lock(global_thread_queue);
-    if ((err = thread_queue_get_thread(global_thread_queue, tid, 0, &thread))) {
-        queue_unlock(global_thread_queue);
-        return err;
+    queue_lock(current->t_group);
+    embedded_queue_foreach(current->t_group, thread_t, thrd, t_group_qnode) {
+        thread_lock(thrd);
+        if (thread_gettid(thrd) == tid) {
+            thread = thrd;
+            goto found;
+        }
+        thread_unlock(thrd);
     }
-    queue_unlock(global_thread_queue);
+
+found:
+    queue_unlock(current->t_group);
+    if (thread == NULL)
+        return -ESRCH;
 
     err = thread_kill(thread, signo, sigval);
     thread_unlock(thread);
-
     return err;
 }
 

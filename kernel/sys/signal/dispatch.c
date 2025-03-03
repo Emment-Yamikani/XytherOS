@@ -44,19 +44,21 @@ static void signal_mask_restore(sigset_t *oset) {
 }
 
 void signal_dispatch(void) {
-    sigset_t        oset;
-    sigaction_t     oact        = {0};
+    sigaction_t     oact;
+    arch_thread_t   *arch       = NULL;
     siginfo_t       *siginfo    = NULL;
     __sighandler_t  handler     = NULL;
-    
+
     current_lock();
     if (signal_dequeue(current, &oact, &siginfo)) {
         current_unlock();
         return;
     }
 
-    // block the set of signals we don't want to interrupt this context/
-    signal_mask_block(siginfo->si_signo, &oact, &oset);
+    arch = &current->t_arch;
+
+    // block the set of signals we don't want to interrupt this context
+    signal_mask_block(siginfo->si_signo, &oact, &arch->t_uctx->uc_sigmask);
 
     handler = oact.sa_handler;
     if (sig_handler_ignored(handler, siginfo->si_signo)) { // Signal ignored explicitly or implicitly?
@@ -67,12 +69,10 @@ void signal_dispatch(void) {
         goto done;
     }
 
-    debuglog();
     arch_signal_dispatch(&current->t_arch, &oact, siginfo);
-    debuglog();
     
 done:
-    signal_mask_restore(&oset); // restore old signal set.
+    signal_mask_restore(&arch->t_uctx->uc_sigmask); // restore old signal set.
     current_unlock();
     if (siginfo)
         siginfo_free(siginfo);

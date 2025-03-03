@@ -23,6 +23,7 @@ typedef struct node_t {
 #define KHEAPBASE               (V2HI(GiB(4)))
 #define NNODES                  (KHEAPSIZE / PGSZ)
 
+static SPINLOCK(lock);
 static usize    kheap_size      = 0;
 static volatile atomic_t initialized     = 0;
 static size_t   used_memsz      = 0;
@@ -31,12 +32,10 @@ static node_t   *usedvmr_list   = NULL;
 static node_t   *freevmr_list   = NULL;
 static node_t   *nodes          = NULL;
 
-static SPINLOCK(vmlk);
-
-#define vm_lock()               ({ spin_lock(vmlk); })
-#define vm_unlock()             ({ spin_unlock(vmlk); })
-#define vm_islocked()           ({ spin_islocked(vmlk); })
-#define vm_assert_locked()      ({ spin_assert_locked(vmlk); })
+#define vm_lock()               ({ spin_lock(lock); })
+#define vm_unlock()             ({ spin_unlock(lock); })
+#define vm_islocked()           ({ spin_islocked(lock); })
+#define vm_assert_locked()      ({ spin_assert_locked(lock); })
 
 static void node_dump(node_t *node, size_t i) {
     if (node->prev && node->next) {

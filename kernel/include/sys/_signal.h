@@ -289,8 +289,7 @@ static inline bool sig_continue(int signo) {
 extern __sighandler_t sig_handler(thread_t *thread, int signo);
 
 static inline bool sig_handler_ignored(__sighandler_t handler, int signo) {
-    return handler == SIG_IGN ||
-           (handler == SIG_DFL && sig_ignore(signo));
+    return handler == SIG_IGN || (handler == SIG_DFL && sig_ignore(signo));
 }
 
 /**

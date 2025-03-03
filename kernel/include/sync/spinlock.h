@@ -28,6 +28,8 @@ typedef struct spinlock_t_t {
 
 extern void spinlock_init(spinlock_t *lk);
 
+extern void spinlock_dump(spinlock_t *lk);
+
 /* Call with lk->guard held and preemption disabled.*/
 extern int holding(const spinlock_t *lk);
 
