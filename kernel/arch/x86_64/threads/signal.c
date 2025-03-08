@@ -87,63 +87,68 @@ static int x86_64_signal_bycall(arch_thread_t *arch, sigaction_t *act, siginfo_t
     return 0;
 }
 
+static int x86_64_dispatch_onstack(arch_thread_t *arch, sigaction_t *act, siginfo_t *siginfo) {
+    u64         *kstack     = NULL;
+    context_t   *context    = NULL;
+    mcontext_t  *mcontext   = NULL;
+
+    if (!arch->t_altstack.ss_sp || !arch->t_altstack.ss_size) {
+        return -EINVAL;
+    }
+
+    if (arch->t_altstack.ss_flags & SS_DISABLE) {
+        return x86_64_signal_bycall(arch, act, siginfo);
+    }
+
+    if (arch->t_altstack.ss_flags & SS_ONSTACK) {
+        return x86_64_signal_bycall(arch, act, siginfo);
+    }
+
+    mcontext = (mcontext_t *)ALIGN16(arch->t_sstack.ss_sp - sizeof *mcontext);
+    memset(mcontext, 0, sizeof *mcontext);
+
+    kstack    = (u64 *)ALIGN16(arch->t_altstack.ss_sp);
+    *--kstack = (u64)x86_64_signal_return;
+
+    mcontext->ss    = SEG_KDATA64 << 3;
+    mcontext->rsp   = (u64)kstack;
+    mcontext->rbp   = (u64)kstack;
+    mcontext->rflags= LF_IF;
+    mcontext->cs    = SEG_KCODE64 << 3;
+    mcontext->rip   = (u64)act->sa_handler;
+    mcontext->rdi   = siginfo->si_signo;
+    mcontext->ds    = SEG_KDATA64 << 3;
+    mcontext->fs    = SEG_KDATA64 << 3;
+
+    if (act->sa_flags & SA_SIGINFO) {
+        mcontext->rsi = (u64)siginfo;
+        mcontext->rdx = (u64)arch->t_uctx;
+    }
+
+    kstack    = (u64 *)mcontext;
+    *--kstack = (u64)trapret;
+
+    context         = (context_t *)((u64)kstack - sizeof *context);
+    memset(context, 0, sizeof *context);
+
+    context->rip    = (u64)x86_64_signal_start;
+    context->rbp    = (u64)mcontext->rbp;
+    context->link   = arch->t_context;
+    arch->t_context = context;
+
+    x86_64_signal_onstack();
+
+    arch->t_context = arch->t_context->link;
+
+    return 0;
+}
+
 int x86_64_signal_dispatch(arch_thread_t *arch, sigaction_t *act, siginfo_t *siginfo) {
     if (!arch || !act || !siginfo)
         return -EINVAL;
 
     if (act->sa_flags & SA_ONSTACK) {
-        u64         *kstack     = NULL;
-        context_t   *context    = NULL;
-        mcontext_t  *mcontext   = NULL;
-
-        if (!arch->t_altstack.ss_sp || !arch->t_altstack.ss_size) {
-            return -EINVAL;
-        }
-
-        if (arch->t_altstack.ss_flags & SS_DISABLE) {
-            return x86_64_signal_bycall(arch, act, siginfo);
-        }
-
-        if (arch->t_altstack.ss_flags & SS_ONSTACK) {
-            return x86_64_signal_bycall(arch, act, siginfo);
-        }
-
-        mcontext = (mcontext_t *)ALIGN16(arch->t_sstack.ss_sp - sizeof *mcontext);
-        memset(mcontext, 0, sizeof *mcontext);
-
-        kstack    = (u64 *)ALIGN16(arch->t_altstack.ss_sp);
-        *--kstack = (u64)x86_64_signal_return;
-
-        mcontext->ss    = SEG_KDATA64 << 3;
-        mcontext->rsp   = (u64)kstack;
-        mcontext->rbp   = (u64)kstack;
-        mcontext->rflags= LF_IF;
-        mcontext->cs    = SEG_KCODE64 << 3;
-        mcontext->rip   = (u64)act->sa_handler;
-        mcontext->rdi   = siginfo->si_signo;
-        mcontext->ds    = SEG_KDATA64 << 3;
-        mcontext->fs    = SEG_KDATA64 << 3;
-
-        if (act->sa_flags & SA_SIGINFO) {
-            mcontext->rsi = (u64)siginfo;
-            mcontext->rdx = (u64)arch->t_uctx;
-        }
-
-        kstack    = (u64 *)mcontext;
-        *--kstack = (u64)trapret;
-
-        context         = (context_t *)((u64)kstack - sizeof *context);
-        memset(context, 0, sizeof *context);
-
-        context->rip    = (u64)x86_64_signal_start;
-        context->rbp    = (u64)mcontext->rbp;
-        context->link   = arch->t_context;
-        arch->t_context = context;
-
-        x86_64_signal_onstack();
-
-        arch->t_context = arch->t_context->link;
-        return 0;
+        return x86_64_dispatch_onstack(arch, act, siginfo);
     }
 
     return x86_64_signal_bycall(arch, act, siginfo);
