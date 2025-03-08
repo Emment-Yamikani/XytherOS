@@ -183,15 +183,15 @@ extern uint alarm(unsigned sec);
 extern int  sigpending(sigset_t *set);
 extern int  kill(pid_t pid, int signo);
 extern int  sigaltstack(const uc_stack_t *ss, uc_stack_t *oss);
-extern int  sigprocmask(int how, const sigset_t *restrict set, sigset_t *restrict oset);
-extern int  sigwait(const sigset_t *restrict set, int *restrict signop);
-extern int  sigaction(int signo, const sigaction_t *restrict act, sigaction_t *restrict oact);
+extern int  sigprocmask(int how, const sigset_t *set, sigset_t *oset);
+extern int  sigwait(const sigset_t *set, int *signop);
+extern int  sigaction(int signo, const sigaction_t *act, sigaction_t *oact);
 
 /**     THREAD SPECIFIC SIGNAL HANDLING FUNCTIONS */
 
 extern int  pthread_kill(tid_t thread, int signo);
 extern int  pthread_sigqueue(tid_t tid, int signo, union sigval sigval);
-extern int  pthread_sigmask(int how, const sigset_t *restrict set, sigset_t *restrict oset);
+extern int  pthread_sigmask(int how, const sigset_t *set, sigset_t *oset);
 
 /**     HELPER FUNCTIONS */
 
@@ -335,8 +335,8 @@ extern int  signal_getpending(thread_t *thread, siginfo_t **psiginfo);
 
 extern void signal_dispatch(void);
 
-extern int  sigmask(sigset_t *sigset, int how, const sigset_t *restrict set, sigset_t *restrict oset);
+extern int  sigmask(sigset_t *sigset, int how, const sigset_t *set, sigset_t *oset);
 
 extern int  thread_sigsend(thread_t *thread, siginfo_t *siginfo);
 extern int  thread_kill(thread_t *thread, int signo, union sigval value);
-extern int  thread_sigmask(thread_t *thread, int how, const sigset_t *restrict set, sigset_t *restrict oset);
+extern int  thread_sigmask(thread_t *thread, int how, const sigset_t *set, sigset_t *oset);

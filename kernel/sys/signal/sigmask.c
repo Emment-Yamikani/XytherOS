@@ -2,7 +2,7 @@
 #include <sys/_signal.h>
 #include <sys/thread.h>
 
-int sigmask(sigset_t *sigset, int how, const sigset_t *restrict set, sigset_t *restrict oset) {
+int sigmask(sigset_t *sigset, int how, const sigset_t *set, sigset_t *oset) {
     int err = 0;
 
     if (sigset == NULL)
@@ -36,14 +36,14 @@ int sigmask(sigset_t *sigset, int how, const sigset_t *restrict set, sigset_t *r
     return err;
 }
 
-int thread_sigmask(thread_t *thread, int how, const sigset_t *restrict set, sigset_t *restrict oset) {
+int thread_sigmask(thread_t *thread, int how, const sigset_t *set, sigset_t *oset) {
     if (thread == NULL)
         return -EINVAL;
     thread_assert_locked(thread);
     return sigmask(&thread->t_sigmask, how, set, oset);
 }
 
-int pthread_sigmask(int how, const sigset_t *restrict set, sigset_t *restrict oset) {
+int pthread_sigmask(int how, const sigset_t *set, sigset_t *oset) {
     if (current == NULL)
         return -EINVAL;
 
@@ -53,7 +53,7 @@ int pthread_sigmask(int how, const sigset_t *restrict set, sigset_t *restrict os
     return err;
 }
 
-int sigprocmask(int how, const sigset_t *restrict set, sigset_t *restrict oset) {
+int sigprocmask(int how, const sigset_t *set, sigset_t *oset) {
     if (current == NULL)
         return -EINVAL;
     signal_lock(current->t_signals);
