@@ -75,9 +75,11 @@ void signal_dispatch(void) {
     }
 
     arch_signal_dispatch(&current->t_arch, &oact, siginfo);
+
 done:
     signal_mask_restore(&arch->t_uctx->uc_sigmask); // restore old signal set.
     current_unlock();
+
     if (siginfo)
         siginfo_free(siginfo);
 
