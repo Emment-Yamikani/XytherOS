@@ -13,22 +13,17 @@ int sigaltstack(const uc_stack_t *ss, uc_stack_t *oss) {
     }
     
     // ss->ss_flags has flags other than SS_DISABLE set?
-    if (ss && (ss->ss_flags & ~SS_DISABLE)) {
-        return -EINVAL;
-    }
-
-    // size of altsigstack is too small.
-    if (ss && (ss->ss_size < MINSIGSTKSZ)) {
-        return -ENOMEM;
-    }
-
-    // return the current altsigstack.
-    if (oss) {
-        *oss = current->t_arch.t_altstack;
-    }
-
-    // set the new altsigstack.
     if (ss) {
+        if ((ss->ss_flags & ~SS_DISABLE) || ((ss->ss_size < MINSIGSTKSZ))) {
+            return -EINVAL;
+        }
+        
+        // return the current altsigstack.
+        if (oss) {
+            *oss = current->t_arch.t_altstack;
+        }
+
+        // set the new altsigstack.
         current->t_arch.t_altstack = *ss;
     }
 
