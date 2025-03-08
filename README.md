@@ -1,5 +1,13 @@
 # XytherOS: Where Imagination Meets Execution
 
+![POSIX Badge](https://img.shields.io/badge/POSIX-Compliant-brightgreen?style=flat&label=POSIX)
+![Issues Tracking Badge](https://img.shields.io/badge/issue_track-github-blue?style=flat&label=Issue%20Tracking)
+ [![Contributors](https://img.shields.io/github/contributors/emment-yamikani/xytheros)](https://github.com/emment-yamikani/xytheros/graphs/contributors)
+![Commit activity](https://img.shields.io/github/commit-activity/m/emment-yamikani/xytheros)
+![GitHub top language](https://img.shields.io/github/languages/top/emment-yamikani/xytheros?logo=c&label=)
+[![GitHub license](https://img.shields.io/github/license/emment-yamikani/xytheros)](https://github.com/emment-yamikani/xytheros/blob/LICENSE)
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/5ff3601b45194f9fbe54b2f8b3f380b0)](https://app.codacy.com/gh/emment-Yamikani/XytherOS/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
+
 Welcome to XytherOS, a cutting-edge operating system designed for developers, hobbyists, and OS enthusiasts who seek a balance between creativity and technical excellence. XytherOS is built with flexibility, performance, and innovation in mind, providing a robust platform for experimentation and execution.
 
 ## Features
