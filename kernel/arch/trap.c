@@ -9,12 +9,12 @@
 #include <sync/preempt.h>
 
 void dump_tf(mcontext_t *mctx, int halt) {
-    void *stack_sp = NULL;
     usize stack_sz = 0;
+    uintptr_t stack_sp = 0;
 
     if (current) {
-        stack_sp   = current->t_arch.t_kstack.ss_sp;
-        stack_sz    = current->t_arch.t_kstack.ss_size;
+        stack_sp = (uintptr_t)current->t_arch.t_kstack.ss_sp;
+        stack_sz = current->t_arch.t_kstack.ss_size;
     }
 
     dumpf(halt, "\n\e[00;014mTRAP:%d\e[0m MCTX: %p CPU%d TID[%d:%d] ret[%p]\n"

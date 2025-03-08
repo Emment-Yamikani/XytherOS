@@ -3,38 +3,32 @@
 #include <sys/thread.h>
 
 int sigmask(sigset_t *sigset, int how, const sigset_t *set, sigset_t *oset) {
-    int err = 0;
-
-    if (sigset == NULL)
-        return -EINVAL;
+    if (!sigset) return -EINVAL;  // Early return
 
     if (oset) *oset = *sigset;
 
-    if (set == NULL)
-        return 0;
+    if (!set) return 0;  // Early return
 
     if (sigismember(set, SIGKILL) || sigismember(set, SIGSTOP))
-        return -EINVAL;
+        return -EINVAL;  // Restriction check
 
-    switch (how) {
-        case SIG_BLOCK:
-            for (usize i = 0; i < __NR_INT; ++i)
-                sigset->sigset[i] |= set->sigset[i];
-            break;
-        case SIG_UNBLOCK:
-            for (usize i = 0; i < __NR_INT; ++i)
-                sigset->sigset[i] &= ~set->sigset[i];
-            break;
-        case SIG_SETMASK:
-            *sigset = *set;
-            break;
-        default:
-            err = -EINVAL;
-            break;
+    if (how == SIG_SETMASK) {
+        *sigset = *set;
+        return 0;
     }
 
-    return err;
+    for (usize i = 0; i < __NR_INT; ++i) {
+        if (how == SIG_BLOCK)
+            sigset->sigset[i] |= set->sigset[i];
+        else if (how == SIG_UNBLOCK)
+            sigset->sigset[i] &= ~set->sigset[i];
+        else
+            return -EINVAL;
+    }
+
+    return 0;
 }
+
 
 int thread_sigmask(thread_t *thread, int how, const sigset_t *set, sigset_t *oset) {
     if (thread == NULL)

@@ -88,20 +88,20 @@ __sighandler_t sig_handler(thread_t *thread, int signo) {
 }
 
 int signal_alloc(signal_t **psp) {
-    int         err;
     signal_t   *sigdesc;
-
+    
     if (psp == NULL)
         return -EINVAL;
-
+    
     if (NULL == (sigdesc = kmalloc(sizeof *sigdesc)))
         return -ENOMEM;
 
     memset(sigdesc, 0, sizeof *sigdesc);
 
     sigsetempty(&sigdesc->sig_mask);
-
+    
     for (usize signo = 0; signo < NSIG; ++signo) {
+        int         err;
         if ((err = queue_init(&sigdesc->sig_queue[signo]))) {
             kfree(sigdesc);
             return err;
