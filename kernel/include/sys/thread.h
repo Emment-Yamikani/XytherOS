@@ -460,6 +460,18 @@ extern builtin_thread_t __builtin_thrds_end[];
  *  Miscellaneous Definitions and Function Prototypes
  *====================================================================*/
 
+static inline jiffies_t current_gettimeslice(void) {
+    return atomic_read(&current->t_info.ti_sched.ts_timeslice);
+}
+
+static inline void current_settimeslice(jiffies_t quantum) {
+    atomic_write(&current->t_info.ti_sched.ts_timeslice, quantum);
+}
+
+static inline void current_timeslice_drop(void) {
+    if (current) atomic_dec(&current->t_info.ti_sched.ts_timeslice);
+}
+
 /* Thread and process function prototype */
 extern tid_t    thread_gettid(thread_t *thread);
 extern pid_t    thread_getpid(thread_t *thread);

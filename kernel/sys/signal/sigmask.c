@@ -18,10 +18,10 @@ int sigmask(sigset_t *sigset, int how, const sigset_t *restrict set, sigset_t *r
 
     switch (how) {
     case SIG_BLOCK:
-        sigsetaddsetmask(sigset, *set);
+        sigsetaddsetmask(sigset, set);
         break;
     case SIG_UNBLOCK:
-        sigsetdelsetmask(sigset, *set);
+        sigsetdelsetmask(sigset, set);
         break;
     case SIG_SETMASK:
         *sigset = *set;

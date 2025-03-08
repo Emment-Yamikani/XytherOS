@@ -33,7 +33,7 @@ static void signal_mask_block(int signo, sigaction_t *act, sigset_t *oset) {
     }
 
     // Block all signals that are set in sa_mask.
-    sigsetaddsetmask(&set, act->sa_mask);
+    sigsetaddsetmask(&set, &act->sa_mask);
 
     // Block signals specified in 'set'.
     sigmask(&current->t_sigmask, SIG_BLOCK, &set, oset);
@@ -48,6 +48,10 @@ void signal_dispatch(void) {
     arch_thread_t   *arch       = NULL;
     siginfo_t       *siginfo    = NULL;
     __sighandler_t  handler     = NULL;
+
+    if (current->t_arch.t_nsig_nested > ARCH_NSIG_NESTED) {
+        return;
+    }
 
     current_lock();
     if (signal_dequeue(current, &oact, &siginfo)) {
@@ -70,7 +74,6 @@ void signal_dispatch(void) {
     }
 
     arch_signal_dispatch(&current->t_arch, &oact, siginfo);
-    
 done:
     signal_mask_restore(&arch->t_uctx->uc_sigmask); // restore old signal set.
     current_unlock();

@@ -12,52 +12,57 @@
 CONDITION_VARIABLE(wait);
 
 void thread(void) {
-    debuglog();
-    uc_stack_t stack;
+    uc_stack_t ss;
 
-    stack.ss_flags  = 0;
-    stack.ss_size   = SIGSTKSZ;
-    stack.ss_sp     = kmalloc(SIGSTKSZ) + SIGSTKSZ;
-    printk("ss_sp: %p\n", stack.ss_sp);
+    ss.ss_flags = 0;
+    ss.ss_size  = KSTACK_SIZE;
+    ss.ss_sp    = kmalloc(KSTACK_SIZE) + KSTACK_SIZE;
 
-    sigaltstack(&stack, NULL);
-
+    sigaltstack(&ss, NULL);
     cond_signal(wait);
-    loop() {
-        sched_yield();
-    }
+    debuglog();
+    loop();
 } BUILTIN_THREAD(thread, thread, NULL);
 
 void signal_handler(int signo, siginfo_t *siginfo, ucontext_t *uctx) {
-    printk("\n%s(siginfo: %d, uctx: %p);\n", signal_str[signo - 1], siginfo->si_signo, uctx);
+    printk("\n%s(siginfo: %d, uctx: %p);\n",
+        signal_str[signo - 1],
+        siginfo->si_signo, uctx
+    );
+
+    // siginfo_dump(siginfo);
 }
 
 __noreturn void kthread_main(void) {
-    // int err;
-
-    // assert_eq(err = dev_init(), 0, "Failed to start devices, error: %s\n", perror(err));
-
-    // assert_eq(err = vfs_init(), 0, "Failed to initialize VFS!, error: %s\n", perror(err));
-
-    thread_builtin_init(); // start builtin threads.
-
-    // assert_eq(err = proc_spawn_init("/init"), 0, "Error: %s\n", perror(err));
-
+    sigset_t    set;
     sigaction_t act;
-    act.sa_flags    = SA_SIGINFO | SA_ONSTACK;
-    act.sa_handler  = signal_handler;
-    sigsetempty(&act.sa_mask);
+
+    sigsetfill(&set);
+    pthread_sigmask(SIG_BLOCK, &set, NULL);
+
+    memset(&act, 0, sizeof act);
+
+    act.sa_flags   |= SA_SIGINFO;
+    act.sa_handler = signal_handler;
 
     sigaction(SIGCANCEL, &act, NULL);
 
+    memset(&act, 0, sizeof act);
+
+    act.sa_flags |= SA_SIGINFO | SA_ONSTACK;
+    act.sa_handler = signal_handler;
+    sigaction(SIGINT, &act, NULL);
+
+    thread_builtin_init();
+
     cond_wait(wait);
-    int err;
-    assert_eq(err = pthread_kill(2, SIGCANCEL), 0, "Failed to kill thread.\n");
-    assert_eq(err = pthread_kill(2, SIGCANCEL), 0, "Failed to kill thread.\n");
-    assert_eq(err = pthread_kill(2, SIGCANCEL), 0, "Failed to kill thread.\n");
+    pthread_kill(2, SIGINT);
+    pthread_kill(2, SIGCANCEL);
+    pthread_kill(2, SIGINT);
+    pthread_kill(2, SIGCANCEL);
+    pthread_kill(2, SIGINT);
+    pthread_kill(2, SIGCANCEL);
 
     debuglog();
-    loop() {
-        sched_yield();
-    }
+    loop();
 }

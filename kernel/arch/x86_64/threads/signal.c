@@ -5,7 +5,9 @@
 #include <sys/schedule.h>
 #include <sys/thread.h>
 
-void x86_64_signal_start(void) {
+const ulong ARCH_NSIG_NESTED = 8;
+
+static void x86_64_signal_start(void) {
     /*
      * `current->t_arch.t_context' is the dispatch (signal) context created during signal delivery.
      * Its link field must have been set to the scheduler context (sched_ctx)
@@ -46,7 +48,7 @@ void x86_64_signal_return(void) {
     sched();
 }
 
-void x86_64_signal_deliver(void) {
+static void x86_64_signal_onstack(void) {
     bool is_sigctx = current_issigctx();
 
     current_setsigctx();
@@ -58,6 +60,24 @@ void x86_64_signal_deliver(void) {
         current_mask_sigctx();
 }
 
+static int x86_64_signal_bycall(arch_thread_t *arch, sigaction_t *act, siginfo_t *siginfo) {
+    bool is_sigctx = current_issigctx();
+
+    current_setsigctx();
+
+    current_unlock();
+
+    if (act->sa_flags & SA_SIGINFO)
+        act->sa_handler(siginfo->si_signo, siginfo, arch->t_uctx);
+    else act->sa_handler(siginfo->si_signo);
+
+    current_lock();
+
+    if (is_sigctx == false)
+        current_mask_sigctx();
+    return 0;
+}
+
 int x86_64_signal_dispatch(arch_thread_t *arch, sigaction_t *act, siginfo_t *siginfo) {
     if (!arch || !arch->t_thread || !act || !act->sa_handler || !siginfo)
         return -EINVAL;
@@ -67,17 +87,23 @@ int x86_64_signal_dispatch(arch_thread_t *arch, sigaction_t *act, siginfo_t *sig
         context_t   *context    = NULL;
         mcontext_t  *mcontext   = NULL;
 
-        if (!arch->t_altstack.ss_sp || !arch->t_altstack.ss_size)
+        if (!arch->t_altstack.ss_sp || !arch->t_altstack.ss_size) {
             return -EINVAL;
+        }
 
-        if (arch->t_altstack.ss_flags & SS_DISABLE)
-            goto __no_altsigstk;
+        if (arch->t_altstack.ss_flags & SS_DISABLE) {
+            return x86_64_signal_bycall(arch, act, siginfo);
+        }
 
-        mcontext    = (mcontext_t *)ALIGN16(arch->t_sstack.ss_sp - sizeof *mcontext);
+        if (arch->t_altstack.ss_flags & SS_ONSTACK) {
+            return x86_64_signal_bycall(arch, act, siginfo);
+        }
+
+        mcontext = (mcontext_t *)ALIGN16(arch->t_sstack.ss_sp - sizeof *mcontext);
         memset(mcontext, 0, sizeof *mcontext);
 
-        kstack      = (uintptr_t *)ALIGN16(arch->t_altstack.ss_sp);
-        *--kstack   = (uintptr_t)x86_64_signal_return;
+        kstack    = (uintptr_t *)ALIGN16(arch->t_altstack.ss_sp);
+        *--kstack = (uintptr_t)x86_64_signal_return;
 
         mcontext->ss    = SEG_KDATA64 << 3;
         mcontext->rsp   = (u64)kstack;
@@ -94,8 +120,8 @@ int x86_64_signal_dispatch(arch_thread_t *arch, sigaction_t *act, siginfo_t *sig
             mcontext->rdx = (u64)arch->t_uctx;
         }
 
-        kstack      = (uintptr_t *)mcontext;
-        *--kstack   = (uintptr_t)trapret;
+        kstack    = (uintptr_t *)mcontext;
+        *--kstack = (uintptr_t)trapret;
 
         context         = (context_t *)((uintptr_t)kstack - sizeof *context);
         memset(context, 0, sizeof *context);
@@ -103,16 +129,13 @@ int x86_64_signal_dispatch(arch_thread_t *arch, sigaction_t *act, siginfo_t *sig
         context->rip    = (u64)x86_64_signal_start;
         context->rbp    = (u64)mcontext->rbp;
         context->link   = arch->t_context;
-        
         arch->t_context = context;
-        x86_64_signal_deliver();
+
+        x86_64_signal_onstack();
+
         arch->t_context = arch->t_context->link;
         return 0;
     }
 
-__no_altsigstk:
-    if (act->sa_flags & SA_SIGINFO)
-        act->sa_handler(siginfo->si_signo, siginfo, arch->t_uctx);
-    else act->sa_handler(siginfo->si_signo);
-    return 0;
+    return x86_64_signal_bycall(arch, act, siginfo);
 }

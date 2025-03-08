@@ -155,16 +155,7 @@ void lapic_startup(int dst, uint16_t addr) {
 void lapic_timerintr(void) {
     atomic_inc(&cpu->timer_ticks);
 
-    if (current) {
-        current_lock();
-        /// used up entire timesclice, so downgrade it one priority level.
-        if (--current->t_info.ti_sched.ts_timeslice == 0) {
-            // Check to prevent underflow.
-            if (current->t_info.ti_sched.ts_prio > 0)
-                current->t_info.ti_sched.ts_prio -= 1;
-        }
-        current_unlock();
-    }
+    current_timeslice_drop();
 }
 
 void lapic_send_ipi(int ipi, int dst) {

@@ -44,10 +44,10 @@ static void MLFQ_init(void) {
 
     memset(mlfq, 0, sizeof *mlfq);
 
-    quantum = jiffies_from_ms(10);
+    quantum = jiffies_from_ms(50);
     foreach_level(mlfq) {
         level->quantum = quantum;
-        quantum += jiffies_from_ms(5);
+        quantum -= jiffies_from_ms(5);
     }
 }
 
@@ -258,7 +258,7 @@ __unused static void MLFQ_pull(void) {
 static void MLFQ_push(void) {
     usize           target_load     = 0;
     usize           count_pushed    = 0;
-    usize           count   = 0;
+    usize           count           = 0;
     usize           my_load         = 0;
     MLFQ_t          *target_mlfq    = NULL;
     MLFQ_t          *current_mlfq   = NULL;
@@ -324,8 +324,8 @@ static void MLFQ_push(void) {
 
         queue_unlock(&level->run_queue);
         queue_unlock(&target_level->run_queue);
-         debug("load: %d, pushing: %d, pushed: %d to prio: %s\n",
-           my_load, count, count_pushed, MLFQ_PRIORITY[target_level - target_mlfq->level]);
+        debug("load: %d, pushing: %d, pushed: %d to prio: %s\n",
+            my_load, count, count_pushed, MLFQ_PRIORITY[target_level - target_mlfq->level]);
     }
 }
 
@@ -374,13 +374,16 @@ __noreturn void scheduler(void) {
         cpu->intena = 0;
         set_current(NULL);
 
-        // sti();
+        sti();
 
         loop() {
             set_current(MLFQ_get_next());
-            if (current)
+
+            if (current) {
                 break;
-            // hlt();
+            }
+
+            hlt();
         }
 
         sched_update_thread_metrics(current);
@@ -410,6 +413,13 @@ void sched(void) {
     disable_preemption();
     cpu_swap_preepmpt(&ncli, &intena);
 
+    /// If not used up entire timeslice, drop one priority level.
+    if (current_gettimeslice() > 0) {
+        // Check to prevent underflow.
+        if (current->t_info.ti_sched.ts_prio > 0)
+            current->t_info.ti_sched.ts_prio -= 1;
+    }
+
     // return to the sscheduler.
     context_switch(&current->t_arch.t_context);
 
@@ -418,6 +428,10 @@ void sched(void) {
 }
 
 __noreturn void scheduler_load_balancer(void) {
+    sigset_t set;
+    sigsetfill(&set);
+    pthread_sigmask(SIG_BLOCK, &set, NULL);
+
     loop() {
         if ((jiffies_get() % (SYS_Hz * 60)) == 0) {
             MLFQ_balance();

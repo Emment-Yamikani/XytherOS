@@ -4,7 +4,7 @@
 #include <arch/x86_64/thread.h>
 #include <sys/_signal.h>
 
-#define ARCH_EXEC_ONSTACK    BS(0)
+extern const ulong ARCH_NSIG_NESTED;   // Maximum allowed nested signals per-thread.
 
 /**
  * Arch-specific thread structure.
@@ -21,9 +21,10 @@
  */
 typedef struct __arch_thread_t {
     thread_t    *t_thread;      // pointer to thread control block.
-    context_t   *t_context;         // caller-callee context.
+    context_t   *t_context;     // caller-callee context.
     ucontext_t  *t_uctx;        // execution context status.
     void        *t_rsvd;        // reserved space on kstack, incase of interrupt chaining.
+    usize       t_nsig_nested;  // Nested signals depth.
     flags64_t   t_flags;        // flags.
     uc_stack_t  t_sstack;       // scratch stack for when executing for the first time.
     uc_stack_t  t_kstack;       // kernel stack description.

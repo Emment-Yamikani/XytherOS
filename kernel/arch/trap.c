@@ -101,20 +101,21 @@ void thread_handle_event(void) {
 
     signal_dispatch();
 
-    if (atomic_read(&current->t_info.ti_sched.ts_timeslice) == 0)
+    if (current_gettimeslice() == 0)
         sched_yield();
+
+    current->t_arch.t_uctx = current->t_arch.t_uctx->uc_link;
 }
 
 void trap(ucontext_t *uctx) {
     mcontext_t *mctx = &uctx->uc_mcontext;
 
     if (current) {
-        current->t_arch.t_uctx = uctx;
-        uctx->uc_stack = current_isuser() ? current->t_arch.t_kstack : current->t_arch.t_ustack;
+        uctx->uc_stack = current_isuser() ?
+            current->t_arch.t_kstack : current->t_arch.t_ustack;
         uctx->uc_link  = current->t_arch.t_uctx;
         current->t_arch.t_uctx = uctx;
         uctx->uc_flags = 0;
-        sigsetempty(&uctx->uc_sigmask);
     }
 
     switch (mctx->trapno) {
@@ -161,8 +162,4 @@ void trap(ucontext_t *uctx) {
         lapic_eoi();
     
     thread_handle_event();
-
-    if (current) {
-        current->t_arch.t_uctx = uctx->uc_link;
-    }
 }
