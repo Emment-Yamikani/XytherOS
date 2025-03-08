@@ -19,16 +19,12 @@ static int do_sigaction(int signo, sigaction_t *act, sigaction_t *oact) {
         *p_act = *act;
         
         if (sig_handler_ignored(sig_handler(current, signo), signo)) {
-            queue_lock(&current->t_signals->sig_queue[signo - 1]);
             sigqueue_flush(&current->t_signals->sig_queue[signo - 1]);
-            queue_unlock(&current->t_signals->sig_queue[signo - 1]);
 
             foreach_thread(current->t_group, t_group_qnode) {
                 thread_lock(thread);
                 if (sigismember(&thread->t_sigpending, signo)) {
-                    queue_lock(&thread->t_sigqueue[signo - 1]);
                     sigqueue_flush(&thread->t_sigqueue[signo - 1]);
-                    queue_lock(&thread->t_sigqueue[signo - 1]);
                     sigsetdel(&thread->t_sigpending, signo);
                 }
                 thread_unlock(thread);

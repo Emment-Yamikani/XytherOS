@@ -236,11 +236,11 @@ static int try_dequeue_signal(thread_t *thread, bool proc_level, sigaction_t *oa
     sigsetempty(&pending);
 
     // get the pending set of signals.
-    sigsetaddsetmask(&pending, src_pending);
+    sigmask(&pending, SIG_SETMASK, src_pending, NULL);
 
     // mask out blocked signals from the set.
-    sigsetdelsetmask(&pending, &thread->t_sigmask);
-    
+    sigmask(&pending, SIG_UNBLOCK, &thread->t_sigmask, NULL);
+
     if ((signo = sigset_first(&pending)) == 0) {
         return -ENOENT;
     }
@@ -315,10 +315,19 @@ int sigqueue_dequeue(queue_t *sigqueue, siginfo_t **psiginfo) {
     return dequeue(sigqueue, (void **)psiginfo);
 }
 
-void sigqueue_flush(queue_t *sigqueue) {
+void sigqueue_flush_locked(queue_t *sigqueue) {
     queue_assert_locked(sigqueue);
     queue_foreach(sigqueue, siginfo_t *, siginfo) {
         queue_remove_node(sigqueue, siginfo_node);
         siginfo_free(siginfo);
     }
+}
+
+void sigqueue_flush(queue_t *sigqueue) {
+    queue_lock(sigqueue);
+    queue_foreach(sigqueue, siginfo_t *, siginfo) {
+        queue_remove_node(sigqueue, siginfo_node);
+        siginfo_free(siginfo);
+    }
+    queue_unlock(sigqueue);
 }

@@ -42,7 +42,7 @@ static inline int sigismember(const sigset_t *set, int signo) {
 }
 
 static inline int sigset_first(sigset_t *set) {
-    for (usize i = 0; i < NELEM(set->sigset); ++i) {
+    for (usize i = 0; i < __NR_INT; ++i) {
         if (set->sigset[i]) {
             return i * __BITS_PER_UINT + __builtin_ctz(set->sigset[i]) + 1;
         }
@@ -53,25 +53,15 @@ static inline int sigset_first(sigset_t *set) {
 static inline void sigsetempty(sigset_t *set) {
     set->sigset[0] = 0;
     // If __NR_INT > 1, then loop over remaining indices
-    for (usize i = 1; i < NELEM(set->sigset); ++i)
+    for (usize i = 1; i < __NR_INT; ++i)
         set->sigset[1] = 0;
 }
 
 static inline void sigsetfill(sigset_t *set) {
     set->sigset[0] = ~0U;
     // If __NR_INT > 1, then loop over remaining indices
-    for (usize i = 1; i < NELEM(set->sigset); ++i)
+    for (usize i = 1; i < __NR_INT; ++i)
         set->sigset[1] = 0;
-}
-
-static inline void sigsetaddsetmask(sigset_t *set, const sigset_t *mask) {
-    for (usize i = 0; i < NELEM(set->sigset); ++i)
-        set->sigset[i] |= mask->sigset[i];
-}
-
-static inline void sigsetdelsetmask(sigset_t *set, const sigset_t *mask) {
-    for (usize i = 0; i < NELEM(set->sigset); ++i)
-        set->sigset[i] &= ~mask->sigset[i];
 }
 
 static inline void sigsetaddmask(sigset_t *set, uint mask) {

@@ -24,16 +24,16 @@ static void do_default_action(siginfo_t *siginfo) {
 
 static void signal_mask_block(int signo, sigaction_t *act, sigset_t *oset) {
     sigset_t set;
-    
+
     sigsetempty(&set);
+
+    // Block all signals that are set in sa_mask.
+    sigmask(&set, SIG_SETMASK, &act->sa_mask, NULL);
 
     // Block delivery of signo to this thread while we handle it.
     if (!(act->sa_flags & SA_NODEFER)) {
         sigsetadd(&set, signo);
     }
-
-    // Block all signals that are set in sa_mask.
-    sigsetaddsetmask(&set, &act->sa_mask);
 
     // Block signals specified in 'set'.
     sigmask(&current->t_sigmask, SIG_BLOCK, &set, oset);
@@ -54,6 +54,7 @@ void signal_dispatch(void) {
     }
 
     current_lock();
+
     if (signal_dequeue(current, &oact, &siginfo)) {
         current_unlock();
         return;

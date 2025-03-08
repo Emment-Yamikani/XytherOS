@@ -19,6 +19,7 @@ static void x86_64_signal_start(void) {
     if (!current->t_arch.t_context || !current->t_arch.t_context->link) {
         panic("Invalid dispatch context in signal_start");
     }
+
     context_t *sched_ctx = current->t_arch.t_context->link;
     sched_ctx->link = current->t_arch.t_context;
 
@@ -35,16 +36,18 @@ void x86_64_signal_return(void) {
      * scheduler context (sched_ctx) that was set by x86_64_signal_start.
      * We then want to switch to the dispatch context (`current->t_arch.t_context') so that
      * the signal delivery code (signal_dispatch) can complete and, upon return,
-     * the original scheduler context is restored.
-     */
+     * the original scheduler context is restored. */
     context_t *sched_ctx = current->t_arch.t_context;
+
     if (!sched_ctx || !sched_ctx->link) {
         panic("Invalid context chain in signal_return");
     }
 
     current->t_arch.t_context = sched_ctx->link;
     current->t_arch.t_context->link = sched_ctx;
+
     current_lock();
+
     sched();
 }
 
@@ -54,6 +57,7 @@ static void x86_64_signal_onstack(void) {
     current_setsigctx();
 
     sched();
+
     current->t_arch.t_altstack.ss_flags &= ~SS_ONSTACK;
 
     if (is_sigctx == false)
@@ -79,6 +83,7 @@ static int x86_64_signal_bycall(arch_thread_t *arch, sigaction_t *act, siginfo_t
 
     if (is_sigctx == false)
         current_mask_sigctx();
+
     return 0;
 }
 

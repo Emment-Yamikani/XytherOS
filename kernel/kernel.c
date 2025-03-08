@@ -40,7 +40,7 @@ __noreturn void kthread_main(void) {
 
     memset(&act, 0, sizeof act);
 
-    act.sa_flags   |= SA_SIGINFO | SA_ONSTACK;
+    act.sa_flags   |= SA_SIGINFO;
     act.sa_handler = signal_handler;
 
     sigaction(SIGCANCEL, &act, NULL);

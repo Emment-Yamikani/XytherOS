@@ -17,18 +17,20 @@ int sigmask(sigset_t *sigset, int how, const sigset_t *restrict set, sigset_t *r
         return -EINVAL;
 
     switch (how) {
-    case SIG_BLOCK:
-        sigsetaddsetmask(sigset, set);
-        break;
-    case SIG_UNBLOCK:
-        sigsetdelsetmask(sigset, set);
-        break;
-    case SIG_SETMASK:
-        *sigset = *set;
-        break;
-    default:
-        err = -EINVAL;
-        break;
+        case SIG_BLOCK:
+            for (usize i = 0; i < __NR_INT; ++i)
+                sigset->sigset[i] |= set->sigset[i];
+            break;
+        case SIG_UNBLOCK:
+            for (usize i = 0; i < __NR_INT; ++i)
+                sigset->sigset[i] &= ~set->sigset[i];
+            break;
+        case SIG_SETMASK:
+            *sigset = *set;
+            break;
+        default:
+            err = -EINVAL;
+            break;
     }
 
     return err;
