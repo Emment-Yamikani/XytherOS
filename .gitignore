@@ -1,8 +1,10 @@
 iso
 *.log
+*.patch
 *.d
 *.o
 */*.log
+*/*.patch
 */*.d
 */*.o
 *.iso
