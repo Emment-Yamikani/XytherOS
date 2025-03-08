@@ -26,3 +26,11 @@ extern pid_t getpid(void);
 #define debuglog() ({ \
     debug("\n");      \
 })
+
+#ifndef dumpf
+#define dumpf(hlt, fmt, ...)\
+    if (hlt) panic("DUMP: %s:%d: cpu[%d:%d]: tid[%d:%d]: ret[%p]\n" fmt,\
+        __func__, __LINE__, getcpuid(), cpu->ncli, getpid(), gettid(), __retaddr(0), ##__VA_ARGS__);\
+    else printk("DUMP: %s:%d: cpu[%d:%d]: tid[%d:%d]: ret[%p]\n" fmt,\
+        __func__, __LINE__, getcpuid(), cpu->ncli, getpid(), gettid(), __retaddr(0), ##__VA_ARGS__)
+#endif
