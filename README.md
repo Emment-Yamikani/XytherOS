@@ -22,7 +22,7 @@ To get started with XytherOS, follow these steps:
 
 2. Build the OS using the latest GNU cross compiler toolchain:
 
-   ### NOTE: Before building
+   **NOTE: Before building**
 
       Ensure you are using the latest version of GCC cross compiler and Binutils. Preferably greater than gcc-14.2.0 && binutils-2.44. Run the shell script:
 
