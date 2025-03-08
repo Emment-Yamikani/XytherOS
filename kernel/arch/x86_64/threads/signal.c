@@ -67,6 +67,8 @@ static int x86_64_signal_bycall(arch_thread_t *arch, sigaction_t *act, siginfo_t
 
     current_unlock();
 
+    sti();
+
     if (act->sa_flags & SA_SIGINFO)
         act->sa_handler(siginfo->si_signo, siginfo, arch->t_uctx);
     else act->sa_handler(siginfo->si_signo);

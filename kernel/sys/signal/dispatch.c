@@ -45,11 +45,11 @@ static void signal_mask_restore(sigset_t *oset) {
 
 void signal_dispatch(void) {
     sigaction_t     oact;
-    arch_thread_t   *arch       = NULL;
     siginfo_t       *siginfo    = NULL;
     __sighandler_t  handler     = NULL;
+    arch_thread_t   *arch       = &current->t_arch;
 
-    if (current->t_arch.t_nsig_nested > ARCH_NSIG_NESTED) {
+    if (arch->t_nsig_nested > ARCH_NSIG_NESTED) {
         return;
     }
 
@@ -59,7 +59,7 @@ void signal_dispatch(void) {
         return;
     }
 
-    arch = &current->t_arch;
+    arch->t_nsig_nested++;
 
     // block the set of signals we don't want to interrupt this context
     signal_mask_block(siginfo->si_signo, &oact, &arch->t_uctx->uc_sigmask);
@@ -79,4 +79,6 @@ done:
     current_unlock();
     if (siginfo)
         siginfo_free(siginfo);
+    
+    arch->t_nsig_nested--;
 }

@@ -29,8 +29,6 @@ void signal_handler(int signo, siginfo_t *siginfo, ucontext_t *uctx) {
         signal_str[signo - 1],
         siginfo->si_signo, uctx
     );
-
-    // siginfo_dump(siginfo);
 }
 
 __noreturn void kthread_main(void) {
@@ -42,15 +40,15 @@ __noreturn void kthread_main(void) {
 
     memset(&act, 0, sizeof act);
 
-    act.sa_flags   |= SA_SIGINFO;
+    act.sa_flags   |= SA_SIGINFO | SA_ONSTACK;
     act.sa_handler = signal_handler;
 
     sigaction(SIGCANCEL, &act, NULL);
 
     memset(&act, 0, sizeof act);
 
-    act.sa_flags |= SA_SIGINFO | SA_ONSTACK;
     act.sa_handler = signal_handler;
+    act.sa_flags   |= SA_SIGINFO | SA_ONSTACK;
     sigaction(SIGINT, &act, NULL);
 
     thread_builtin_init();
