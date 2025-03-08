@@ -26,13 +26,16 @@ int sigmask(sigset_t *sigset, int how, const sigset_t *set, sigset_t *oset) {
 
     if (how == SIG_SETMASK) {
         *sigset = *set;
+        return 0;
     } else if (how == SIG_BLOCK) {
         do_set(sigset, set);
+        return 0;
     } else if (how == SIG_UNBLOCK) {
         do_mask(sigset, set);
-    } else return -EINVAL;
-
-    return 0;
+        return 0;
+    }
+    
+    return -EINVAL;
 }
 
 
