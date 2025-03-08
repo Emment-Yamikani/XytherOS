@@ -2,6 +2,18 @@
 #include <sys/_signal.h>
 #include <sys/thread.h>
 
+static void do_mask(sigset_t *sigset, const sigset_t *set) {
+    for (usize i = 0; i < __NR_INT; ++i) {
+        sigset->sigset[i] &= ~set->sigset[i];
+    }
+}
+
+static void do_set(sigset_t *sigset, const sigset_t *set) {
+    for (usize i = 0; i < __NR_INT; ++i) {
+        sigset->sigset[i] |= set->sigset[i];
+    }
+}
+
 int sigmask(sigset_t *sigset, int how, const sigset_t *set, sigset_t *oset) {
     if (!sigset) return -EINVAL;  // Early return
 
@@ -14,17 +26,11 @@ int sigmask(sigset_t *sigset, int how, const sigset_t *set, sigset_t *oset) {
 
     if (how == SIG_SETMASK) {
         *sigset = *set;
-        return 0;
-    }
-
-    for (usize i = 0; i < __NR_INT; ++i) {
-        if (how == SIG_BLOCK)
-            sigset->sigset[i] |= set->sigset[i];
-        else if (how == SIG_UNBLOCK)
-            sigset->sigset[i] &= ~set->sigset[i];
-        else
-            return -EINVAL;
-    }
+    } else if (how == SIG_BLOCK) {
+        do_set(sigset, set);
+    } else if (how == SIG_UNBLOCK) {
+        do_mask(sigset, set);
+    } else return -EINVAL;
 
     return 0;
 }
