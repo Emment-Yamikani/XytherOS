@@ -54,6 +54,9 @@ static int proc_new(thread_t **ptp) {
     int err;
     thread_t *thread = NULL;
 
+    if (ptp == NULL)
+        return -EINVAL;
+
     if ((err = thread_alloc(KSTACK_SIZE, THREAD_USER, &thread)))
         return err;
 
@@ -70,6 +73,7 @@ static int proc_new(thread_t **ptp) {
         return err;
     }
 
+    *ptp = thread;
     return 0;
 }
 
