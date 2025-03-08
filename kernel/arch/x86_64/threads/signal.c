@@ -73,6 +73,8 @@ static int x86_64_signal_bycall(arch_thread_t *arch, sigaction_t *act, siginfo_t
         act->sa_handler(siginfo->si_signo, siginfo, arch->t_uctx);
     else act->sa_handler(siginfo->si_signo);
 
+    cli();
+
     current_lock();
 
     if (is_sigctx == false)
