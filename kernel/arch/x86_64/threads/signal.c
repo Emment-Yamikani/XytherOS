@@ -88,11 +88,11 @@ static int x86_64_signal_bycall(arch_thread_t *arch, sigaction_t *act, siginfo_t
 }
 
 int x86_64_signal_dispatch(arch_thread_t *arch, sigaction_t *act, siginfo_t *siginfo) {
-    if (!arch || !arch->t_thread || !act || !act->sa_handler || !siginfo)
+    if (!arch || !act || !siginfo)
         return -EINVAL;
 
     if (act->sa_flags & SA_ONSTACK) {
-        uintptr_t   *kstack     = NULL;
+        u64         *kstack     = NULL;
         context_t   *context    = NULL;
         mcontext_t  *mcontext   = NULL;
 
@@ -111,8 +111,8 @@ int x86_64_signal_dispatch(arch_thread_t *arch, sigaction_t *act, siginfo_t *sig
         mcontext = (mcontext_t *)ALIGN16(arch->t_sstack.ss_sp - sizeof *mcontext);
         memset(mcontext, 0, sizeof *mcontext);
 
-        kstack    = (uintptr_t *)ALIGN16(arch->t_altstack.ss_sp);
-        *--kstack = (uintptr_t)x86_64_signal_return;
+        kstack    = (u64 *)ALIGN16(arch->t_altstack.ss_sp);
+        *--kstack = (u64)x86_64_signal_return;
 
         mcontext->ss    = SEG_KDATA64 << 3;
         mcontext->rsp   = (u64)kstack;
@@ -129,10 +129,10 @@ int x86_64_signal_dispatch(arch_thread_t *arch, sigaction_t *act, siginfo_t *sig
             mcontext->rdx = (u64)arch->t_uctx;
         }
 
-        kstack    = (uintptr_t *)mcontext;
-        *--kstack = (uintptr_t)trapret;
+        kstack    = (u64 *)mcontext;
+        *--kstack = (u64)trapret;
 
-        context         = (context_t *)((uintptr_t)kstack - sizeof *context);
+        context         = (context_t *)((u64)kstack - sizeof *context);
         memset(context, 0, sizeof *context);
 
         context->rip    = (u64)x86_64_signal_start;
