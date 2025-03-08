@@ -1,5 +1,7 @@
 # XytherOS: Where Imagination Meets Execution
 
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/502d15dbfb5e497c9e7c246eeca43388)](https://app.codacy.com/gh/Emment-Yamikani/XytherOS?utm_source=github.com&utm_medium=referral&utm_content=Emment-Yamikani/XytherOS&utm_campaign=Badge_Grade)
+
 ## Introduction
 Welcome to XytherOS, a cutting-edge operating system designed for developers, hobbyists, and OS enthusiasts who seek a balance between creativity and technical excellence. XytherOS is built with flexibility, performance, and innovation in mind, providing a robust platform for experimentation and execution.
 
