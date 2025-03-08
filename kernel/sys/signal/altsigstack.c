@@ -3,20 +3,24 @@
 #include <sys/thread.h>
 
 int sigaltstack(const uc_stack_t *ss, uc_stack_t *oss) {
-    if (!current)
+    if (!current) {
         return -EINVAL;
+    }
 
     // cannot modify the altsigstack if executing on altsigstack.
-    if (current->t_arch.t_altstack.ss_flags & SS_ONSTACK)
+    if (current->t_arch.t_altstack.ss_flags & SS_ONSTACK) {
         return -EPERM;
+    }
     
     // ss->ss_flags has flags other than SS_DISABLE set?
-    if (ss && (ss->ss_flags & ~SS_DISABLE))
+    if (ss && (ss->ss_flags & ~SS_DISABLE)) {
         return -EINVAL;
+    }
 
     // size of altsigstack is too small.
-    if (ss && (ss->ss_size < MINSIGSTKSZ))
+    if (ss && (ss->ss_size < MINSIGSTKSZ)) {
         return -ENOMEM;
+    }
 
     // return the current altsigstack.
     if (oss) {

@@ -80,6 +80,6 @@ done:
     current_unlock();
     if (siginfo)
         siginfo_free(siginfo);
-    
+
     arch->t_nsig_nested--;
 }

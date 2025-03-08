@@ -17,7 +17,7 @@ static int do_sigaction(int signo, sigaction_t *act, sigaction_t *oact) {
         sigsetdelmask(&act->sa_mask, SIGMASK(SIGKILL) | SIGMASK(SIGSTOP));
 
         *p_act = *act;
-        
+
         if (sig_handler_ignored(sig_handler(current, signo), signo)) {
             sigqueue_flush(&current->t_signals->sig_queue[signo - 1]);
 
@@ -39,19 +39,23 @@ int sigaction(int signo, const sigaction_t *act, sigaction_t *oact) {
     int err;
     sigaction_t new_act, old_act;
 
-    if (SIGBAD(signo))
+    if (SIGBAD(signo)) {
         return -EINVAL;
-    
-    if (act)
+    }
+
+    if (act) {
         new_act = *act;
+    }
 
     err = do_sigaction(signo, act ? &new_act : NULL, oact ? &old_act : NULL);
 
-    if (err)
+    if (err) {
         return err;
+    }
 
-    if (oact)
+    if (oact) {
         *oact = old_act;
-    
+    }
+
     return 0;
 }
