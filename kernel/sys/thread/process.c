@@ -5,7 +5,7 @@
 #include <sys/thread.h>
 
 pid_t alloc_pid(void) {
-    static _Atomic(pid_t)   pid = 0;
+    static _Atomic(pid_t) pid = 0;
     return atomic_inc_fetch(&pid);
 }
 
@@ -50,6 +50,29 @@ error:
     return err;
 }
 
+static int proc_new(thread_t **ptp) {
+    int err;
+    thread_t *thread = NULL;
+
+    if ((err = thread_alloc(KSTACK_SIZE, THREAD_USER, &thread)))
+        return err;
+
+    if ((err = mmap_alloc(&thread->t_mmap))) {
+        thread_free(thread);
+        return err;
+    }
+
+    mmap_unlock(thread->t_mmap);
+
+    if ((err = thread_create_group(thread))) {
+        mmap_free(thread->t_mmap);
+        thread_free(thread);
+        return err;
+    }
+
+    return 0;
+}
+
 int proc_alloc(const char *name, thread_t **ptp) {
     int         err;
     thread_t    *thread = NULL;
@@ -57,20 +80,8 @@ int proc_alloc(const char *name, thread_t **ptp) {
     if (name == NULL || ptp == NULL)
         return -EINVAL;
 
-    if ((err = thread_alloc(KSTACK_SIZE, THREAD_USER, &thread)))
+    if ((err = proc_new(&thread)))
         return err;
-
-    if ((err = mmap_alloc(&thread->t_mmap))) {
-        thread_unlock(thread);
-        goto error;
-    }
-
-    mmap_unlock(thread->t_mmap);
-
-    if ((err = thread_create_group(thread))) {
-        thread_unlock(thread);
-        goto error;
-    }
 
     if (NULL == (thread->t_proc = (proc_t *)kmalloc(sizeof(proc_t))))
         return -EINVAL;
