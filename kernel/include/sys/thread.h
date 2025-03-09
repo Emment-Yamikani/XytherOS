@@ -451,9 +451,9 @@ extern builtin_thread_t __builtin_thrds_end[];
  * @brief Announce a builtin thread's startup (for debugging).
  *
  * @param name Name of the thread. */
-#define BUILTIN_THREAD_ANNOUNCE(name) ({                  \
-    printk("%s:%d: \"%s\" thread [tid: %d] running...\n", \
-           __FILE__, __LINE__, name, thread_self());      \
+#define BUILTIN_THREAD_ANNOUNCE(msg) ({                            \
+    printk("%s:%d: builtin_thread: \"%s\": tid[%d:%d]: %s...\n",   \
+           __FILE__, __LINE__, __func__, getpid(), gettid(), msg); \
 })
 
 /*=====================================================================
