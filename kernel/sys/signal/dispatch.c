@@ -43,27 +43,34 @@ static void signal_mask_restore(sigset_t *oset) {
     sigmask(&current->t_sigmask, SIG_SETMASK, oset, NULL);
 }
 
-void signal_dispatch(void) {
+int signal_dispatch(void) {
     sigaction_t     oact;
+    sigset_t        oset;
     siginfo_t       *siginfo    = NULL;
     __sighandler_t  handler     = NULL;
     arch_thread_t   *arch       = &current->t_arch;
 
     if (arch->t_nsig_nested > ARCH_NSIG_NESTED) {
-        return;
+        return -1;
     }
 
     current_lock();
 
     if (signal_dequeue(current, &oact, &siginfo)) {
         current_unlock();
-        return;
+        return -1;
     }
 
     arch->t_nsig_nested++;
 
+    sigsetempty(&oset);
+
     // block the set of signals we don't want to interrupt this context
-    signal_mask_block(siginfo->si_signo, &oact, &arch->t_uctx->uc_sigmask);
+    signal_mask_block(siginfo->si_signo, &oact, &oset);
+
+    if (arch->t_uctx) {
+        sigmask(&arch->t_uctx->uc_sigmask, SIG_SETMASK, &oset, NULL);
+    }
 
     handler = oact.sa_handler;
     if (sig_handler_ignored(handler, siginfo->si_signo)) { // Signal ignored explicitly or implicitly?
@@ -77,11 +84,12 @@ void signal_dispatch(void) {
     arch_signal_dispatch(&current->t_arch, &oact, siginfo);
 
 done:
-    signal_mask_restore(&arch->t_uctx->uc_sigmask); // restore old signal set.
+    signal_mask_restore(&oset); // restore old signal set.
     current_unlock();
 
     if (siginfo)
         siginfo_free(siginfo);
 
     arch->t_nsig_nested--;
+    return 0;
 }

@@ -65,19 +65,24 @@ static void x86_64_signal_onstack(void) {
 }
 
 static int x86_64_signal_bycall(arch_thread_t *arch, sigaction_t *act, siginfo_t *siginfo) {
+    bool intena;
     bool is_sigctx = current_issigctx();
 
     current_setsigctx();
 
     current_unlock();
 
-    sti();
+    if (!(intena = is_intena())) {
+        sti();
+    }
 
     if (act->sa_flags & SA_SIGINFO)
         act->sa_handler(siginfo->si_signo, siginfo, arch->t_uctx);
     else act->sa_handler(siginfo->si_signo);
 
-    cli();
+    if (intena == false) {
+        cli();
+    }
 
     current_lock();
 

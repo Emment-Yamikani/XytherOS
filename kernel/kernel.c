@@ -20,6 +20,12 @@ void thread(void) {
 
     sigaltstack(&ss, NULL);
     cond_signal(wait);
+
+    sigset_t set;
+    sigsetempty(&set);
+
+    sigsuspend(&set);
+
     debuglog();
     loop();
 } BUILTIN_THREAD(thread, thread, NULL);
