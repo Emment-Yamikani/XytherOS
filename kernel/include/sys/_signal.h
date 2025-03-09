@@ -163,11 +163,16 @@ typedef struct sigaction {
 
 struct queue;
 typedef struct __signal_t {
-    sigset_t    sig_mask;           // signal set mask.
-    sigset_t    sigpending;         /**< Set of pending signals: this is a sticky set a signal is only reset if all pending instances are delivered. */
-    queue_t     sig_queue[NSIG];    // queues of siginfo_t * pointers for each signal instance.
-    sigaction_t sig_action[NSIG];   // signal action entry for each signal.
-    spinlock_t  sig_lock;           // spinlock to protect this struct.
+    sigset_t    sig_mask;           /**< signal set mask. */
+    /**
+     * @brief Set of pending signals.
+     * this is a sigset of sticky bits that is only reset,
+     * if all pending instances of a particular signal are delivered. */
+    sigset_t    sigpending;
+    queue_t     sig_queue[NSIG];    /**< queues of siginfo_t * pointers for each signal instance. */
+    sigaction_t sig_action[NSIG];   /**< signal action entry for each signal. */
+    queue_t     sig_waiters;        /**< signal waiters' queue. */
+    spinlock_t  sig_lock;           /**< spinlock to protect this struct. */
 } signal_t;
 
 #define signal_assert(desc)            ({ assert(desc, "No signal description."); })
@@ -178,21 +183,21 @@ typedef struct __signal_t {
 
 /**     THREAD SPECIFIC SIGNAL HANDLING FUNCTIONS */
 
-extern int  pause(void);
 extern uint alarm(unsigned sec);
-extern int  sigpending(sigset_t *set);
 extern int  kill(pid_t pid, int signo);
-extern int  sigsuspend(const sigset_t *mask);
-extern int  sigwait(const sigset_t *set, int *signop);
+extern int  pause(void);
+extern int  sigpending(sigset_t *set);
+extern int  sigaction(int signo, const sigaction_t *act, sigaction_t *oact);
 extern int  sigaltstack(const uc_stack_t *ss, uc_stack_t *oss);
 extern int  sigprocmask(int how, const sigset_t *set, sigset_t *oset);
-extern int  sigaction(int signo, const sigaction_t *act, sigaction_t *oact);
+extern int  sigsuspend(const sigset_t *mask);
+extern int  sigwait(const sigset_t *set, int *signop);
 
 /**     THREAD SPECIFIC SIGNAL HANDLING FUNCTIONS */
 
 extern int  pthread_kill(tid_t thread, int signo);
-extern int  pthread_sigqueue(tid_t tid, int signo, union sigval sigval);
 extern int  pthread_sigmask(int how, const sigset_t *set, sigset_t *oset);
+extern int  pthread_sigqueue(tid_t tid, int signo, union sigval sigval);
 
 /**     HELPER FUNCTIONS */
 
