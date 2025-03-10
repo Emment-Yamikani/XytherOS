@@ -1,5 +1,6 @@
 #include <bits/errno.h>
 #include <core/debug.h>
+#include <core/timer.h>
 #include <dev/timer.h>
 #include <sync/atomic.h>
 #include <sys/schedule.h>
@@ -25,12 +26,12 @@ void jiffies_timed_wait(jiffies_t jiffies) {
 
 jiffies_t jiffies_sleep(jiffies_t jiffies);
 
-void jiffies_to_timespec(u64 jiffies, struct timespec *ts) {
+void jiffies_to_timespec(jiffies_t jiffies, struct timespec *ts) {
     ts->tv_sec = jiffies / SYS_Hz;
     ts->tv_nsec= (jiffies % SYS_Hz) * 1000000;
 }
 
-u64 jiffies_from_timespec(const struct timespec *ts) {
+jiffies_t jiffies_from_timespec(const struct timespec *ts) {
     return (ts->tv_sec * SYS_Hz) + (ts->tv_nsec / 1000000);
 }
 
@@ -50,7 +51,7 @@ int jiffies_gettime(struct timespec *tp) {
     return 0;
 }
 
-void timer_wait(timerid_t timer, double sec) {
+void timer_wait(int timer, double sec) {
     switch (timer) {
         case TIMER_PIT: pit_wait(sec); break;
         case TIMER_RTC:
@@ -75,4 +76,6 @@ void timer_intr(void) {
     if (use_hpet)
         hpet_intr();
     else pit_intr();
+
+    timer_increment();
 }

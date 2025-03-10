@@ -103,17 +103,18 @@ struct timezone {
         ((tv1)->tv_usec == (tv2)->tv_usec); \
 })
 
-int gettimeofday(struct timeval *restrict tp, void *restrict tzp);
-int settimeofday(const struct timeval *tv, const struct timezone *tz);
+extern int gettimeofday(struct timeval *restrict tp, void *restrict tzp);
+extern int settimeofday(const struct timeval *tv, const struct timezone *tz);
 
-clock_t clock(void);
+extern clock_t clock(void);
 
-struct tm *localtime(const time_t *timer);
-struct tm *localtime_r(const time_t *restrict timer,
-                       struct tm *restrict result);
+extern struct tm *localtime(const time_t *timer);
+extern struct tm *localtime_r(const time_t *restrict timer, struct tm *restrict result);
 
-time_t mktime(struct tm *timeptr);
+extern time_t mktime(struct tm *timeptr);
 
-int clock_getres(clockid_t clock_id, struct timespec *res);
-int clock_gettime(clockid_t clock_id, struct timespec *tp);
-int clock_settime(clockid_t clock_id, const struct timespec *tp);
+extern int clock_getres(clockid_t clock_id, struct timespec *res);
+extern int clock_gettime(clockid_t clock_id, struct timespec *tp);
+extern int clock_settime(clockid_t clock_id, const struct timespec *tp);
+
+extern int nanosleep(const timespec_t *duration, timespec_t *rem);

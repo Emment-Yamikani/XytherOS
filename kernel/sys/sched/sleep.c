@@ -44,7 +44,7 @@ int sched_wait(queue_t *wait_queue, tstate_t state, queue_relloc_t whence, spinl
     if (lock) spin_lock(lock);   // re-acquire the lock.
 
     // check if current thread was sent cancelation request.
-    if (current_iscanceled()) {
+    if (current_iscanceled() || current_isintr()) {
         current_unlock();
         return -EINTR; // thread was sent a cancelation request.
     }

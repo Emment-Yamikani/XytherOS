@@ -1,6 +1,11 @@
 #include <bits/errno.h>
 #include <ds/queue.h>
 
+bool embedded_queue_empty(queue_t *queue) {
+    queue_assert_locked(queue);
+    return queue_count(queue) ? false : true;
+}
+
 void embedded_queue_flush(queue_t *queue) {
     queue_node_t *next = NULL, *prev = NULL;
 

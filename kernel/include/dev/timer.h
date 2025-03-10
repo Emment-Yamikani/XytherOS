@@ -89,22 +89,21 @@ extern int jiffies_getres(struct timespec *res);
 
 extern int jiffies_gettime(struct timespec *tp);
 
-extern void jiffies_to_timespec(u64 jiffies, struct timespec *ts);
+extern void jiffies_to_timespec(jiffies_t jiffies, struct timespec *ts);
 
-extern u64 jiffies_from_timespec(const struct timespec *ts);
+extern jiffies_t jiffies_from_timespec(const struct timespec *ts);
 
-typedef enum {
+enum {
     TIMER_PIT   = 0,
     TIMER_RTC   = 1,
     TIMER_HPET  = 2,
-} timerid_t;
+};
 
 extern int  timer_init(void);
 
 extern void timer_intr(void);
 
-extern void timer_wait(timerid_t timer, double sec);
-
+extern void timer_wait(int timer, double sec);
 
 extern u64 epoch_get(void);
 

@@ -323,6 +323,8 @@ extern int embedded_queue_replace(queue_t *queue, queue_node_t *qnode0, queue_no
 
 extern int embedded_queue_migrate(queue_t *dst, queue_t *src, usize pos, usize n, queue_relloc_t whence);
 
+extern bool embedded_queue_empty(queue_t *queue);
+
 #define embedded_queue_foreach(queue, type, item, member)                                                        \
     queue_assert_locked(queue);                                                                                  \
     for (queue_node_t *item##_node = (queue)->head, *next_item##_node = item##_node ? item##_node->next : NULL;  \

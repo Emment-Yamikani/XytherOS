@@ -3,6 +3,8 @@
 #include <bits/errno.h>
 #include <core/types.h>
 
+typedef int signo_t;
+
 #ifndef NSIG
 #define NSIG    32
 #endif

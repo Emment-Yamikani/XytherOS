@@ -217,7 +217,7 @@ typedef struct thread_t {
 #define THREAD_EXITING              BS(12)  /**< Thread is exiting */
 #define THREAD_SUSPEND              BS(13)  /**< Thread execution is suspended */
 #define THREAD_KILLEXCEPT           BS(14)  /**< Special kill exception flag */
-#define THREAD_LOCK_GROUP           BS(15)  /**< Lock thread group before locking thread structure */
+#define THREAD_INTR                 BS(15)  /**< thread was interrupted. */
 
 /*=====================================================================
  *  Thread Locking and Flag Manipulation Macros
@@ -299,6 +299,7 @@ typedef struct thread_t {
 #define thread_isdetached(t)        thread_test(t, THREAD_DETACHED)
 #define thread_issigctx(t)          thread_test(t, THREAD_HANDLING_SIG)
 #define thread_iscanceled(t)        thread_test(t, THREAD_CANCEL)
+#define thread_isintr(t)            thread_test(t, THREAD_INTR)
 
 #define thread_setmain(t)           thread_set(t, THREAD_MAIN)
 #define thread_setlast(t)           thread_set(t, THREAD_LAST)
@@ -322,6 +323,7 @@ typedef struct thread_t {
 #define current_isdetached()        thread_isdetached(current)
 #define current_issigctx()          thread_issigctx(current)
 #define current_iscanceled()        thread_iscanceled(current)
+#define current_isintr()            thread_isintr(current)
 
 #define current_setmain()           thread_setmain(current)
 #define current_setlast()           thread_setlast(current)
