@@ -43,26 +43,22 @@ static void signal_mask_restore(sigset_t *oset) {
     sigmask(&current->t_sigmask, SIG_SETMASK, oset, NULL);
 }
 
-int signal_dispatch(void) {
+int signal_check_pending(void) {
     sigaction_t     oact;
     sigset_t        oset;
-    siginfo_t       *siginfo    = NULL;
-    __sighandler_t  handler     = NULL;
-    arch_thread_t   *arch       = &current->t_arch;
+    siginfo_t       *siginfo = NULL;
+    sighandler_t    handler  = NULL;
+    arch_thread_t   *arch    = &current->t_arch;
 
     if (arch->t_nsig_nested > ARCH_NSIG_NESTED) {
         return -1;
     }
 
-    current_lock();
-
     if (signal_dequeue(current, &oact, &siginfo)) {
-        current_unlock();
         return -1;
     }
 
     arch->t_nsig_nested++;
-
     sigsetempty(&oset);
 
     // block the set of signals we don't want to interrupt this context
@@ -85,11 +81,18 @@ int signal_dispatch(void) {
 
 done:
     signal_mask_restore(&oset); // restore old signal set.
-    current_unlock();
 
-    if (siginfo)
+    if (siginfo) {
         siginfo_free(siginfo);
+    }
 
     arch->t_nsig_nested--;
     return 0;
+}
+
+int signal_dispatch(void) {
+    current_lock();
+    int err = signal_check_pending();
+    current_unlock();
+    return err;
 }

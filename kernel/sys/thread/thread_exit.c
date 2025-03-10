@@ -60,7 +60,7 @@ try:
                     goto try;
                 }
 
-                if ((err = sched_detach_and_wakeup(wait_queue, thread))) {
+                if ((err = sched_detach_and_wakeup(wait_queue, WAKEUP_SIGNAL, thread))) {
                     thread_unlock(thread);
                     queue_unlock(current->t_group);
                     queue_unlock(wait_queue);

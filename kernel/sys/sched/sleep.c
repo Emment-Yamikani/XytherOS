@@ -44,7 +44,7 @@ int sched_wait(queue_t *wait_queue, tstate_t state, queue_relloc_t whence, spinl
     if (lock) spin_lock(lock);   // re-acquire the lock.
 
     // check if current thread was sent cancelation request.
-    if (current_iscanceled() || current_isintr()) {
+    if (current_iscanceled() || current->t_wakeup_reason == WAKEUP_SIGNAL) {
         current_unlock();
         return -EINTR; // thread was sent a cancelation request.
     }
@@ -53,9 +53,10 @@ int sched_wait(queue_t *wait_queue, tstate_t state, queue_relloc_t whence, spinl
     return 0;
 }
 
-static int sched_wake_thread(thread_t *thread) {
-    if (thread == NULL)
+static int sched_wake_thread(thread_t *thread, wakeup_reason_t reason) {
+    if (thread == NULL || !wakeup_reason_validate(reason)) {
         return -EINVAL;
+    }
 
     thread_assert_locked(thread);
 
@@ -70,11 +71,13 @@ static int sched_wake_thread(thread_t *thread) {
         thread_mask_park(thread);
     }
 
+    thread->t_wakeup_reason = reason;
+
     return thread_schedule(thread);
 }
 
-int sched_detach_and_wakeup(queue_t *wait_queue, thread_t *thread) {
-    int err = 0;
+int sched_detach_and_wakeup(queue_t *wait_queue, wakeup_reason_t reason, thread_t *thread) {
+    int err;
 
     if (wait_queue == NULL || thread == NULL)
         return -EINVAL;
@@ -85,7 +88,7 @@ int sched_detach_and_wakeup(queue_t *wait_queue, thread_t *thread) {
     if ((err = embedded_queue_detach(wait_queue, &thread->t_wait_qnode)))
         return err;
 
-    if ((err = sched_wake_thread(thread)))
+    if ((err = sched_wake_thread(thread, reason)))
         return err;
 
     // reset the wait queue's back pointer to NULL.
@@ -94,61 +97,56 @@ int sched_detach_and_wakeup(queue_t *wait_queue, thread_t *thread) {
     return 0;
 }
 
-int sched_wakeup(queue_t *wait_queue, queue_relloc_t whence) {
-    int      err = 0;
+int sched_wakeup(queue_t *wait_queue, wakeup_reason_t reason, queue_relloc_t whence) {
+    int err;
 
     if (wait_queue == NULL)
         return -EINVAL;
 
     queue_lock(wait_queue);
 
-    if (whence == QUEUE_RELLOC_TAIL) { // retrieve a thread from the back of the queue.
-        goto from_tail;
-    } else if (whence != QUEUE_RELLOC_HEAD) {
-        queue_unlock(wait_queue);
-        return -EINVAL;
+    switch (whence) {
+        case QUEUE_RELLOC_TAIL: // retrieve a thread from the back of the queue.
+            // wakeup a thread at the back of the queue.
+            embedded_queue_foreach_reverse(wait_queue, thread_t, thread, t_wait_qnode) {
+                thread_lock(thread);
+
+                err = sched_detach_and_wakeup(wait_queue, reason, thread);
+                thread_unlock(thread);
+                queue_unlock(wait_queue);
+                return err;
+            }
+        case QUEUE_RELLOC_HEAD: // retrieve a thread from the front of the queue.
+            embedded_queue_foreach(wait_queue, thread_t, thread, t_wait_qnode) {
+                thread_lock(thread);
+                
+                err = sched_detach_and_wakeup(wait_queue, reason, thread);
+                thread_unlock(thread);
+                queue_unlock(wait_queue);
+                return err;
+            }
+        default:
+            queue_unlock(wait_queue);
+            return -EINVAL;
     }
 
-    // retrieve a thread from the front of the queue.
-    embedded_queue_foreach(wait_queue, thread_t, thread, t_wait_qnode) {
-        thread_lock(thread);
-        
-        err = sched_detach_and_wakeup(wait_queue, thread);
-        thread_unlock(thread);
-        queue_unlock(wait_queue);
-        return err;
-    }
-
-    goto done; // done here.
-from_tail: // wakeup a thread at the back of the queue.
-    embedded_queue_foreach_reverse(wait_queue, thread_t, thread, t_wait_qnode) {
-        thread_lock(thread);
-        
-        err = sched_detach_and_wakeup(wait_queue, thread);
-        thread_unlock(thread);
-        queue_unlock(wait_queue);
-        return err;
-    }
-
-done:
     queue_unlock(wait_queue);
     return -ESRCH;  // No thread was waiting on this wait queue.
 }
 
-int sched_wakeup_specific(queue_t *wait_queue, tid_t tid) {
-    int      err = 0;
-
+int sched_wakeup_specific(queue_t *wait_queue, wakeup_reason_t reason, tid_t tid) {
+    
     if (wait_queue == NULL || tid <= 0)
-        return -EINVAL;
-
+    return -EINVAL;
+    
     queue_lock(wait_queue);
-
+    
     // retrieve a thread from the front of the queue.
     embedded_queue_foreach(wait_queue, thread_t, thread, t_wait_qnode) {
         thread_lock(thread);
-
+        
         if (thread_gettid(thread) == tid) {
-            err = sched_detach_and_wakeup(wait_queue, thread);
+            int err = sched_detach_and_wakeup(wait_queue, reason, thread);
             thread_unlock(thread);
             queue_unlock(wait_queue);
             return err;
@@ -161,7 +159,7 @@ int sched_wakeup_specific(queue_t *wait_queue, tid_t tid) {
     return -ESRCH;  // No thread was waiting on this wait queue.
 }
 
-int sched_wakeup_all(queue_t *wait_queue, size_t *pnt) {
+int sched_wakeup_all(queue_t *wait_queue, wakeup_reason_t reason, size_t *pnt) {
     int      err     = 0;
     size_t   count   = 0;
 
@@ -173,7 +171,7 @@ int sched_wakeup_all(queue_t *wait_queue, size_t *pnt) {
     embedded_queue_foreach(wait_queue, thread_t, thread, t_wait_qnode) {
         thread_lock(thread);
 
-        if ((err = sched_detach_and_wakeup(wait_queue, thread))) {
+        if ((err = sched_detach_and_wakeup(wait_queue, reason, thread))) {
             thread_unlock(thread);
             queue_unlock(wait_queue);
              if (pnt) *pnt = count;

@@ -29,7 +29,7 @@ void ps2kbd_intr(void) {
     buffer_lock();
     ringbuf_write(&kbd_buffer, (void *)&scode, 1);
     buffer_unlock();
-    sched_wakeup(kbd_waiter, QUEUE_RELLOC_HEAD);
+    sched_wakeup(kbd_waiter, WAKEUP_NORMAL, QUEUE_RELLOC_HEAD);
 }
 
 static int ps2kbd_probe(void) {

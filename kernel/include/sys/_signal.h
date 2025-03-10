@@ -40,12 +40,14 @@
 
 /**
  * @brief Action to be taken when a signal arrives.
- * argument list left empty because this will be used as sa_handler or sa_sigaction*/
-typedef void        (*__sighandler_t)();
+ * argument list left empty because this will be used as sa_handler or sa_sigaction. */
+typedef void        (*sighandler_t)();
 
-#define SIG_ERR     ((__sighandler_t) -1)  /* error setting signal disposition. */
-#define SIG_DFL     ((__sighandler_t) 0)   /* default action taken. */
-#define SIG_IGN     ((__sighandler_t) 1)   /* ignore this signal. */
+// 0973633531 Helen Kilepa.
+
+#define SIG_ERR     ((sighandler_t) -1)  /* error setting signal disposition. */
+#define SIG_DFL     ((sighandler_t) 0)   /* default action taken. */
+#define SIG_IGN     ((sighandler_t) 1)   /* ignore this signal. */
 
 /** DEFAULT ACTION FOR SINGNAL(n) */
 
@@ -156,7 +158,7 @@ typedef struct __uc_stack_t {
 } __packed uc_stack_t;
 
 typedef struct sigaction {
-    __sighandler_t  sa_handler; /* addr of signal handler, SIG_IGN, or SIG_DFL */
+    sighandler_t  sa_handler; /* addr of signal handler, SIG_IGN, or SIG_DFL */
     int             sa_flags;   /* signal options */
     sigset_t        sa_mask;    /* additional signals to block */
 } sigaction_t;
@@ -230,9 +232,9 @@ static inline bool sig_continue(int signo) {
     return sig_default_action(signo) == SIG_CONT;
 }
 
-extern __sighandler_t sig_handler(thread_t *thread, int signo);
+extern sighandler_t sig_handler(thread_t *thread, int signo);
 
-static inline bool sig_handler_ignored(__sighandler_t handler, int signo) {
+static inline bool sig_handler_ignored(sighandler_t handler, int signo) {
     return handler == SIG_IGN || (handler == SIG_DFL && sig_ignore(signo));
 }
 
@@ -243,7 +245,7 @@ static inline bool sig_handler_ignored(__sighandler_t handler, int signo) {
  * @param signo The signal number.
  * @return The signal handler function pointer.
  */
-extern __sighandler_t sig_handler(thread_t *thread, int signo);
+extern sighandler_t sig_handler(thread_t *thread, int signo);
 
 /**
  * @brief Allocates memory for a new signal descriptor.

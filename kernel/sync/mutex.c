@@ -42,7 +42,7 @@ void mtx_unlock(mtx_t *mtx) {
     if (--mtx->m_recurs == 0) {
         mtx->m_locked   = 0;
         mtx->m_owner    = NULL;
-        sched_wakeup(&mtx->m_waitQ, QUEUE_RELLOC_HEAD);
+        sched_wakeup(&mtx->m_waitQ, WAKEUP_NORMAL, QUEUE_RELLOC_HEAD);
     }
 
     spin_unlock(&mtx->m_guard);

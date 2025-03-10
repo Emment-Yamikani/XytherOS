@@ -27,7 +27,6 @@ static int timer_new(tmr_t **pt) {
 }
 
 static void init_timer(tmr_t *tmr, tmr_desc_t *td) {
-    
     tmr->t_owner    = current;
     tmr->t_arg      = td->td_arg;
     tmr->t_callback = td->td_func;
@@ -44,20 +43,20 @@ static void timer_free(tmr_t *tmr) {
 
 static int timer_register(tmr_t *tmr) {
     int err;
-    static _Atomic(tmrid_t) next_id = 0;
+    static _Atomic(tmrid_t) tmrid = 0;
 
     if (tmr == NULL) {
         return -EINVAL;
     }
 
-    //TODO: check availability of tmr->owner.
+    // TODO: check availability of tmr->owner.
 
     queue_lock(timers);
     err = embedded_enqueue(timers, &tmr->t_node, QUEUE_ENFORCE_UNIQUE);
     queue_unlock(timers);
 
     if (err == 0) {
-        tmr->t_id  = atomic_inc(&next_id);
+        tmr->t_id = atomic_inc(&tmrid);
     }
 
     return err;
@@ -84,12 +83,15 @@ int timer_create(tmr_desc_t *td, int *ptid) {
     *ptid = tmr->t_id;
 
     return 0;
+
 error:
     timer_free(tmr);
     return err;
 }
 
 void timer_increment(void) {
+    cond_broadcast(timer_waiters);
+
     queue_lock(timers);
     embedded_queue_foreach(timers, tmr_t, tmr, t_node) {
         if (time_after(jiffies_get(), tmr->t_expiry)) {

@@ -52,8 +52,21 @@ extern __noreturn void scheduler(void);
  */
 extern void sched_yield(void);
 
-extern int sched_wakeup_all(queue_t *wait_queue, size_t *pnt);
-extern int sched_wakeup_specific(queue_t *wait_queue, tid_t tid);
-extern int sched_wakeup(queue_t *wait_queue, queue_relloc_t whence);
-extern int sched_detach_and_wakeup(queue_t *wait_queue, thread_t *thread);
 extern int sched_wait(queue_t *wait_queue, tstate_t state, queue_relloc_t whence, spinlock_t *lock);
+
+typedef enum {
+    WAKEUP_NORMAL,  // Normal wakeup.
+    WAKEUP_SIGNAL,  // Wakeup due to signal.
+    WAKEUP_TIMEOUT, // Wakeup due to timeout.
+} wakeup_reason_t;
+
+static inline int wakeup_reason_validate(wakeup_reason_t reason) {
+    return (reason != WAKEUP_NORMAL &&
+            reason != WAKEUP_SIGNAL &&
+            reason != WAKEUP_TIMEOUT) ? 0 : 1;
+}
+
+extern int sched_wakeup_all(queue_t *wait_queue, wakeup_reason_t reason, size_t *pnt);
+extern int sched_wakeup_specific(queue_t *wait_queue, wakeup_reason_t reason, tid_t tid);
+extern int sched_wakeup(queue_t *wait_queue, wakeup_reason_t reason, queue_relloc_t whence);
+extern int sched_detach_and_wakeup(queue_t *wait_queue, wakeup_reason_t reason, thread_t *thread);

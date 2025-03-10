@@ -3,12 +3,13 @@
 #include <arch/cpu.h>
 #include <arch/thread.h>
 #include <core/types.h>
+#include <dev/timer.h>
 #include <fs/fs.h>
 #include <fs/file.h>
 #include <mm/mmap.h>
 #include <sync/cond.h>
 #include <sync/spinlock.h>
-#include <dev/timer.h>
+#include <sys/schedule.h>
 
 extern queue_t *global_thread_queue;
 
@@ -170,6 +171,7 @@ struct __proc_t {
 typedef struct thread_t {
     arch_thread_t   t_arch;         /**< Architecture-specific thread context */
     thread_info_t   t_info;         /**< General thread information */
+    wakeup_reason_t t_wakeup_reason;  /**< Reason for waking up. */
     cond_t          t_event;        /**< Condition variable for thread events */
     sigset_t        t_sigmask;      /**< Signal mask for the thread */
     sigset_t        t_sigpending;   /**< Set of pending signals: this is a sticky set a signal is only reset if all pending instances are delivered. */
@@ -489,9 +491,8 @@ extern int      thread_create(thread_attr_t *attr, thread_entry_t entry, void *a
 extern void     thread_free(thread_t *thread);
 extern int      thread_schedule(thread_t *thread);
 extern int      thread_get_prio(thread_t *thread);
-extern int      thread_wakeup(thread_t *thread);
-extern int      thread_get_info(tid_t tid, thread_info_t *ip);
 extern int      thread_set_prio(thread_t *thread, int prio);
+extern int      thread_get_info(tid_t tid, thread_info_t *tip);
 extern int      thread_alloc(usize stack_size, int cflags, thread_t **ptp);
 extern int      thread_reap(thread_t *thread, thread_info_t *info, void **retval);
 

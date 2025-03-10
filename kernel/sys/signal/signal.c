@@ -82,7 +82,7 @@ const int sig_defaults[] = {
     [SIGXFSZ    - 1] = SIG_TERM,        // | teminate or terminate+core
 };
 
-__sighandler_t sig_handler(thread_t *thread, int signo) {
+sighandler_t sig_handler(thread_t *thread, int signo) {
     signal_assert_locked(thread->t_signals);
     return thread->t_signals->sig_action[signo - 1].sa_handler;
 }

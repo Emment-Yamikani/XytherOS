@@ -394,13 +394,12 @@ __noreturn void scheduler(void) {
         current_assert_locked();
 
         sched_update_thread_metrics(current);
-
         hanlde_thread_state();
     }
 }
 
 void sched(void) {
-    isize ncli   = 1; // don't change this, must always be == 1.
+    isize ncli   = 1; // Don't change this, must always be == 1.
     isize intena = 0;
 
     current_assert_locked();
@@ -416,11 +415,12 @@ void sched(void) {
     /// If not used up entire timeslice, drop one priority level.
     if (current_gettimeslice() > 0) {
         // Check to prevent underflow.
-        if (current->t_info.ti_sched.ts_prio > 0)
-            current->t_info.ti_sched.ts_prio -= 1;
+        if (current->t_info.ti_sched.ts_prio > 0) {
+            current->t_info.ti_sched.ts_prio--;
+        }
     }
 
-    // return to the sscheduler.
+    // Return to the scheduler.
     context_switch(&current->t_arch.t_context);
 
     cpu_swap_preepmpt(&ncli, &intena);
@@ -430,13 +430,16 @@ void sched(void) {
 __noreturn void scheduler_load_balancer(void) {
     sigset_t set;
     sigsetfill(&set);
+    sigsetdelmask(&set, SIGMASK(SIGKILL) | SIGMASK(SIGSTOP));
     pthread_sigmask(SIG_BLOCK, &set, NULL);
 
     loop() {
         if ((jiffies_get() % (SYS_Hz * 60)) == 0) {
             MLFQ_balance();
         }
+
         cpu_pause();
         sched_yield();
     }
+
 } BUILTIN_THREAD(scheduler_load_balancer, scheduler_load_balancer, NULL);

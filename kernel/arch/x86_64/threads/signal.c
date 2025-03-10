@@ -60,8 +60,9 @@ static void x86_64_signal_onstack(void) {
 
     current->t_arch.t_altstack.ss_flags &= ~SS_ONSTACK;
 
-    if (is_sigctx == false)
+    if (is_sigctx == false) {
         current_mask_sigctx();
+    }
 }
 
 static int x86_64_signal_bycall(arch_thread_t *arch, sigaction_t *act, siginfo_t *siginfo) {

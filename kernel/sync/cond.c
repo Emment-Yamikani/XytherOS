@@ -34,7 +34,7 @@ void cond_free(cond_t *c) {
     cond_assert(c);
 
     cond_lock(c);
-    sched_wakeup_all(&c->waiters, NULL);
+    sched_wakeup_all(&c->waiters, WAKEUP_NORMAL, NULL);
     cond_unlock(c);
 
     kfree(c);
@@ -64,7 +64,7 @@ int cond_wait_releasing(cond_t *cond, spinlock_t *lk) {
 
 static void cond_wake1(cond_t *cond) {
     cond_lock(cond);
-    sched_wakeup(&cond->waiters, QUEUE_RELLOC_HEAD);
+    sched_wakeup(&cond->waiters, WAKEUP_NORMAL, QUEUE_RELLOC_HEAD);
     atomic_dec(&cond->count);
     cond_unlock(cond);
 }
@@ -75,7 +75,7 @@ void cond_signal(cond_t *cond) {
 
 static void cond_wakeall(cond_t *cond) {
     size_t waiters = 0;
-    sched_wakeup_all(&cond->waiters, &waiters);
+    sched_wakeup_all(&cond->waiters, WAKEUP_NORMAL, &waiters);
     if (waiters == 0)
         atomic_write(&cond->count, -1);
     else

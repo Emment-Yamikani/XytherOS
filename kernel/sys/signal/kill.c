@@ -22,7 +22,7 @@ int thread_sigsend(thread_t *thread, siginfo_t *siginfo) {
     if (thread_issleep(thread)) {
         queue_t *wait_queue = thread->t_wait_queue;
         queue_lock(wait_queue);
-        if ((err = sched_detach_and_wakeup(wait_queue, thread))) {
+        if ((err = sched_detach_and_wakeup(wait_queue, WAKEUP_SIGNAL, thread))) {
             int Err = queue_remove(&thread->t_sigqueue[siginfo->si_signo - 1], siginfo);
 
             assert_eq(Err, 0, "Err[%s]: Failed to remove siginfo[%d] from thread[%d:%d].??\n",
