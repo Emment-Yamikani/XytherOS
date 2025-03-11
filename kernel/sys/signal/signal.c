@@ -305,7 +305,7 @@ int sigqueue_enqueue(queue_t *sigqueue, siginfo_t *siginfo) {
     if (sigqueue == NULL || siginfo == NULL)
         return -EINVAL;
     queue_assert_locked(sigqueue);
-    return enqueue(sigqueue, siginfo, QUEUE_ENFORCE_UNIQUE, NULL);
+    return enqueue(sigqueue, siginfo, QUEUE_UNIQUE, NULL);
 }
 
 int sigqueue_dequeue(queue_t *sigqueue, siginfo_t **psiginfo) {

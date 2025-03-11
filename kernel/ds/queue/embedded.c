@@ -38,7 +38,7 @@ int embedded_queue_peek(queue_t *queue, queue_relloc_t whence, queue_node_t **pn
     if (queue == NULL || pnp == NULL)
         return -EINVAL;
 
-    if (whence != QUEUE_RELLOC_HEAD && whence != QUEUE_RELLOC_TAIL)
+    if (whence != QUEUE_HEAD && whence != QUEUE_TAIL)
         return -EINVAL;
 
     queue_assert_locked(queue);
@@ -46,7 +46,7 @@ int embedded_queue_peek(queue_t *queue, queue_relloc_t whence, queue_node_t **pn
     if (queue_count(queue) == 0)
         return -ENOENT;
 
-    if (whence == QUEUE_RELLOC_TAIL)
+    if (whence == QUEUE_TAIL)
         *pnp = queue->tail;
     else *pnp = queue->head;
     return 0;
@@ -72,7 +72,7 @@ int embedded_enqueue(queue_t *queue, queue_node_t *qnode, queue_uniqueness_t uni
 
     queue_assert_locked(queue);
 
-    if (uniqueness == QUEUE_ENFORCE_UNIQUE){
+    if (uniqueness == QUEUE_UNIQUE){
         if (embedded_queue_contains(queue, qnode) == 0)
             return -EEXIST;
     }
@@ -98,7 +98,7 @@ int embedded_enqueue_head(queue_t *queue, queue_node_t *qnode, queue_uniqueness_
 
     queue_assert_locked(queue);
 
-    if (uniqueness == QUEUE_ENFORCE_UNIQUE) {
+    if (uniqueness == QUEUE_UNIQUE) {
         if (embedded_queue_contains(queue, qnode) == 0)
             return -EEXIST;
     }
@@ -120,9 +120,9 @@ int embedded_enqueue_head(queue_t *queue, queue_node_t *qnode, queue_uniqueness_
 
 int embedded_enqueue_whence(queue_t *queue, queue_node_t *qnode, queue_uniqueness_t uniqueness, queue_relloc_t whence) {
     queue_assert_locked(queue);
-    if (whence == QUEUE_RELLOC_HEAD)
+    if (whence == QUEUE_HEAD)
         return embedded_enqueue_head(queue, qnode, uniqueness);
-    else if (whence == QUEUE_RELLOC_TAIL)
+    else if (whence == QUEUE_TAIL)
         return embedded_enqueue(queue, qnode, uniqueness);
     return -EINVAL;
 }
@@ -198,9 +198,9 @@ int embedded_dequeue_tail(queue_t *queue, queue_node_t **pnp) {
 
 int embedded_dequeue_whence(queue_t *queue, queue_relloc_t whence, queue_node_t **pnp) {
     queue_assert_locked(queue);
-    if (whence == QUEUE_RELLOC_HEAD)
+    if (whence == QUEUE_HEAD)
         return embedded_dequeue(queue, pnp);
-    else if (whence == QUEUE_RELLOC_TAIL)
+    else if (whence == QUEUE_TAIL)
         return embedded_dequeue_tail(queue, pnp);
     return -EINVAL;
 }
@@ -304,7 +304,7 @@ int embedded_queue_migrate(queue_t *dst, queue_t *src, usize pos, usize n, queue
     if ((pos >= src->q_count) || (n == 0) || ((pos + n) > src->q_count))
         return -EINVAL;
 
-    if (whence != QUEUE_RELLOC_HEAD && whence != QUEUE_RELLOC_TAIL)
+    if (whence != QUEUE_HEAD && whence != QUEUE_TAIL)
         return -EINVAL; // Error: invalid rellocation position
 
     // Traverse src queue to the starting position.
@@ -338,7 +338,7 @@ int embedded_queue_migrate(queue_t *dst, queue_t *src, usize pos, usize n, queue
     last->next  = NULL;
 
     // Attach nodes to the destination queue.
-    if (whence == QUEUE_RELLOC_HEAD) {
+    if (whence == QUEUE_HEAD) {
         last->next = dst->head;
         
         if (dst->head)
@@ -348,7 +348,7 @@ int embedded_queue_migrate(queue_t *dst, queue_t *src, usize pos, usize n, queue
         
         if (dst->tail == NULL)
             dst->tail = last;
-    } else if (whence == QUEUE_RELLOC_TAIL) {
+    } else if (whence == QUEUE_TAIL) {
         first->prev = dst->tail;
         if (dst->tail)
             dst->tail->next = first;

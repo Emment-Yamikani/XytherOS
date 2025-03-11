@@ -112,7 +112,7 @@ static int MLFQ_enqueue(thread_t *thread) {
     }
 
     queue_lock(&level->run_queue);
-    if ((err = embedded_enqueue(&level->run_queue, &thread->t_run_qnode, QUEUE_ENFORCE_UNIQUE))) {
+    if ((err = embedded_enqueue(&level->run_queue, &thread->t_run_qnode, QUEUE_UNIQUE))) {
         // Ensure we release level resources.
         queue_unlock(&level->run_queue);
         return err;
@@ -241,7 +241,7 @@ __unused static void MLFQ_pull(void) {
             &level->run_queue,
             queue_count(&level->run_queue) / 2,
             count,
-             QUEUE_RELLOC_TAIL
+             QUEUE_TAIL
         );
 
         assert_eq(err, 0, "Error[%s]: Failed to migrate threads\n", perror(err));
@@ -316,7 +316,7 @@ static void MLFQ_push(void) {
             &level->run_queue,
             queue_count(&level->run_queue) / 2,
             count,
-            QUEUE_RELLOC_HEAD
+            QUEUE_HEAD
         );
         assert_eq(err, 0, "Error[%s]: Failed to migrate threads\n", perror(err));
 

@@ -24,7 +24,7 @@ int sched_wait(queue_t *wait_queue, tstate_t state, queue_relloc_t whence, spinl
     current_lock();
 
     // Insert the current thread into the wait queue.
-    if ((err = embedded_enqueue_whence(wait_queue, &current->t_wait_qnode, QUEUE_ENFORCE_UNIQUE, whence))) {
+    if ((err = embedded_enqueue_whence(wait_queue, &current->t_wait_qnode, QUEUE_UNIQUE, whence))) {
         current_unlock();
         queue_unlock(wait_queue);
         return err;
@@ -106,7 +106,7 @@ int sched_wakeup(queue_t *wait_queue, wakeup_reason_t reason, queue_relloc_t whe
     queue_lock(wait_queue);
 
     switch (whence) {
-        case QUEUE_RELLOC_TAIL: // retrieve a thread from the back of the queue.
+        case QUEUE_TAIL: // retrieve a thread from the back of the queue.
             // wakeup a thread at the back of the queue.
             embedded_queue_foreach_reverse(wait_queue, thread_t, thread, t_wait_qnode) {
                 thread_lock(thread);
@@ -119,7 +119,7 @@ int sched_wakeup(queue_t *wait_queue, wakeup_reason_t reason, queue_relloc_t whe
 
             break;
 
-        case QUEUE_RELLOC_HEAD: // retrieve a thread from the front of the queue.
+        case QUEUE_HEAD: // retrieve a thread from the front of the queue.
             embedded_queue_foreach(wait_queue, thread_t, thread, t_wait_qnode) {
                 thread_lock(thread);
                 

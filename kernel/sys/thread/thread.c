@@ -140,7 +140,7 @@ int thread_create_group(thread_t *thread) {
     }
 
     queue_lock(queue);
-    if ((err = embedded_enqueue(queue, &thread->t_group_qnode, QUEUE_ENFORCE_UNIQUE))) {
+    if ((err = embedded_enqueue(queue, &thread->t_group_qnode, QUEUE_UNIQUE))) {
         queue_unlock(queue);
         goto error;    
     }
@@ -175,7 +175,7 @@ int thread_join_group(thread_t *thread) {
     thread_assert_locked(thread);
 
     queue_lock(current->t_group);
-    if ((err = embedded_enqueue(current->t_group, &thread->t_group_qnode, QUEUE_ENFORCE_UNIQUE))) {
+    if ((err = embedded_enqueue(current->t_group, &thread->t_group_qnode, QUEUE_UNIQUE))) {
         queue_unlock(current->t_group);
         return err;
     }

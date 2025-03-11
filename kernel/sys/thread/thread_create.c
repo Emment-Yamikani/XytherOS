@@ -241,7 +241,7 @@ int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, int cfla
 
     // Insert this new thread in the global thread queue.
     queue_lock(global_thread_queue);
-    if ((err = embedded_enqueue(global_thread_queue, &thread->t_global_qnode, QUEUE_ENFORCE_UNIQUE))) {
+    if ((err = embedded_enqueue(global_thread_queue, &thread->t_global_qnode, QUEUE_UNIQUE))) {
         queue_unlock(global_thread_queue);
         goto error;
     }

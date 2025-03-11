@@ -29,7 +29,7 @@ void ps2kbd_intr(void) {
     buffer_lock();
     ringbuf_write(&kbd_buffer, (void *)&scode, 1);
     buffer_unlock();
-    sched_wakeup(kbd_waiter, WAKEUP_NORMAL, QUEUE_RELLOC_HEAD);
+    sched_wakeup(kbd_waiter, WAKEUP_NORMAL, QUEUE_HEAD);
 }
 
 static int ps2kbd_probe(void) {
@@ -107,7 +107,7 @@ static ssize_t ps2kbd_read(struct devid *dd __unused, off_t off __unused, void *
         buffer_lock();
         // nothing to read, goto sleep.
         if (ringbuf_isempty(&kbd_buffer)) {
-            sched_wait(kbd_waiter, T_SLEEP, QUEUE_RELLOC_TAIL, &kbd_buffer.lock);
+            sched_wait(kbd_waiter, T_SLEEP, QUEUE_TAIL, &kbd_buffer.lock);
         }
         ringbuf_read(&kbd_buffer, (char *)buf + cnt, 1);
         buffer_unlock();

@@ -48,7 +48,7 @@ int cond_wait(cond_t *cond) {
 
     cond_lock(cond);
     if ((int)atomic_inc(&cond->count) >= 0) {
-        err = sched_wait(&cond->waiters, T_SLEEP, QUEUE_RELLOC_TAIL, &cond->lock);
+        err = sched_wait(&cond->waiters, T_SLEEP, QUEUE_TAIL, &cond->lock);
     }
     cond_unlock(cond);
     return err;
@@ -64,7 +64,7 @@ int cond_wait_releasing(cond_t *cond, spinlock_t *lk) {
 
 static void cond_wake1(cond_t *cond) {
     cond_lock(cond);
-    sched_wakeup(&cond->waiters, WAKEUP_NORMAL, QUEUE_RELLOC_HEAD);
+    sched_wakeup(&cond->waiters, WAKEUP_NORMAL, QUEUE_HEAD);
     atomic_dec(&cond->count);
     cond_unlock(cond);
 }

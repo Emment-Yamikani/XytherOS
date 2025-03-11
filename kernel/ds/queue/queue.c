@@ -79,13 +79,13 @@ int queue_peek(queue_t *queue, queue_relloc_t whence, void **pdp) {
     if (queue == NULL || pdp == NULL)
         return -EINVAL;
 
-    if (whence != QUEUE_RELLOC_HEAD && whence != QUEUE_RELLOC_TAIL)
+    if (whence != QUEUE_HEAD && whence != QUEUE_TAIL)
         return -EINVAL;
 
     if (queue_count(queue) == 0)
         return -ENOENT;
     
-    if (whence == QUEUE_RELLOC_TAIL)
+    if (whence == QUEUE_TAIL)
         *pdp = queue->tail->data;
     else *pdp = queue->head->data;
     
@@ -118,7 +118,7 @@ int enqueue(queue_t *queue, void *data, queue_uniqueness_t uniqueness, queue_nod
     if (queue == NULL)
         return -EINVAL;
 
-    if (uniqueness == QUEUE_ENFORCE_UNIQUE){
+    if (uniqueness == QUEUE_UNIQUE){
         if (queue_contains(queue, data, NULL) == 0)
             return -EEXIST;
     }
@@ -154,7 +154,7 @@ int enqueue_head(queue_t *queue, void *data, queue_uniqueness_t uniqueness, queu
     if (queue == NULL)
         return -EINVAL;
 
-    if (uniqueness == QUEUE_ENFORCE_UNIQUE) {
+    if (uniqueness == QUEUE_UNIQUE) {
         if (queue_contains(queue, data, NULL) == 0)
             return -EEXIST;
     }
@@ -183,9 +183,9 @@ int enqueue_head(queue_t *queue, void *data, queue_uniqueness_t uniqueness, queu
 
 int enqueue_whence(queue_t *queue, void *data, queue_uniqueness_t uniqueness, queue_relloc_t whence, queue_node_t **pnp) {
     queue_assert_locked(queue);
-    if (whence == QUEUE_RELLOC_HEAD)
+    if (whence == QUEUE_HEAD)
         return enqueue_head(queue, data, uniqueness, pnp);
-    else if (whence == QUEUE_RELLOC_TAIL)
+    else if (whence == QUEUE_TAIL)
         return enqueue(queue, data, uniqueness, pnp);
     return -EINVAL;
 }
@@ -256,9 +256,9 @@ int dequeue_tail(queue_t *queue, void **pdp) {
 
 int dequeue_whence(queue_t *queue, queue_relloc_t whence, void **pdp) {
     queue_assert_locked(queue);
-    if (whence == QUEUE_RELLOC_HEAD)
+    if (whence == QUEUE_HEAD)
         return dequeue(queue, pdp);
-    else if (whence == QUEUE_RELLOC_TAIL)
+    else if (whence == QUEUE_TAIL)
         return dequeue_tail(queue, pdp);
     return -EINVAL;
 }
@@ -329,7 +329,7 @@ int queue_rellocate_node(queue_t *queue, queue_node_t *node, queue_relloc_t when
 
     queue_assert_locked(queue);
     
-    if (whence != QUEUE_RELLOC_HEAD && whence != QUEUE_RELLOC_TAIL)
+    if (whence != QUEUE_HEAD && whence != QUEUE_TAIL)
         return -EINVAL;
     
     prev = node->prev;
@@ -348,7 +348,7 @@ int queue_rellocate_node(queue_t *queue, queue_node_t *node, queue_relloc_t when
     node->next = NULL;
 
     switch (whence) {
-    case QUEUE_RELLOC_HEAD:
+    case QUEUE_HEAD:
         if (queue->head == NULL) {
             queue->tail = node;
         } else {
@@ -357,7 +357,7 @@ int queue_rellocate_node(queue_t *queue, queue_node_t *node, queue_relloc_t when
         }
         queue->head = node;
         break;
-    case QUEUE_RELLOC_TAIL:
+    case QUEUE_TAIL:
         if (queue->head == NULL) {
             queue->head = node;
         } else {
@@ -403,7 +403,7 @@ int queue_rellocate(queue_t *queue, void *data, queue_relloc_t whence) {
  * @param num_nodes The number of nodes to migrate from the source queue.
  * @param whence Specifies where to attach the nodes in the destination queue.
  *               - `QUEUE_RELLOC_HEAD`: Attach nodes to the head of the destination queue.
- *               - `QUEUE_RELLOC_TAIL`: Attach nodes to the tail of the destination queue.
+ *               - `QUEUE_TAIL`: Attach nodes to the tail of the destination queue.
  *
  * @return int
  * - `0`: Success, the nodes were successfully migrated.
@@ -431,7 +431,7 @@ int queue_rellocate(queue_t *queue, void *data, queue_relloc_t whence) {
  *
  * size_t start_pos = 2;     // Start from the 3rd node
  * size_t num_nodes = 3;     // Migrate 3 nodes
- * queue_relloc_t whence = QUEUE_RELLOC_TAIL; // Attach to the tail of dst_queue
+ * queue_relloc_t whence = QUEUE_TAIL; // Attach to the tail of dst_queue
  *
  * int result = queue_node_migrate(&dst_queue, &src_queue, start_pos, num_nodes, whence);
  *
@@ -459,7 +459,7 @@ int queue_node_migrate(queue_t *dstq, queue_t *srcq, usize start_pos, usize num_
         return -EINVAL; // Error: invalid position or range
     }
 
-    if (whence != QUEUE_RELLOC_HEAD && whence != QUEUE_RELLOC_TAIL)
+    if (whence != QUEUE_HEAD && whence != QUEUE_TAIL)
         return -EINVAL; // Error: invalid rellocation position
 
     index   = 0;
@@ -508,7 +508,7 @@ int queue_node_migrate(queue_t *dstq, queue_t *srcq, usize start_pos, usize num_
     }
 
     // Insert the nodes into the destination queue
-    if (whence == QUEUE_RELLOC_HEAD) {
+    if (whence == QUEUE_HEAD) {
         last_node->next = dstq->head;
         if (dstq->head) {
             dstq->head->prev = last_node;
@@ -517,7 +517,7 @@ int queue_node_migrate(queue_t *dstq, queue_t *srcq, usize start_pos, usize num_
         if (!dstq->tail) {
             dstq->tail = last_node; // Update tail if the queue was empty
         }
-    } else if (whence == QUEUE_RELLOC_TAIL) {
+    } else if (whence == QUEUE_TAIL) {
         first_node->prev = dstq->tail;
         if (dstq->tail) {
             dstq->tail->next = first_node;
@@ -538,7 +538,7 @@ int queue_move(queue_t *dstq, queue_t *srcq, queue_relloc_t whence) {
     queue_assert_locked(srcq);
     queue_assert_locked(dstq);
 
-    if (whence != QUEUE_RELLOC_HEAD && whence != QUEUE_RELLOC_TAIL)
+    if (whence != QUEUE_HEAD && whence != QUEUE_TAIL)
         return -EINVAL; // Error: invalid rellocation position
     return queue_node_migrate(dstq, srcq, 0, srcq->q_count, whence);
 }

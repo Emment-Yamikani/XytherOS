@@ -21,7 +21,7 @@ void mtx_lock(mtx_t *mtx) {
 
     assert(!(mtx->m_locked && mtx->m_owner == current), "Already held mtx.\n");
     if (mtx->m_locked) {
-        sched_wait(&mtx->m_waitQ, T_SLEEP, QUEUE_RELLOC_TAIL, &mtx->m_guard);
+        sched_wait(&mtx->m_waitQ, T_SLEEP, QUEUE_TAIL, &mtx->m_guard);
     }
 
     mtx->m_locked = 1;
@@ -42,7 +42,7 @@ void mtx_unlock(mtx_t *mtx) {
     if (--mtx->m_recurs == 0) {
         mtx->m_locked   = 0;
         mtx->m_owner    = NULL;
-        sched_wakeup(&mtx->m_waitQ, WAKEUP_NORMAL, QUEUE_RELLOC_HEAD);
+        sched_wakeup(&mtx->m_waitQ, WAKEUP_NORMAL, QUEUE_HEAD);
     }
 
     spin_unlock(&mtx->m_guard);
@@ -86,7 +86,7 @@ void mtx_recursive_lock(mtx_t *mtx) {
     spin_lock(&mtx->m_guard);
 
     if (mtx->m_locked && mtx->m_owner != current) {
-        sched_wait(&mtx->m_waitQ, T_SLEEP, QUEUE_RELLOC_TAIL, &mtx->m_guard);
+        sched_wait(&mtx->m_waitQ, T_SLEEP, QUEUE_TAIL, &mtx->m_guard);
     }
 
     mtx->m_locked = 1;

@@ -6,14 +6,14 @@
 struct queue;
 
 typedef enum {
-    QUEUE_ALLOW_DUPLICATES  = 0,
-    QUEUE_ENFORCE_UNIQUE    = 1,
+    QUEUE_DUPLICATES  = 0,
+    QUEUE_UNIQUE      = 1,
 } queue_uniqueness_t;
 
 // rellocation points, used with queue rellocation functions.
 typedef enum {
-    QUEUE_RELLOC_TAIL,  // rellocate to the tail-end.
-    QUEUE_RELLOC_HEAD   // rellocate to the front-end.
+    QUEUE_TAIL,  // rellocate to the tail-end.
+    QUEUE_HEAD   // rellocate to the front-end.
 } queue_relloc_t;
 
 typedef struct queue_node {
@@ -99,7 +99,7 @@ extern size_t queue_count(queue_t *queue);
  * or back-end of the queue specified by queue.
  *
  * @param[in] queue the queue to be peeked
- * @param[in] whence If 'QUEUE_RELLOC_TAIL', retrieves the tail node; otherwise, retrieves the head.
+ * @param[in] whence If 'QUEUE_TAIL', retrieves the tail node; otherwise, retrieves the head.
  *  otherwise the front-end data is peeked.
  * @param[out] pdp pointer to a location to store a pointer to the peeked data.
  * @return int 0 on success, otherwise reports the reports the error that has occured.
@@ -217,7 +217,7 @@ extern void embedded_queue_flush(queue_t *queue);
  * @brief Retrieves the head or tail node without removing it.
  *
  * @param[in] queue Pointer to the queue.
- * @param[in] whence If 'QUEUE_RELLOC_TAIL', retrieves the tail node; otherwise, retrieves the head.
+ * @param[in] whence If 'QUEUE_TAIL', retrieves the tail node; otherwise, retrieves the head.
  * @param[out] pnp Pointer to pointer to the requested node, or NULL if the queue is empty.
  * @return 0 on success, non-zero on failure.
  */

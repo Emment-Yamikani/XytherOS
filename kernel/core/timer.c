@@ -52,7 +52,7 @@ static int timer_register(tmr_t *tmr) {
     // TODO: check availability of tmr->owner.
 
     queue_lock(timers);
-    err = embedded_enqueue(timers, &tmr->t_node, QUEUE_ENFORCE_UNIQUE);
+    err = embedded_enqueue(timers, &tmr->t_node, QUEUE_UNIQUE);
     queue_unlock(timers);
 
     if (err == 0) {
