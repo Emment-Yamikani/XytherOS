@@ -488,7 +488,7 @@ extern int      thread_join(tid_t tid, thread_info_t *info, void **prp);
 extern int      thread_execve(thread_t *thread, const char *argp[], const char *envp[]);
 extern int      thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, int cflags, thread_t **ptp);
 
-extern bool     current_interrupted(wakeup_t *preason);
+extern int      current_interrupted(wakeup_t *preason);
 
 extern void     thread_free(thread_t *thread);
 extern int      thread_schedule(thread_t *thread);

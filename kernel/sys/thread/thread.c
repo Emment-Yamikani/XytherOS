@@ -287,18 +287,16 @@ int thread_join(tid_t tid, thread_info_t *info, void **prp) {
  * @return false if reason is WAKEUP_SIGNAL or WAKEUP_TIMEOUT.
  */
 static bool wakeup_interrupt(wakeup_t reason) {
-    return ((reason == WAKEUP_SIGNAL) || (reason == WAKEUP_TIMEOUT)) ? true : false
+    return ((reason == WAKEUP_SIGNAL) || (reason == WAKEUP_TIMEOUT)) ? true : false;
 }
 
 /**
- * @brief checks if the current thread execution has been interrupted.
+ * @brief 
  * 
- * @param preason[out] holds the reason for the interrupt.
- * @return true        if thread has been cancelled
- *                     or interupted due to WAKEUP_SIGNAL or
- *                     WAKEUP_TIMEOUT, otherwise it returns false.
+ * @param preason 
+ * @return int 
  */
-bool current_interrupted(wakeup_t *preason) {
+int current_interrupted(wakeup_t *preason) {
     wakeup_t reason = WAKEUP_NONE;
 
     current_assert_locked();
@@ -312,7 +310,11 @@ bool current_interrupted(wakeup_t *preason) {
         }
     }
     
-    if (pr) *pr = reason;
+    if (preason) *preason = reason;
 
-    return (current_iscanceled() || wakeup_interrupt(reason)) ? true : false;
+    if (current_iscanceled() || wakeup_interrupt(reason)) {
+        return reason == WAKEUP_TIMEOUT ? -ETIMEDOUT : -EINTR;
+    }
+
+    return 0;
 }

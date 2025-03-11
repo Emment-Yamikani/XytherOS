@@ -131,6 +131,7 @@ int nanosleep(const timespec_t *duration, timespec_t *rem) {
 
     while (time_before(now = jiffies_get(), time)) {
         if ((err = cond_wait(timer_waiters))) {
+            printk("EINTR\n");
             break;
         }
     }

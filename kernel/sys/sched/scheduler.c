@@ -1,7 +1,7 @@
-#include "sched_metrics.h"
+#include "metrics.h"
 #include <core/debug.h>
-#include <string.h>
 #include <limits.h>
+#include <string.h>
 #include <sys/schedule.h>
 #include <sys/thread.h>
 
@@ -396,35 +396,6 @@ __noreturn void scheduler(void) {
         sched_update_thread_metrics(current);
         hanlde_thread_state();
     }
-}
-
-void sched(void) {
-    isize ncli   = 1; // Don't change this, must always be == 1.
-    isize intena = 0;
-
-    current_assert_locked();
-
-    if (current_test(THREAD_WAKE)) {
-        current_mask(THREAD_WAKE | THREAD_PARK);
-        return;
-    }
-
-    disable_preemption();
-    cpu_swap_preepmpt(&ncli, &intena);
-
-    /// If not used up entire timeslice, drop one priority level.
-    if (current_gettimeslice() > 0) {
-        // Check to prevent underflow.
-        if (current->t_info.ti_sched.ts_prio > 0) {
-            current->t_info.ti_sched.ts_prio--;
-        }
-    }
-
-    // Return to the scheduler.
-    context_switch(&current->t_arch.t_context);
-
-    cpu_swap_preepmpt(&ncli, &intena);
-    enable_preemption();
 }
 
 __noreturn void scheduler_load_balancer(void) {

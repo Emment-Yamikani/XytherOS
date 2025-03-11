@@ -1,4 +1,4 @@
-#include "sched_metrics.h"
+#include "metrics.h"
 #include <core/debug.h>
 
 void sched_update_thread_metrics(thread_t *thread) {

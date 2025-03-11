@@ -341,6 +341,7 @@ extern void sigqueue_flush_locked(queue_t *sigqueue);
 
 extern int  signal_getpending(thread_t *thread, siginfo_t **psiginfo);
 
+extern int signal_check_pending(void);
 extern int  signal_dispatch(void);
 
 extern int  sigmask(sigset_t *sigset, int how, const sigset_t *set, sigset_t *oset);
