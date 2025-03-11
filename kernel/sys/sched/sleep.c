@@ -11,7 +11,7 @@ void sched_yield(void) {
 }
 
 int sched_wait(queue_t *wait_queue, tstate_t state, queue_relloc_t whence, spinlock_t *lock) {
-    int err = 0;
+    int err;
 
     if (wait_queue == NULL || current == NULL)
         return -EINVAL;
@@ -44,7 +44,7 @@ int sched_wait(queue_t *wait_queue, tstate_t state, queue_relloc_t whence, spinl
     if (lock) spin_lock(lock);   // re-acquire the lock.
 
     // check if current thread was sent cancelation request.
-    if (current_iscanceled() || current->t_wakeup_reason == WAKEUP_SIGNAL) {
+    if (current_iscanceled() || current->t_wakeup == WAKEUP_SIGNAL) {
         current_unlock();
         return -EINTR; // thread was sent a cancelation request.
     }
@@ -53,7 +53,7 @@ int sched_wait(queue_t *wait_queue, tstate_t state, queue_relloc_t whence, spinl
     return 0;
 }
 
-static int sched_wake_thread(thread_t *thread, wakeup_reason_t reason) {
+static int sched_wake_thread(thread_t *thread, wakeup_t reason) {
     if (thread == NULL || !wakeup_reason_validate(reason)) {
         return -EINVAL;
     }
@@ -71,12 +71,12 @@ static int sched_wake_thread(thread_t *thread, wakeup_reason_t reason) {
         thread_mask_park(thread);
     }
 
-    thread->t_wakeup_reason = reason;
+    thread->t_wakeup = reason;
 
     return thread_schedule(thread);
 }
 
-int sched_detach_and_wakeup(queue_t *wait_queue, wakeup_reason_t reason, thread_t *thread) {
+int sched_detach_and_wakeup(queue_t *wait_queue, wakeup_t reason, thread_t *thread) {
     int err;
 
     if (wait_queue == NULL || thread == NULL)
@@ -97,7 +97,7 @@ int sched_detach_and_wakeup(queue_t *wait_queue, wakeup_reason_t reason, thread_
     return 0;
 }
 
-int sched_wakeup(queue_t *wait_queue, wakeup_reason_t reason, queue_relloc_t whence) {
+int sched_wakeup(queue_t *wait_queue, wakeup_t reason, queue_relloc_t whence) {
     int err;
 
     if (wait_queue == NULL)
@@ -140,7 +140,7 @@ int sched_wakeup(queue_t *wait_queue, wakeup_reason_t reason, queue_relloc_t whe
     return -ESRCH;  // No thread was waiting on this wait queue.
 }
 
-int sched_wakeup_specific(queue_t *wait_queue, wakeup_reason_t reason, tid_t tid) {
+int sched_wakeup_specific(queue_t *wait_queue, wakeup_t reason, tid_t tid) {
     
     if (wait_queue == NULL || tid <= 0)
     return -EINVAL;
@@ -165,7 +165,7 @@ int sched_wakeup_specific(queue_t *wait_queue, wakeup_reason_t reason, tid_t tid
     return -ESRCH;  // No thread was waiting on this wait queue.
 }
 
-int sched_wakeup_all(queue_t *wait_queue, wakeup_reason_t reason, size_t *pnt) {
+int sched_wakeup_all(queue_t *wait_queue, wakeup_t reason, size_t *pnt) {
     int      err     = 0;
     size_t   count   = 0;
 

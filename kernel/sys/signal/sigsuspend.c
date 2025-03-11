@@ -21,10 +21,12 @@ int sigsuspend(const sigset_t *mask) {
 
     
     while (signal_dispatch()) {
-        sched_wait(sigwaiters_queue, T_SLEEP, QUEUE_TAIL, NULL);
+        if ((err = sched_wait(sigwaiters_queue, T_SLEEP, QUEUE_TAIL, NULL))) {
+            break;
+        }
     }
 
     sigmask(&current->t_sigmask, SIG_SETMASK, &oset, NULL);
 
-    return -1;
+    return err;
 }

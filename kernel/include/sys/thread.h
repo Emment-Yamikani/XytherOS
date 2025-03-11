@@ -171,7 +171,7 @@ struct __proc_t {
 typedef struct thread_t {
     arch_thread_t   t_arch;         /**< Architecture-specific thread context */
     thread_info_t   t_info;         /**< General thread information */
-    wakeup_reason_t t_wakeup_reason;  /**< Reason for waking up. */
+    wakeup_t t_wakeup;  /**< Reason for waking up. */
     cond_t          t_event;        /**< Condition variable for thread events */
     sigset_t        t_sigmask;      /**< Signal mask for the thread */
     sigset_t        t_sigpending;   /**< Set of pending signals: this is a sticky set a signal is only reset if all pending instances are delivered. */
