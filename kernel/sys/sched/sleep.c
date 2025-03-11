@@ -116,6 +116,9 @@ int sched_wakeup(queue_t *wait_queue, wakeup_reason_t reason, queue_relloc_t whe
                 queue_unlock(wait_queue);
                 return err;
             }
+
+            break;
+
         case QUEUE_RELLOC_HEAD: // retrieve a thread from the front of the queue.
             embedded_queue_foreach(wait_queue, thread_t, thread, t_wait_qnode) {
                 thread_lock(thread);
@@ -125,6 +128,9 @@ int sched_wakeup(queue_t *wait_queue, wakeup_reason_t reason, queue_relloc_t whe
                 queue_unlock(wait_queue);
                 return err;
             }
+
+            break;
+
         default:
             queue_unlock(wait_queue);
             return -EINVAL;

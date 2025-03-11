@@ -12,7 +12,7 @@ int pts_mkslave(PTY pty) {
     char    name[32]= {0};
     int     err     = 0;
     dev_t   *dev    = NULL;
-    mode_t  mode    = S_IFCHR | 0; // mode will be set by grantpt().
+    mode_t  mode    = S_IFCHR; // mode will be set by grantpt().
 
     if (pty == NULL)
         return -EINVAL;
