@@ -55,9 +55,10 @@ extern void sched_yield(void);
 extern int sched_wait(queue_t *wait_queue, tstate_t state, queue_relloc_t whence, spinlock_t *lock);
 
 typedef enum {
-    WAKEUP_NORMAL,  // Normal wakeup.
-    WAKEUP_SIGNAL,  // Wakeup due to signal.
-    WAKEUP_TIMEOUT, // Wakeup due to timeout.
+    WAKEUP_NONE     = 0,
+    WAKEUP_NORMAL   = 1, // Normal wakeup.
+    WAKEUP_SIGNAL   = 2, // Wakeup due to signal.
+    WAKEUP_TIMEOUT  = 3, // Wakeup due to timeout.
 } wakeup_t;
 
 static inline int wakeup_reason_validate(wakeup_t reason) {

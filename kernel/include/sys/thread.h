@@ -171,7 +171,7 @@ struct __proc_t {
 typedef struct thread_t {
     arch_thread_t   t_arch;         /**< Architecture-specific thread context */
     thread_info_t   t_info;         /**< General thread information */
-    wakeup_t t_wakeup;  /**< Reason for waking up. */
+    wakeup_t        t_wakeup;       /**< Reason for waking up. */
     cond_t          t_event;        /**< Condition variable for thread events */
     sigset_t        t_sigmask;      /**< Signal mask for the thread */
     sigset_t        t_sigpending;   /**< Set of pending signals: this is a sticky set a signal is only reset if all pending instances are delivered. */
@@ -487,6 +487,8 @@ extern void     thread_exit(uintptr_t exit_code);
 extern int      thread_join(tid_t tid, thread_info_t *info, void **prp);
 extern int      thread_execve(thread_t *thread, const char *argp[], const char *envp[]);
 extern int      thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, int cflags, thread_t **ptp);
+
+extern bool     current_interrupted(wakeup_t *preason);
 
 extern void     thread_free(thread_t *thread);
 extern int      thread_schedule(thread_t *thread);

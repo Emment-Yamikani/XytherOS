@@ -275,7 +275,44 @@ int thread_join(tid_t tid, thread_info_t *info, void **prp) {
         return err;
     }
 
-    // If we get here, target thread has entered T_ZOMBIE state.
-    // Clean ttarget thread.
+    // If we get here, target thread is a T_ZOMBIE and we can clean it.
     return thread_reap(thread, info, prp);
+}
+
+/**
+ * @brief check the reason for the interrupt.
+ * 
+ * @param reason[in] is one of four(4) values as specified by 'wakeup_t' enum.
+ * @return true if reason is != WAKEUP_NONE or != WAKEUP_NORMAL.
+ * @return false if reason is WAKEUP_SIGNAL or WAKEUP_TIMEOUT.
+ */
+static bool wakeup_interrupt(wakeup_t reason) {
+    return ((reason == WAKEUP_SIGNAL) || (reason == WAKEUP_TIMEOUT)) ? true : false
+}
+
+/**
+ * @brief checks if the current thread execution has been interrupted.
+ * 
+ * @param preason[out] holds the reason for the interrupt.
+ * @return true        if thread has been cancelled
+ *                     or interupted due to WAKEUP_SIGNAL or
+ *                     WAKEUP_TIMEOUT, otherwise it returns false.
+ */
+bool current_interrupted(wakeup_t *preason) {
+    wakeup_t reason = WAKEUP_NONE;
+
+    current_assert_locked();
+    
+    if (current->t_wakeup != WAKEUP_NONE) {
+        reason = current->t_wakeup;
+        current->t_wakeup = WAKEUP_NONE;
+
+        if (reason == WAKEUP_SIGNAL) {
+            signal_check_pending();
+        }
+    }
+    
+    if (pr) *pr = reason;
+
+    return (current_iscanceled() || wakeup_interrupt(reason)) ? true : false;
 }
