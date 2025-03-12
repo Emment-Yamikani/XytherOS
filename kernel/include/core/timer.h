@@ -30,5 +30,3 @@ typedef struct {
 
 extern void timer_increment(void);
 extern int timer_create(tmr_desc_t *timer, int *ptid);
-
-int timer_settime();

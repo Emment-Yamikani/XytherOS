@@ -254,6 +254,8 @@ int sched_wakeup_all(queue_t *wait_queue, wakeup_t reason, size_t *pnt) {
     }
 
     queue_unlock(wait_queue);
+
     if (pnt) *pnt = count;
+
     return count > 0 ? 0 : -ESRCH;
 }

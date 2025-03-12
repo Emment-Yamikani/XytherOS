@@ -7,8 +7,9 @@
 int thread_sigsend(thread_t *thread, siginfo_t *siginfo) {
     int err;
 
-    if (thread == NULL || siginfo == NULL)
+    if (thread == NULL || siginfo == NULL) {
         return -EINVAL;
+    }
 
     thread_assert_locked(thread);
 
@@ -33,6 +34,7 @@ int thread_sigsend(thread_t *thread, siginfo_t *siginfo) {
             return err;
         }
         queue_unlock(wait_queue);
+
     }
 
     sigsetadd(&thread->t_sigpending, siginfo->si_signo);
@@ -60,6 +62,7 @@ int thread_kill(thread_t *thread, int signo, union sigval value) {
     return 0;
 error:
     if (siginfo) siginfo_free(siginfo);
+
     return err;
 }
 

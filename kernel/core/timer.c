@@ -6,7 +6,7 @@
 #include <sys/schedule.h>
 
 static QUEUE(timers);
-static CONDITION_VARIABLE(timer_waiters);
+static QUEUE(timer_waiters);
 
 static int timer_new(tmr_t **pt) {
     tmr_t *tmr;
@@ -66,7 +66,7 @@ int timer_create(tmr_desc_t *td, int *ptid) {
     int err;
     tmr_t *tmr = NULL;
 
-    if (!td || (!td->td_func && !td->td_signo)) {
+    if (!td || ((!td->td_func && !td->td_signo) && !current)) {
         return -EINVAL;
     }
 
@@ -90,8 +90,6 @@ error:
 }
 
 void timer_increment(void) {
-    cond_broadcast(timer_waiters);
-
     queue_lock(timers);
     embedded_queue_foreach(timers, tmr_t, tmr, t_node) {
         if (time_after(jiffies_get(), tmr->t_expiry)) {
@@ -99,7 +97,10 @@ void timer_increment(void) {
                 tmr->t_callback(tmr->t_arg);
             } else if (tmr->t_owner) {
                 thread_lock(tmr->t_owner);
-                thread_kill(tmr->t_owner, tmr->t_signo, (union sigval){0});
+                if (tmr->t_signo)
+                    thread_kill(tmr->t_owner, tmr->t_signo, (union sigval){0});
+                else
+                    sched_wakeup(timer_waiters, WAKEUP_NORMAL, QUEUE_HEAD);
                 thread_unlock(tmr->t_owner);
             }
 
@@ -113,11 +114,31 @@ void timer_increment(void) {
         }
     }
     queue_unlock(timers);
+    sched_wakeup_all(timer_waiters, WAKEUP_NORMAL, NULL);
+}
+
+int timer_getremaining(tmrid_t id, jiffies_t *rem) {
+    if (rem == NULL)
+        return -EINVAL;
+
+    queue_lock(timers);
+
+    embedded_queue_foreach(timers, tmr_t, tmr, t_node) {
+        if (tmr->t_id == id) {
+            jiffies_t jiffy_now = jiffies_get();
+            *rem = tmr->t_expiry - ((tmr->t_expiry > jiffy_now) ? jiffy_now : 0);
+            return 0;
+        }
+    }
+
+    queue_unlock(timers);
+
+    return -ENOENT;
 }
 
 int nanosleep(const timespec_t *duration, timespec_t *rem) {
     int         err = 0;
-    jiffies_t   time, now;
+    jiffies_t   timeout, now;
 
     if (duration == NULL) {
         return -EFAULT;
@@ -127,18 +148,18 @@ int nanosleep(const timespec_t *duration, timespec_t *rem) {
         return -EINVAL;
     }
 
-    time = jiffies_from_timespec(duration) + jiffies_get();
+    timeout = jiffies_from_timespec(duration) + jiffies_get();
 
-    while (time_before(now = jiffies_get(), time)) {
-        if ((err = cond_wait(timer_waiters))) {
-            printk("EINTR\n");
+    while (time_before(now = jiffies_get(), timeout)) {
+        if ((err = sched_wait(timer_waiters, T_SLEEP, QUEUE_TAIL, NULL))) {
             break;
         }
     }
 
     if (rem) {
-        time = now <= time ? time - now : 0;
-        jiffies_to_timespec(time, rem);
+        now = jiffies_get();
+        timeout = now <= timeout ? timeout - now : 0;
+        jiffies_to_timespec(timeout, rem);
     }
 
     return err;

@@ -282,6 +282,8 @@ int signal_dequeue(thread_t *thread, sigaction_t *oact, siginfo_t **psiginfo) {
     if (thread == NULL || psiginfo == NULL)
         return -EINVAL;
 
+    thread_assert_locked(thread);
+
     signal_lock(thread->t_signals);
 
     err = try_dequeue_signal(thread, false, oact, &siginfo);
