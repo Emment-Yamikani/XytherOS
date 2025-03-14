@@ -66,6 +66,54 @@ int embedded_queue_contains(queue_t *queue, queue_node_t *qnode) {
     return -ENOENT;
 }
 
+int embedded_enqueue_after(queue_t *queue, queue_node_t *node, queue_node_t *prev, queue_uniqueness_t uniqueness) {
+    if (queue == NULL || node == NULL || prev == NULL)
+        return -EINVAL;
+
+    queue_assert_locked(queue);
+
+    if (uniqueness == QUEUE_UNIQUE) {
+        if (embedded_queue_contains(queue, node) == 0)
+            return -EEXIST;
+    }
+
+    node->prev = prev;
+    node->next = prev->next;
+    prev->next = node;
+
+    if (queue->tail == prev) {
+        queue->tail = node;
+    }
+
+    queue->q_count++;
+
+    return 0;
+}
+
+int embedded_enqueue_before(queue_t *queue, queue_node_t *node, queue_node_t *next, queue_uniqueness_t uniqueness) {
+    if (queue == NULL || node == NULL || next == NULL)
+        return -EINVAL;
+
+    queue_assert_locked(queue);
+
+    if (uniqueness == QUEUE_UNIQUE) {
+        if (embedded_queue_contains(queue, node) == 0)
+            return -EEXIST;
+    }
+    
+    node->next = next;
+    node->prev = next->prev;
+    next->prev = node;
+
+    if (queue->head == next) {
+        queue->head = node;
+    }
+
+    queue->q_count++;
+
+    return 0;
+}
+
 int embedded_enqueue(queue_t *queue, queue_node_t *qnode, queue_uniqueness_t uniqueness) {
     if (queue == NULL || qnode == NULL)
         return -EINVAL;

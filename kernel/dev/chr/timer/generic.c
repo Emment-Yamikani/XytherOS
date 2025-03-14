@@ -78,4 +78,5 @@ void timer_intr(void) {
     else pit_intr();
 
     timer_increment();
+    ktimer_tick();
 }

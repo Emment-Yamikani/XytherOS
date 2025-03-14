@@ -321,6 +321,8 @@ int embedded_queue_detach(queue_t *queue, queue_node_t *qnode);
  */
 extern int embedded_queue_replace(queue_t *queue, queue_node_t *qnode0, queue_node_t *qnode1);
 
+extern int embedded_enqueue_before(queue_t *queue, queue_node_t *qnode, queue_node_t *next, queue_uniqueness_t uniqueness);
+
 extern int embedded_queue_migrate(queue_t *dst, queue_t *src, usize pos, usize n, queue_relloc_t whence);
 
 extern bool embedded_queue_empty(queue_t *queue);

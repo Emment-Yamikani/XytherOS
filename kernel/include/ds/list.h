@@ -20,6 +20,7 @@
 typedef struct list_head_t list_head_t;
 struct list_head_t {
     list_head_t *prev; /**< Pointer to the previous node in the list. */
+    void        *data; /**< Data held by this nde if any. */
     list_head_t *next; /**< Pointer to the next node in the list. */
 };
 
@@ -29,7 +30,7 @@ struct list_head_t {
  *
  * @param head The list head to initialize.
  */
-#define LIST_HEAD_INIT(head) { &(head), &(head) }
+#define LIST_HEAD_INIT(head) { &(head), NULL, &(head) }
 
 /**
  * @def LIST_HEAD(name)
@@ -47,6 +48,18 @@ struct list_head_t {
  */
 static inline void INIT_LIST_HEAD(list_head_t *list) {
     list->prev = list;
+    list->data = NULL;
+    list->next = list;
+}
+
+/**
+ * @brief Initializes a list head.
+ *
+ * @param list The list head to initialize.
+ */
+static inline void INIT_LIST_HEAD_DATA(list_head_t *list, void *data) {
+    list->prev = list;
+    list->data = data;
     list->next = list;
 }
 
@@ -116,10 +129,10 @@ static inline void INIT_LIST_HEAD(list_head_t *list) {
  * @param head Pointer to the list head.
  */
 #define list_foreach(pos, head) \
-    for (pos = head->next; pos != head; pos = pos->next)
+    for (pos = (head)->next; pos != head; pos = pos->next)
 
 #define list_foreach_safe(pos, next, head) \
-    for (pos = head->next, next = pos->next; pos != head; pos = next, next = next->next)
+    for (pos = (head)->next, next = pos->next; pos != head; pos = next, next = next->next)
 
 /**
  * @def list_foreach_reverse(pos, head, member)
@@ -129,10 +142,10 @@ static inline void INIT_LIST_HEAD(list_head_t *list) {
  * @param head Pointer to the list head.
  */
 #define list_foreach_reverse(pos, head) \
-    for (pos = head->prev; pos != head; pos = pos->prev)
+    for (pos = (head)->prev; pos != head; pos = pos->prev)
 
 #define list_foreach_reverse_safe(pos, prev, head) \
-    for (pos = head->prev, prev = pos->prev; pos != head; pos = prev, prev = prev->prev)
+    for (pos = (head)->prev, prev = pos->prev; pos != head; pos = prev, prev = prev->prev)
 
 /**
  * @def list_foreach_entry(item, head, member)
@@ -144,8 +157,7 @@ static inline void INIT_LIST_HEAD(list_head_t *list) {
  */
 #define list_foreach_entry(item, head, member)                 \
     for (item = list_first_entry(head, typeof(*item), member); \
-         &(item)->member != head;                             \
-         item = list_next_entry(item, member))
+         &(item)->member != head; item = list_next_entry(item, member))
 
 /**
  * @def list_foreach_entry_reverse(item, head, member)
@@ -157,8 +169,7 @@ static inline void INIT_LIST_HEAD(list_head_t *list) {
  */
 #define list_foreach_entry_reverse(item, head, member)        \
     for (item = list_prev_entry(head, typeof(*item), member); \
-         &(item)->member != head;                            \
-         item = list_prev_entry(item, member))
+         &(item)->member != head; item = list_prev_entry(item, member))
 
 /**
  * @def list_foreach_entry_safe(item, n, head, member)
@@ -171,9 +182,8 @@ static inline void INIT_LIST_HEAD(list_head_t *list) {
  */
 #define list_foreach_entry_safe(item, n, head, member)         \
     for (item = list_first_entry(head, typeof(*item), member), \
-        n = list_next_entry(item, member);                    \
-         &(item)->member != head;                             \
-         item = n, n = list_next_entry(n, member))
+        n = list_next_entry(item, member);                     \
+         &(item)->member != head; item = n, n = list_next_entry(n, member))
 
 /**
  * @def list_foreach_entry_reverse_safe(item, p, head, member)
@@ -187,8 +197,7 @@ static inline void INIT_LIST_HEAD(list_head_t *list) {
 #define list_foreach_entry_reverse_safe(item, p, head, member) \
     for (item = list_prev_entry(head, typeof(*item), member),  \
         p = list_prev_entry(item, member);                     \
-         &(item)->member != head;                              \
-         item = p, p = list_prev_entry(p, member))
+         &(item)->member != head; item = p, p = list_prev_entry(p, member))
 
 /**
  * @brief Checks if a list is empty.
@@ -323,3 +332,5 @@ typedef enum {
  * @return 0 on success, -EINVAL on failure (e.g., invalid parameters).
  */
 extern int list_migrate_range(list_head_t *dst, list_head_t *src, usize start_pos, usize num_nodes, list_relloc_t whence);
+
+extern list_head_t *list_nth(list_head_t *head, usize n);

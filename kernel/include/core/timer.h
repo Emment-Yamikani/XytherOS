@@ -30,3 +30,22 @@ typedef struct {
 
 extern void timer_increment(void);
 extern int timer_create(tmr_desc_t *timer, int *ptid);
+
+typedef void (*ktimer_callback_t)(void *);
+
+typedef struct ktimer_t ktimer_t;
+struct ktimer_t {
+    void                *arg;
+    ktimer_callback_t   callback;
+    jiffies_t           expiry;
+    jiffies_t           period;
+    timer_t             timerid;
+    queue_node_t        node;
+};
+
+extern int      ktimer_create(jiffies_t expr, jiffies_t interval, ktimer_callback_t func, void *arg, timer_t *timerid);
+
+extern void     ktimer_tick(void);
+extern void     ktimer_delete();
+extern void     ktimer_gettime();
+extern void     ktimer_settime();

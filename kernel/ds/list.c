@@ -167,3 +167,11 @@ int list_migrate_range(list_head_t *dst, list_head_t *src, usize start_pos, usiz
 
     return 0;
 }
+
+list_head_t *list_nth(list_head_t *head, usize n) {
+    list_head_t *node = head->next;
+    while (node != head && n--) {
+        node = node->next;
+    }
+    return (node == head) ? NULL : node;
+}
