@@ -58,6 +58,20 @@ typedef struct queue {
     (queue)->q_lock = SPINLOCK_INIT(); \
 })
 
+
+#define embedded_queue_foreach(queue, type, item, member)                                                        \
+    queue_assert_locked(queue);                                                                                  \
+    for (queue_node_t *item##_node = (queue)->head, *next_item##_node = item##_node ? item##_node->next : NULL;  \
+         item##_node; item##_node = next_item##_node, next_item##_node = item##_node ? item##_node->next : NULL) \
+        for (type *item = container_of(item##_node, type, member); item##_node; item##_node = NULL)
+
+#define embedded_queue_foreach_reverse(queue, type, item, member)                                                \
+    queue_assert_locked(queue);                                                                                  \
+    for (queue_node_t *item##_node = (queue)->tail, *prev_item##_node = item##_node ? item##_node->prev : NULL;  \
+         item##_node; item##_node = prev_item##_node, prev_item##_node = item##_node ? item##_node->prev : NULL) \
+        for (type *item = container_of(item##_node, type, member); item##_node; item##_node = NULL)
+
+
 /**
  * @brief Iterates over a queue's node.
  * caller must have held queue->q_lock prior to calling this macro.
@@ -327,14 +341,16 @@ extern int embedded_queue_migrate(queue_t *dst, queue_t *src, usize pos, usize n
 
 extern bool embedded_queue_empty(queue_t *queue);
 
-#define embedded_queue_foreach(queue, type, item, member)                                                        \
-    queue_assert_locked(queue);                                                                                  \
-    for (queue_node_t *item##_node = (queue)->head, *next_item##_node = item##_node ? item##_node->next : NULL;  \
-         item##_node; item##_node = next_item##_node, next_item##_node = item##_node ? item##_node->next : NULL) \
-        for (type *item = container_of(item##_node, type, member); item##_node; item##_node = NULL)
 
-#define embedded_queue_foreach_reverse(queue, type, item, member)                                                \
-    queue_assert_locked(queue);                                                                                  \
-    for (queue_node_t *item##_node = (queue)->tail, *prev_item##_node = item##_node ? item##_node->prev : NULL;  \
-         item##_node; item##_node = prev_item##_node, prev_item##_node = item##_node ? item##_node->prev : NULL) \
-        for (type *item = container_of(item##_node, type, member); item##_node; item##_node = NULL)
+enum {
+    QUEUE_EQUAL,
+    QUEUE_LESSER,
+    QUEUE_GREATER,
+};
+
+typedef enum {
+    QUEUE_ASCENDING,
+    QUEUE_DESCENDING,
+} queue_order_t;
+
+extern int enqueue_sorted(queue_t *queue, queue_node_t *qnode, queue_uniqueness_t uniqueness, queue_order_t order, int (*compare)());

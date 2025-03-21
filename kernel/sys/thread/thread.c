@@ -193,60 +193,73 @@ int thread_join_group(thread_t *thread) {
 }
 
 int thread_builtin_init(void) {
-
     foreach_builtin_thread() {
-        int err = thread_create(NULL, 
+        int err = thread_create(
+            NULL, 
             thread->thread_entry,
             thread->thread_arg,
             THREAD_CREATE_SCHED,
             NULL
         );
-        if (err) return err;
+
+        if (err) {
+            return err;
+        }
     }
 
     return 0;
 }
 
-int thread_queue_get_thread(queue_t *queue, tid_t tid, tstate_t state, thread_t **ptp) {
-    if (queue == NULL)
+int find_thread_bytid(queue_t *thread_queue, tid_t tid, thread_t **ptp) {
+    if (thread_queue == NULL) {
         return -EINVAL;
-
-    queue_foreach(queue, thread_t *, thread) {
-        if (thread == current)
-            continue;
-
+    }
+    
+    queue_foreach(thread_queue, thread_t *, thread) {
         thread_lock(thread);
-
-        if ((tid == 0) && thread_in_state(thread, state)) {
-            if (ptp) *ptp = thread;
-            else thread_unlock(thread);
-            return 0;
-        } else if ((thread_gettid(thread) == tid) || (tid == 0)) {
-            if (ptp) *ptp = thread;
-            else thread_unlock(thread);
+        if (thread_gettid(thread) == tid) {
+            if (ptp == NULL) {
+                thread_unlock(thread);
+            } else {
+                *ptp = thread;
+            }
             return 0;
         }
-
         thread_unlock(thread);
     }
 
     return -ESRCH;
 }
 
-int thread_wait(thread_t *thread) {
-    int err = 0;
-
-    if (thread == NULL)
+int thread_group_getby_tid(tid_t tid, thread_t **ptp) {
+    if (ptp == NULL) {
         return -EINVAL;
-    
-    if (thread == current)
-        return -EDEADLK;
+    }
 
-    if (thread_iszombie(thread) || thread_isterminated(thread))
+    queue_lock(current->t_group);
+    int err = find_thread_bytid(current->t_group, tid, ptp);
+    queue_unlock(current->t_group);
+
+    return err;
+}
+
+int thread_wait(thread_t *thread) {
+    
+    if (thread == NULL) {
+        return -EINVAL;
+    }
+    
+    if (thread == current) {
+        return -EDEADLK;
+    }
+
+    if (thread_iszombie(thread) || thread_isterminated(thread)) {
         return 0;
+    }
 
     while (!thread_in_state(thread, T_ZOMBIE)) {
-        if ((err = cond_wait_releasing(&thread->t_event, &thread->t_lock))) {
+        int err = cond_wait_releasing(&thread->t_event, &thread->t_lock);
+        if (err != 0) {
             return err;
         }
     }
@@ -255,20 +268,16 @@ int thread_wait(thread_t *thread) {
 }
 
 int thread_join(tid_t tid, thread_info_t *info, void **prp) {
-    int         err = 0;
+    int         err;
     thread_t    *thread = NULL;
 
-    if (tid == gettid())
+    if (tid == gettid()) {
         return -EDEADLK;
-
-    queue_lock(current->t_group);
-    
-    if ((err = thread_queue_get_thread(current->t_group, tid, T_ZOMBIE, &thread))) {
-        queue_unlock(current->t_group);
-        return err;
     }
 
-    queue_unlock(current->t_group);
+    if ((err = thread_group_getby_tid(tid, &thread))) {
+        return err;
+    }
 
     if ((err = thread_wait(thread))) {
         thread_unlock(thread);

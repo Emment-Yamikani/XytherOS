@@ -1,7 +1,8 @@
 #include <bits/errno.h>
+#include <core/debug.h>
 #include <ds/queue.h>
 
-bool embedded_queue_empty(queue_t *queue) {
+inline bool embedded_queue_empty(queue_t *queue) {
     queue_assert_locked(queue);
     return queue_count(queue) ? false : true;
 }
@@ -408,5 +409,98 @@ int embedded_queue_migrate(queue_t *dst, queue_t *src, usize pos, usize n, queue
     }
 
     dst->q_count += n; // Update destination queue item count.
+    return 0;
+}
+
+static inline int queue_cmp_nodes(queue_node_t *node0, queue_node_t *node1, queue_order_t order, int (*compare)()) {
+    int retval;
+
+    if (compare) {
+        if (order == QUEUE_ASCENDING) {
+            retval = compare(node0, node1);
+        } else if (order == QUEUE_DESCENDING) {
+            retval = compare(node1, node0);
+        } else { // prefer ascending order.
+            retval = compare(node0, node1);
+        }
+    } else {
+        if (!node0 || !node1)
+            return -EINVAL;
+
+        if (node0 == node1)
+            retval = QUEUE_EQUAL;
+        else if (node0 < node1)
+            retval = QUEUE_LESSER;
+        retval = QUEUE_GREATER;
+    }
+
+    return retval;
+}
+
+int enqueue_sorted(queue_t *queue, queue_node_t *qnode, queue_uniqueness_t uniqueness, queue_order_t order, int (*compare)()) {
+    if (!queue || !qnode) {
+        return -EINVAL;
+    }
+
+    queue_assert_locked(queue);
+
+    qnode->next = qnode->prev = NULL;
+
+    if (!queue->head) {
+        queue->head = queue->tail = qnode;
+        queue->q_count++;
+        return 0;
+    }
+
+    if (uniqueness == QUEUE_UNIQUE) {
+        if (embedded_queue_contains(queue, qnode) == 0)
+            return -EEXIST;
+    }
+
+    qnode->next = qnode->prev = NULL;
+
+    queue_node_t *next;
+    forlinked(node, queue->head, next) {
+        next = node->next;
+        
+        int retval = queue_cmp_nodes(qnode, node, order, compare);
+
+        if (retval == QUEUE_EQUAL) {
+            qnode->prev = node;
+            qnode->next = node->next;
+            node->next = qnode;
+            if (qnode->next) {
+                qnode->next->prev = qnode;
+            } else {
+                queue->tail = qnode;
+            }
+
+            break;
+        } else if (retval == QUEUE_LESSER) {
+            qnode->next = node;
+            qnode->prev = node->prev;
+            node->prev = qnode;
+            if (qnode->prev) {
+                qnode->prev->next = qnode;
+            } else {
+                queue->head = qnode;
+            }
+            break;
+        } else if (retval == QUEUE_GREATER) {
+            if (next == NULL) {
+                qnode->next = NULL;
+                queue->tail = qnode;
+
+                qnode->prev = node;
+                node->next = qnode;
+
+                break;
+            }
+        } else {
+            return retval;
+        }
+    }
+
+    queue->q_count++;
     return 0;
 }
