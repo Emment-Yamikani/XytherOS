@@ -16,5 +16,9 @@ extern void     hpet_wait(double s);
 extern void     hpet_microwait(ulong us);
 extern void     hpet_milliwait(ulong ms);
 extern void     hpet_nanowait(ulong ns);
-extern size_t   hpet_rdmcnt(void);
 extern ulong    hpet_get_time(void);
+
+extern int hpet_getres(struct timespec *res);
+extern int hpet_gettime(struct timespec *tp);
+extern void hpet_to_timespec(ulong time, struct timespec *ts);
+extern ulong hpet_from_timespec(const struct timespec *ts);

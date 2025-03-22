@@ -3,6 +3,7 @@
 #include <arch/traps.h>
 #include <bits/errno.h>
 #include <dev/timer.h>
+#include <sys/_time.h>
 #include <lib/printk.h>
 #include <string.h>
 #include <sync/atomic.h>
@@ -166,6 +167,19 @@ int hpet_init(void) {
     return 0;
 }
 
+void hpet_intr(void) {
+    u64 int_status = HPET_INT_STATUS;
+
+    if (int_status & (1 << 0)) {
+        HPET_INT_STATUS |= 1 << 0;
+        jiffies_update();
+    } else if (int_status & (1 << 1)) {
+        HPET_INT_STATUS |= 1 << 1;
+    } else if (int_status & (1 << 2)) {
+        HPET_INT_STATUS |= 1 << 2;
+    }
+}
+
 ulong hpet_get_time(void) {
     return HPET_MAIN_COUNTER_VAL * hpet_period_ns;
 }
@@ -189,15 +203,30 @@ void hpet_wait(double s) {
     hpet_nanowait(s * NSEC_PER_SEC);
 }
 
-void hpet_intr(void) {
-    u64 int_status = HPET_INT_STATUS;
-
-    if (int_status & (1 << 0)) {
-        HPET_INT_STATUS |= 1 << 0;
-        jiffies_update();
-    } else if (int_status & (1 << 1)) {
-        HPET_INT_STATUS |= 1 << 1;
-    } else if (int_status & (1 << 2)) {
-        HPET_INT_STATUS |= 1 << 2;
+int hpet_getres(timespec_t *res) {
+    if (!res) {
+        return -EINVAL;
     }
+
+    res->tv_sec = 0;
+    res->tv_nsec = hpet_period_ns;
+    return 0;
+}
+
+void hpet_to_timespec(ulong time, timespec_t *ts) {
+    ts->tv_sec = time / NSEC_PER_SEC;
+    ts->tv_nsec = (time % NSEC_PER_SEC);
+}
+
+ulong hpet_from_timespec(const timespec_t *ts) {
+    return (ts->tv_sec * NSEC_PER_SEC) + ts->tv_nsec;
+}
+
+int hpet_gettime(timespec_t *tp) {
+    if (!tp) {
+        return -EINVAL;
+    }
+
+    hpet_to_timespec(hpet_get_time(), tp);
+    return 0;
 }
