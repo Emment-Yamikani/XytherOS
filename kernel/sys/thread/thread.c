@@ -118,6 +118,7 @@ int thread_create_group(thread_t *thread) {
     cred_t          *cred    = NULL;
     file_ctx_t      *fctx    = NULL;
     queue_t         *queue   = NULL;
+    queue_t         *timers  = NULL;
     signal_t        *signals = NULL;
 
     if (thread == NULL)
@@ -131,7 +132,7 @@ int thread_create_group(thread_t *thread) {
     if ((err = queue_alloc(&queue)))
         return err;
 
-    if ((err = queue_init(queue))) {
+    if ((err = queue_alloc(&timers))) {
         goto error;
     }
 
@@ -146,18 +147,24 @@ int thread_create_group(thread_t *thread) {
     }
     queue_unlock(queue);
 
-
     thread_setmain(thread);
 
+    thread->t_timers        = timers;
     thread->t_fctx          = fctx;
     thread->t_cred          = cred;
     thread->t_group         = queue;
     thread->t_signals       = signals;
     thread->t_info.ti_tgid  = thread_gettid(thread);
 
+    if ((err = timer_create_r(thread, CLOCK_REALTIME, NULL, &thread->t_alarm))) {
+        goto error;
+    }
+
     return 0;
 error:
     if (queue) queue_free(queue);
+    if (timers) queue_free(timers);
+
     if (cred) {
         todo("FIXME!\n"); }
     if (fctx) {
@@ -181,6 +188,7 @@ int thread_join_group(thread_t *thread) {
     }
     queue_unlock(current->t_group);
 
+    thread->t_alarm       = current->t_alarm;
     thread->t_proc        = current->t_proc;
     thread->t_mmap        = current->t_mmap;
     thread->t_cred        = current->t_cred;

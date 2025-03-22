@@ -8,7 +8,7 @@
 #include <mm/kalloc.h>
 #include <sys/schedule.h>
 #include <arch/x86_64/isr.h>
-#include <core/posix_timer.h>
+#include <core/timer.h>
 #include <dev/tsc.h>
 
 void handle_signal(signo_t sig, siginfo_t *, void *) {

@@ -58,6 +58,8 @@ typedef struct queue {
     (queue)->q_lock = SPINLOCK_INIT(); \
 })
 
+#define queue_node_get_container(node, type, member) \
+    (type *)(node ? container_of(node, type, member) : NULL)
 
 #define embedded_queue_foreach(queue, type, item, member)                                                        \
     queue_assert_locked(queue);                                                                                  \
