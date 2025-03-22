@@ -29,6 +29,7 @@ typedef struct {
 } __packed acpi_hpet_t;
 
 static volatile atomic_u64 *HPET = NULL;
+static atomic_u64 hpet_period_ns = 0;
 
 /*General Capabilities and Identification register. Read-only*/
 #define HPET_CAPID              HPET[(0x000) / 8]
@@ -151,6 +152,9 @@ int hpet_init(void) {
     tmrcnf |= HPET_COUNTER_SIZE == 0 ? HPET_TMR_32MODE_CNF : 0;
 
     HPET_TMR0_CNF = tmrcnf;             // Put the changes into effect.
+
+    hpet_period_ns = HPET_CLK_PERIOD / 1000000; // get the HPET period in nanoseconds.
+
     // Set the comparator val registers.
     HPET_TMR0_CMP = (1000000000000000uL / SYS_Hz) / HPET_CLK_PERIOD;
 
@@ -162,8 +166,27 @@ int hpet_init(void) {
     return 0;
 }
 
-void hpet_wait(double s __unused) {
-    return;
+ulong hpet_get_time(void) {
+    return HPET_MAIN_COUNTER_VAL * hpet_period_ns;
+}
+
+void hpet_nanowait(ulong ns) {
+    ulong duration = ns + hpet_get_time();
+    while (time_before(hpet_get_time(), duration)) {
+        asm volatile ("pause");
+    }
+}
+
+void hpet_microwait(ulong us) {
+    hpet_nanowait(us * NSEC_PER_USEC);
+}
+
+void hpet_milliwait(ulong ms) {
+    hpet_nanowait(ms * NSEC_PER_MSEC);
+}
+
+void hpet_wait(double s) {
+    hpet_nanowait(s * NSEC_PER_SEC);
 }
 
 void hpet_intr(void) {

@@ -1,166 +1,244 @@
 #include <bits/errno.h>
 #include <core/debug.h>
-#include <core/timer.h>
 #include <mm/kalloc.h>
-#include <string.h>
-#include <sys/schedule.h>
+#include <sys/thread.h>
 
-static QUEUE(timers);
-static QUEUE(timer_waiters);
+static QUEUE(ktimer_queue);
 
-static int timer_new(tmr_t **pt) {
-    tmr_t *tmr;
+static int compare_timer_expiry(queue_node_t *x, queue_node_t *y) {
+    posix_timer_t *tx, *ty;
 
-    if (pt == NULL) {
+    if (!x || !y) {
         return -EINVAL;
     }
 
-    if (NULL == (tmr = kmalloc(sizeof *tmr))) {
+    queue_assert_locked(ktimer_queue);
+
+    tx = queue_node_get_container(x, posix_timer_t, knode);
+    ty = queue_node_get_container(y, posix_timer_t, knode);
+
+    if (tx->expiry_time == ty->expiry_time)
+        return QUEUE_EQUAL;
+    else if (tx->expiry_time > ty->expiry_time)
+        return QUEUE_LESSER;
+    return QUEUE_GREATER;
+}
+
+static void add_timer_to_kernel_queue(posix_timer_t *timer) {
+    // Insert the timer into the queue in order of expiry time
+    queue_lock(ktimer_queue);
+    enqueue_sorted(
+        ktimer_queue,
+        &timer->knode,
+        QUEUE_UNIQUE, QUEUE_ASCENDING,
+        compare_timer_expiry
+    );
+    queue_unlock(ktimer_queue);
+}
+
+static void remove_timer_from_kernel_queue(posix_timer_t *timer) {
+    queue_lock(ktimer_queue);
+    embedded_queue_detach(ktimer_queue, &timer->knode);
+    queue_unlock(ktimer_queue);
+}
+
+static int add_timer_to_process(thread_t *thread, posix_timer_t *timer) {
+    if (!thread || !timer) {
+        return -EINVAL;
+    }
+
+    queue_lock(thread->t_timers);
+    int err = embedded_enqueue(thread->t_timers, &timer->node, QUEUE_UNIQUE);
+    queue_unlock(thread->t_timers);
+    return err;
+}
+
+static void remove_timer_from_process(thread_t *thread, posix_timer_t *timer) {
+    queue_lock(thread->t_timers);
+    embedded_queue_detach(thread->t_timers, &timer->node);
+    queue_unlock(thread->t_timers);
+}
+
+static posix_timer_t *find_timer_by_id(timer_t timerid) {
+    queue_lock(current->t_timers);
+    embedded_queue_foreach(current->t_timers, posix_timer_t, timer, node) {
+        spin_lock(&timer->lock);
+        if (timer->id == timerid) {
+            queue_unlock(current->t_timers);
+            return timer;
+        }
+        spin_unlock(&timer->lock);
+    }
+    queue_unlock(current->t_timers);
+    return NULL;
+}
+
+static posix_timer_t *get_expired_timer(void) {
+    queue_lock(ktimer_queue);
+    embedded_queue_foreach(ktimer_queue, posix_timer_t, timer, knode) {
+        spin_lock(&timer->lock);
+        if (timer->expiry_time <= jiffies_get()) {
+            embedded_queue_detach(ktimer_queue, timer_node);
+            queue_unlock(ktimer_queue);
+            return timer;
+        }
+        spin_unlock(&timer->lock);
+    }
+    queue_unlock(ktimer_queue);
+    return NULL;
+}
+
+static void deliver_signal_or_event(thread_t *thread, sigevent_t *event) {
+    if (event->sigev_notify == SIGEV_SIGNAL) {
+        thread_lock(thread);
+        thread_kill(thread, event->sigev_signo, event->sigev_value);
+        thread_unlock(thread);
+    } else if (event->sigev_notify == SIGEV_THREAD) {
+        thread_create(
+            event->sigev_attribute,
+            (void *)event->sigev_function,
+            event->sigev_value.sigval_ptr,
+            THREAD_CREATE_SCHED, NULL
+        );
+    } else if (event->sigev_notify == SIGEV_THREAD_ID) {
+        pthread_kill(event->sigev_tid, event->sigev_signo);
+    } else if (event->sigev_notify == SIGEV_CALLBACK) {
+        event->sigev_function(event->sigev_attribute);
+    }
+}
+
+static void timer_expiry_handler(void) {
+    loop() {
+        posix_timer_t *timer = get_expired_timer();
+        if (!timer) {
+            continue;
+        }
+
+        // Deliver the signal or event.
+        deliver_signal_or_event(timer->owner, &timer->event);
+
+        // If the timer is periodic, re-arm it.
+        if (timer->interval > 0) {
+            timer->expiry_time += timer->interval;
+            add_timer_to_kernel_queue(timer);
+        }
+        spin_unlock(&timer->lock);
+    }
+} BUILTIN_THREAD(timer_expiry_handler, timer_expiry_handler, NULL);
+
+static timer_t generate_unique_timer_id(void) {
+    static _Atomic(timer_t) timer_id = 0;
+    return atomic_inc(&timer_id);
+}
+
+int timer_create(clockid_t clockid, sigevent_t *sevp, timer_t *timerid) {
+    int ret = posix_timer_validate_clockid(clockid);
+    if (ret < 0) {
+        return ret;
+    }
+
+    // Allocate a new timer structure
+    posix_timer_t *timer = kmalloc(sizeof(posix_timer_t));
+    if (!timer) {
         return -ENOMEM;
     }
 
-    memset(tmr, 0, sizeof *tmr);
+    // Initialize the timer fields
+    timer->interval     = 0;
+    timer->expiry_time  = 0;
+    timer->owner        = current;
+    timer->clockid      = clockid;
+    timer->event = sevp ? *sevp : (sigevent_t) {
+        .sigev_signo    = SIGALRM,
+        .sigev_notify   = SIGEV_SIGNAL,
+        .sigev_value    = (sigval_t){0},
+        .sigev_function = NULL,
+        .sigev_attribute= NULL
+    };
 
-    *pt = tmr;
-
-    return 0;
-}
-
-static void init_timer(tmr_t *tmr, tmr_desc_t *td) {
-    tmr->t_owner    = current;
-    tmr->t_arg      = td->td_arg;
-    tmr->t_callback = td->td_func;
-    tmr->t_signo    = td->td_signo;
-    tmr->t_interval = jiffies_from_timespec(&td->td_inteval);
-    tmr->t_expiry   = jiffies_get() + jiffies_from_timespec(&td->td_expiry);
-}
-
-static void timer_free(tmr_t *tmr) {
-    if (tmr) {
-        kfree(tmr);
-    }
-}
-
-static int timer_register(tmr_t *tmr) {
-    int err;
-    static _Atomic(tmrid_t) tmrid = 0;
-
-    if (tmr == NULL) {
-        return -EINVAL;
-    }
-
-    // TODO: check availability of tmr->owner.
-
-    queue_lock(timers);
-    err = embedded_enqueue(timers, &tmr->t_node, QUEUE_UNIQUE);
-    queue_unlock(timers);
-
-    if (err == 0) {
-        tmr->t_id = atomic_inc(&tmrid);
-    }
-
-    return err;
-}
-
-int timer_create(tmr_desc_t *td, int *ptid) {
-    int err;
-    tmr_t *tmr = NULL;
-
-    if (!td || ((!td->td_func && !td->td_signo) && !current)) {
-        return -EINVAL;
-    }
-
-    if ((err = timer_new(&tmr))) {
-        return err;
-    }
-
-    init_timer(tmr, td);
-
-    if ((err = timer_register(tmr))) {
-        goto error;
-    }
-
-    *ptid = tmr->t_id;
-
-    return 0;
-
-error:
-    timer_free(tmr);
-    return err;
-}
-
-void timer_increment(void) {
-    queue_lock(timers);
-    embedded_queue_foreach(timers, tmr_t, tmr, t_node) {
-        if (time_after(jiffies_get(), tmr->t_expiry)) {
-            if (tmr->t_callback) {
-                tmr->t_callback(tmr->t_arg);
-            } else if (tmr->t_owner) {
-                thread_lock(tmr->t_owner);
-                if (tmr->t_signo)
-                    thread_kill(tmr->t_owner, tmr->t_signo, (union sigval){0});
-                else
-                    sched_wakeup(timer_waiters, WAKEUP_NORMAL, QUEUE_HEAD);
-                thread_unlock(tmr->t_owner);
-            }
-
-            if (tmr->t_interval) {
-                tmr->t_expiry += tmr->t_interval;
-            } else {
-                if (!embedded_queue_remove(timers, &tmr->t_node)) {
-                    timer_free(tmr);
-                }
-            }
-        }
-    }
-    queue_unlock(timers);
-    sched_wakeup_all(timer_waiters, WAKEUP_NORMAL, NULL);
-}
-
-int timer_getremaining(tmrid_t id, jiffies_t *rem) {
-    if (rem == NULL)
-        return -EINVAL;
-
-    queue_lock(timers);
-
-    embedded_queue_foreach(timers, tmr_t, tmr, t_node) {
-        if (tmr->t_id == id) {
-            jiffies_t jiffy_now = jiffies_get();
-            *rem = tmr->t_expiry - ((tmr->t_expiry > jiffy_now) ? jiffy_now : 0);
-            return 0;
+    if (timer->event.sigev_notify == SIGEV_CALLBACK || timer->event.sigev_notify == SIGEV_THREAD) {
+        if (timer->event.sigev_function == NULL) {
+            kfree(timer);
+            return -EINVAL;
         }
     }
 
-    queue_unlock(timers);
+    timer->id = generate_unique_timer_id();
+    // Add the timer to the process's timer list
+    add_timer_to_process(current, timer);
 
-    return -ENOENT;
+    *timerid = timer->id;
+    return 0;
 }
 
-int nanosleep(const timespec_t *duration, timespec_t *rem) {
-    int         err = 0;
-    jiffies_t   timeout, now;
-
-    if (duration == NULL) {
+int timer_settime(timer_t timerid, int flags, const struct itimerspec *new_value, struct itimerspec *old_value) {
+    if (!new_value) {
         return -EFAULT;
     }
 
-    if ((duration->tv_nsec > 999999999) || (duration->tv_sec < 0)) {
+    if (new_value->it_value.tv_sec < 0) {
         return -EINVAL;
     }
 
-    timeout = jiffies_from_timespec(duration) + jiffies_get();
-
-    while (time_before(now = jiffies_get(), timeout)) {
-        if ((err = sched_wait(timer_waiters, T_SLEEP, QUEUE_TAIL, NULL))) {
-            break;
-        }
+    if (new_value->it_value.tv_nsec < 0 || new_value->it_value.tv_nsec > 999999999l) {
+        return -EINVAL;
     }
 
-    if (rem) {
-        now = jiffies_get();
-        timeout = now <= timeout ? timeout - now : 0;
-        jiffies_to_timespec(timeout, rem);
+    posix_timer_t *timer = find_timer_by_id(timerid);
+    if (!timer) {
+        return -EINVAL;
     }
 
-    return err;
+    // Save the old timer settings if requested
+    if (old_value) {
+        jiffies_to_timespec(timer->interval, &old_value->it_interval);
+        jiffies_to_timespec(timer->expiry_time, &old_value->it_value);
+    }
+
+    // Set the new timer settings
+    timer->expiry_time = jiffies_from_timespec(&new_value->it_value);
+    timer->expiry_time += flags & POSIX_TIMER_ABSTIME ? 0 : jiffies_get();
+    timer->interval = jiffies_from_timespec(&new_value->it_interval);
+
+    // Add the timer to the kernel's timer queue
+    add_timer_to_kernel_queue(timer);
+    spin_unlock(&timer->lock);
+
+    return 0;
+}
+
+int timer_gettime(timer_t timerid, struct itimerspec *curr_value) {
+    if (!curr_value) {
+        return -EFAULT;
+    }
+
+    posix_timer_t *timer = find_timer_by_id(timerid);
+    if (!timer) {
+        return -EINVAL;
+    }
+
+    jiffies_to_timespec(timer->interval, &curr_value->it_interval);
+    jiffies_to_timespec(timer->expiry_time, &curr_value->it_value);
+
+    spin_unlock(&timer->lock);
+    return 0;
+}
+
+int timer_delete(timer_t timerid) {
+    posix_timer_t *timer = find_timer_by_id(timerid);
+    if (!timer) {
+        return -EINVAL;
+    }
+
+    // Remove the timer from the kernel's timer queue
+    remove_timer_from_kernel_queue(timer);
+
+    // Remove the timer from the process's timer list
+    remove_timer_from_process(timer->owner, timer);
+    spin_unlock(&timer->lock);
+
+    // Free the timer structure
+    kfree(timer);
+
+    return 0;
 }

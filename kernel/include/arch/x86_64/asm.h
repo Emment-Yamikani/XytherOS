@@ -73,6 +73,9 @@ extern void irq33(void);
 
 extern void cpu_pause(void);
 
+extern u64 rdtsc(void);
+extern u64 rdtscp(int *aux);
+
 extern u64 rdrax(void);
 
 extern u64 rdrflags(void);

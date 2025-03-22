@@ -29,9 +29,14 @@ extern void pit_wait(double s);
 #define us_from_HZ(Hz)      (us_from_s(s_from_HZ(Hz)))    // convert Hz to us
 #define ns_from_HZ(Hz)      (ns_from_s(s_from_HZ(Hz)))    // convert Hz to ns
 
-#define NSEC_PER_USEC       (1000)
-#define USEC_PER_SEC        (1000000)
-#define NSEC_PER_SEC        (NSEC_PER_USEC * 1000)
+#define NSEC_PER_USEC       (1000l)
+#define NSEC_PER_MSEC       (1000000l)
+#define NSEC_PER_SEC        (1000000000l)
+
+#define USEC_PER_MSEC       (1000l)
+#define USEC_PER_SEC        (1000000l)
+
+#define MSEC_PER_SEC        (1000l)
 
 #define JIFFIES_TO_TIMEVAL(jiffies, tv) ({       \
     do                                           \
@@ -75,7 +80,7 @@ extern void pit_wait(double s);
 #define us_from_jiffies(j)    (us_from_s(s_from_jiffies(j)))
 #define ns_from_jiffies(j)    (ns_from_s(s_from_jiffies(j)))
 
-typedef unsigned long jiffies_t;
+typedef ulong jiffies_t;
 
 extern void jiffies_update(void);
 
@@ -83,7 +88,7 @@ extern jiffies_t jiffies_get(void);
 
 extern void jiffies_timed_wait(jiffies_t jiffies);
 
-extern jiffies_t jiffies_sleep(jiffies_t jiffies);
+extern int jiffies_sleep(jiffies_t jiffies, jiffies_t *rem);
 
 extern int jiffies_getres(struct timespec *res);
 
@@ -103,7 +108,7 @@ extern int  timer_init(void);
 
 extern void timer_intr(void);
 
-extern void timer_wait(int timer, double sec);
+extern void timer_wait(timer_t timer, double sec);
 
 extern u64 epoch_get(void);
 

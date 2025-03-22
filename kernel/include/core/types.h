@@ -77,6 +77,10 @@ typedef     struct cpu_t            cpu_t;
 
 typedef     struct thread_t         thread_t;
 
+/**
+ * @brief Process information structure */
+typedef     struct __proc_t         proc_t;
+
 typedef     struct vmr              vmr_t;
 typedef     struct page             page_t;
 typedef     struct vm_fault_t       vm_fault_t;

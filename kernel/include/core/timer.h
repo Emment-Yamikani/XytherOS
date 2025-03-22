@@ -1,51 +1,49 @@
 #pragma once
 
+#include <core/types.h>
 #include <dev/timer.h>
-#include <ds/queue.h>
-#include <sys/thread.h>
+#include <sys/_signal.h>
 #include <sys/_time.h>
+#include <sync/spinlock.h>
 
-typedef int tmrid_t;
-typedef void *tmr_cb_arg_t;
-typedef void (*tmr_callback_t)(void *);
+#define NTIMERS_PER_PROC    8
 
-typedef struct tmr_t {
-    tmrid_t         t_id;       // timer ID.
-    tmr_cb_arg_t    t_arg;      // argument to pass to call back function.
-    tmr_callback_t  t_callback; // callback function to call when timer expires.
-    jiffies_t       t_interval; // interval if this is a periodic timer.
-    jiffies_t       t_expiry;   // Expiry time.
-    signo_t         t_signo;    // signal to send to the owner on expiration.
-    thread_t        *t_owner;   // timer owner if any.
-    queue_node_t    t_node;     // timer node in the queue of timers.
-} tmr_t;
-
-typedef struct {
-    timespec_t      td_expiry;
-    timespec_t      td_inteval;
-    signo_t         td_signo;
-    tmr_cb_arg_t    td_arg;
-    tmr_callback_t  td_func;
-} tmr_desc_t;
-
-extern void timer_increment(void);
-extern int timer_create(tmr_desc_t *timer, int *ptid);
-
-typedef void (*ktimer_callback_t)(void *);
-
-typedef struct ktimer_t ktimer_t;
-struct ktimer_t {
-    void                *arg;
-    ktimer_callback_t   callback;
-    jiffies_t           expiry;
-    jiffies_t           period;
-    timer_t             timerid;
-    queue_node_t        node;
+enum {
+    CLOCK_REALTIME = 1,
+    CLOCK_MONOTONIC,
+    CLOCK_PROCESS_CPUTIME_ID,
+    CLOCK_THREAD_CPUTIME_ID
 };
 
-extern int      ktimer_create(jiffies_t expr, jiffies_t interval, ktimer_callback_t func, void *arg, timer_t *timerid);
+struct itimerspec {
+    struct timespec it_interval;  // Interval for periodic timer
+    struct timespec it_value;     // Initial expiration time
+};
 
-extern void     ktimer_tick(void);
-extern void     ktimer_delete();
-extern void     ktimer_gettime();
-extern void     ktimer_settime();
+typedef struct posix_timer {
+    timer_t         id;         // Unique timer ID
+    clockid_t       clockid;    // Timer type (e.g., CLOCK_REALTIME)
+    jiffies_t       expiry_time;// Absolute expiration time (in jiffies)
+    jiffies_t       interval;   // Periodic interval (0 for one-shot)
+    sigevent_t      event;      // Signal/event to deliver on expiry
+    thread_t        *owner;     // Process that owns this timer
+    queue_node_t    node;       // Timer queue node
+    queue_node_t    knode;      // Timer queue node in kernel timers list.
+    spinlock_t      lock;
+} posix_timer_t;
+
+static inline int posix_timer_validate_clockid(clockid_t clockid) {
+    return (
+        clockid != CLOCK_REALTIME &&
+        clockid != CLOCK_MONOTONIC &&
+        clockid != CLOCK_PROCESS_CPUTIME_ID &&
+        clockid != CLOCK_THREAD_CPUTIME_ID
+    ) ? -EINVAL : 0;
+}
+
+#define POSIX_TIMER_ABSTIME 1
+
+extern int timer_create(clockid_t clockid, sigevent_t *sevp, timer_t *timerid);
+extern int timer_delete(timer_t timerid);
+extern int timer_gettime(timer_t timerid, struct itimerspec *curr_value);
+extern int timer_settime(timer_t timerid, int flags, const struct itimerspec *new_value, struct itimerspec *old_value);

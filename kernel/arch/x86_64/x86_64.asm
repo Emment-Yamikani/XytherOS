@@ -1,6 +1,33 @@
 [bits 64]
 section .text
 
+global rdtsc
+global rdtscp
+rdtscp:
+    mov     eax, 0x80000001
+    cpuid
+    test    edx, (1 << 27)
+    xor     rcx, rcx
+    jz      .rdtsc
+    rdtscp
+    jmp     .done
+    .rdtsc:
+        rdtsc
+    .done:
+        mov dword [rdi], ecx
+        push    rax
+        mov     dword [rsp + 4], edx
+        pop     qword rax
+        ret
+
+rdtsc:
+    lfence
+    rdtsc
+    push    rax
+    mov     dword [rsp + 4], edx
+    pop     qword rax
+    ret
+
 global rdrax
 rdrax:
     ret
