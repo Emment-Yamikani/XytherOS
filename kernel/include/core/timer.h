@@ -43,6 +43,7 @@ static inline int posix_timer_validate_clockid(clockid_t clockid) {
 
 #define POSIX_TIMER_ABSTIME 1
 
+extern int timer_create_r(thread_t *owner, clockid_t clockid, sigevent_t *sevp, timer_t *timerid);
 extern int timer_create(clockid_t clockid, sigevent_t *sevp, timer_t *timerid);
 extern int timer_delete(timer_t timerid);
 extern int timer_gettime(timer_t timerid, struct itimerspec *curr_value);

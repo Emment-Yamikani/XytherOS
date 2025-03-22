@@ -3,6 +3,7 @@
 #include <arch/cpu.h>
 #include <arch/thread.h>
 #include <core/types.h>
+#include <core/timer.h>
 #include <dev/timer.h>
 #include <fs/fs.h>
 #include <fs/file.h>
@@ -140,15 +141,13 @@ typedef struct {
 
 void thread_info_dump(thread_info_t *info);
 
-/**
- * @brief Process information structure */
-typedef struct __proc_t proc_t;
 struct __proc_t {
     pid_t           pid;            /**< Process ID */
     pid_t           sid;            /**< Session ID */
     pid_t           pgid;           /**< Process group ID */
     char            *name;          /**< Process name */
     proc_t          *parent;        /**< Pointer to the parent process */
+    timer_t         t_alarm;        /**< Timer ID of this process' alarm. */
     proc_state_t    state;          /**< Process state */
     uintptr_t       flags;          /**< Process flags */
     uintptr_t       exit;           /**< Process exit status */
@@ -172,6 +171,7 @@ typedef struct thread_t {
     arch_thread_t   t_arch;         /**< Architecture-specific thread context */
     thread_info_t   t_info;         /**< General thread information */
     wakeup_t        t_wakeup;       /**< Reason for waking up. */
+    timer_t         t_alarm;        /**< Per-proess alarm */
     cond_t          t_event;        /**< Condition variable for thread events */
     sigset_t        t_sigmask;      /**< Signal mask for the thread */
     sigset_t        t_sigpending;   /**< Set of pending signals: this is a sticky set a signal is only reset if all pending instances are delivered. */
@@ -190,6 +190,7 @@ typedef struct thread_t {
 
     /* Fields shared with other threads in the same thread group */
     proc_t          *t_proc;        /**< Associated process information */
+    queue_t         *t_timers;      /**< POSIX timers, */
     cred_t          *t_cred;        /**< Credentials */
     file_ctx_t      *t_fctx;        /**< File context */
     mmap_t          *t_mmap;        /**< Memory mapping for the process */
@@ -498,7 +499,8 @@ extern int      thread_get_info(tid_t tid, thread_info_t *tip);
 extern int      thread_alloc(usize stack_size, int cflags, thread_t **ptp);
 extern int      thread_reap(thread_t *thread, thread_info_t *info, void **retval);
 
-extern int      thread_queue_get_thread(queue_t *queue, tid_t tid, tstate_t state, thread_t **ptp);
+extern int      find_thread_bytid(queue_t *queue, tid_t tid, thread_t **ptp);
+extern int      thread_group_getby_tid(tid_t tid, thread_t **ptp);
 extern int      thread_join_group(thread_t *thread);
 extern int      thread_create_group(thread_t *thread);
 

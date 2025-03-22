@@ -1,6 +1,6 @@
 #include <bits/errno.h>
 #include <core/debug.h>
-#include <core/posix_timer.h>
+#include <core/timer.h>
 
 int clock_getres(clockid_t clockid, struct timespec *res);
 int clock_gettime(clockid_t clockid, struct timespec *tp);

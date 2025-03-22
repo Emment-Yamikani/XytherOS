@@ -131,10 +131,14 @@ static timer_t generate_unique_timer_id(void) {
     return atomic_inc(&timer_id);
 }
 
-int timer_create(clockid_t clockid, sigevent_t *sevp, timer_t *timerid) {
+int timer_create_r(thread_t *owner, clockid_t clockid, sigevent_t *sevp, timer_t *timerid) {
     int ret = posix_timer_validate_clockid(clockid);
     if (ret < 0) {
         return ret;
+    }
+
+    if (!owner) {
+        return -EINVAL;
     }
 
     // Allocate a new timer structure
@@ -146,7 +150,7 @@ int timer_create(clockid_t clockid, sigevent_t *sevp, timer_t *timerid) {
     // Initialize the timer fields
     timer->interval     = 0;
     timer->expiry_time  = 0;
-    timer->owner        = current;
+    timer->owner        = owner;
     timer->clockid      = clockid;
     timer->event = sevp ? *sevp : (sigevent_t) {
         .sigev_signo    = SIGALRM,
@@ -165,10 +169,14 @@ int timer_create(clockid_t clockid, sigevent_t *sevp, timer_t *timerid) {
 
     timer->id = generate_unique_timer_id();
     // Add the timer to the process's timer list
-    add_timer_to_process(current, timer);
+    add_timer_to_process(owner, timer);
 
     *timerid = timer->id;
     return 0;
+}
+
+int timer_create(clockid_t clockid, sigevent_t *sevp, timer_t *timerid) {
+    return timer_create_r(current, clockid, sevp, timerid);
 }
 
 int timer_settime(timer_t timerid, int flags, const struct itimerspec *new_value, struct itimerspec *old_value) {

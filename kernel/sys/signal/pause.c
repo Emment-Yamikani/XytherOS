@@ -3,19 +3,13 @@
 #include <sys/schedule.h>
 #include <sys/thread.h>
 
-unsigned int alarm(unsigned int seconds) {
-    timer_t id;
+uint alarm (uint sec) {
+    struct itimerspec it, rem;
+    it.it_value     = (timespec_t){sec, 0};
+    it.it_interval  = (timespec_t){0};
 
-    void send_sigalarm(void *target) {
-        thread_t *thread = target;
- 
-        thread_lock(thread);
-        thread_kill((thread_t *)thread, SIGALRM, (union sigval){0});
-        thread_unlock(thread);
-    }
-
-    ktimer_create(jiffies_from_s(seconds), 0, send_sigalarm, current, &id);
-    return 0;
+    timer_settime(current->t_alarm, 0, &it, &rem);
+    return rem.it_value.tv_sec;
 }
 
 int pause(void) {

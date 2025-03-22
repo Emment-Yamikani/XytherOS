@@ -70,14 +70,11 @@ int pthread_sigqueue(tid_t tid, int signo, union sigval sigval) {
     int      err;
     thread_t *thread = NULL;
 
-    if (SIGBAD(signo))
+    if (SIGBAD(signo)) {
         return -EINVAL;
+    }
 
-    queue_lock(current->t_group);
-    err = thread_queue_get_thread(current->t_group, tid, 0, &thread);
-    queue_unlock(current->t_group);
-
-    if (err != 0) {
+    if ((err = thread_group_getby_tid(tid, &thread))) {
         return err;
     }
 
