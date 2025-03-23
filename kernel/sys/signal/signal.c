@@ -201,7 +201,7 @@ int signal_enqueue(signal_t *sigdesc, siginfo_t *siginfo) {
 
     queue_lock(&sigdesc->sig_queue[siginfo->si_signo - 1]);
     if ((err = sigqueue_enqueue(&sigdesc->sig_queue[siginfo->si_signo - 1], siginfo))) {
-        if (!queue_count(&sigdesc->sig_queue[siginfo->si_signo - 1])) {
+        if (!queue_length(&sigdesc->sig_queue[siginfo->si_signo - 1])) {
             sigsetdel(&sigdesc->sigpending, siginfo->si_signo);
         }
     }
@@ -254,7 +254,7 @@ static int try_dequeue_signal(thread_t *thread, bool proc_level, sigaction_t *oa
     queue_lock(queue);
     err = sigqueue_dequeue(queue, psiginfo);
     if (err == 0) {
-        if (!queue_count(queue))
+        if (!queue_length(queue))
             sigsetdel(src_pending, signo);
         memcpy(oact, &thread->t_signals->sig_action[signo - 1], sizeof *oact);
     }

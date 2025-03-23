@@ -68,7 +68,7 @@ void queue_free(queue_t *queue) {
     kfree(queue);
 }
 
-usize queue_count(queue_t *queue) {
+usize queue_length(queue_t *queue) {
     queue_assert_locked(queue);
     return queue->q_count;
 }
@@ -82,7 +82,7 @@ int queue_peek(queue_t *queue, queue_relloc_t whence, void **pdp) {
     if (whence != QUEUE_HEAD && whence != QUEUE_TAIL)
         return -EINVAL;
 
-    if (queue_count(queue) == 0)
+    if (queue_length(queue) == 0)
         return -ENOENT;
     
     if (whence == QUEUE_TAIL)

@@ -78,7 +78,6 @@ int signal_check_pending(void) {
     }
 
     arch_signal_dispatch(&current->t_arch, &oact, siginfo);
-
 done:
     signal_mask_restore(&oset); // restore old signal set.
 

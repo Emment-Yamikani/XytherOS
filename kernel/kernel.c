@@ -26,12 +26,22 @@ int setup_signal() {
 }
 
 void *thread(void *) {
-    loop() sched_yield();
+    loop() {
+        sched_yield();
+    }
 }
 
 __noreturn void kthread_main(void) {
     setup_signal();
     thread_builtin_init();
 
-    loop();
+    alarm(3);
+
+    debuglog();
+    pause();
+    debuglog();
+
+    loop() {
+
+    }
 }

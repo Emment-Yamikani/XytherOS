@@ -35,10 +35,11 @@ thread_t *get_current(void) {
     return thread;
 }
 
-void set_current(thread_t *thread) {
+bool set_current(thread_t *thread) {
     disable_preemption();
     cpu->thread = thread;
     enable_preemption();
+    return current ? true : false;
 }
 
 int getcpuid(void) {

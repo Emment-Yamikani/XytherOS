@@ -565,7 +565,7 @@ ssize_t tmpfs_ireaddir(inode_t *dir, off_t off, struct dirent *buf, size_t count
     queue_lock(queue);
     
     if ((err = hash_traverse(htable, queue)) == 0) {
-        if (off >= queue_count(queue)) {
+        if (off >= queue_length(queue)) {
             err = -1;
             goto done;
         }

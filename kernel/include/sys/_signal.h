@@ -86,7 +86,7 @@ typedef struct __signal_t {
 
 /**     THREAD SPECIFIC SIGNAL HANDLING FUNCTIONS */
 
-extern uint alarm(unsigned sec);
+extern unsigned int alarm(unsigned int sec);
 extern int  kill(pid_t pid, int signo);
 extern int  pause(void);
 extern int  sigpending(sigset_t *set);

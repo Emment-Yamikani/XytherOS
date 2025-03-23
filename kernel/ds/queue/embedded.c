@@ -4,7 +4,7 @@
 
 inline bool embedded_queue_empty(queue_t *queue) {
     queue_assert_locked(queue);
-    return queue_count(queue) ? false : true;
+    return queue_length(queue) ? false : true;
 }
 
 void embedded_queue_flush(queue_t *queue) {
@@ -44,7 +44,7 @@ int embedded_queue_peek(queue_t *queue, queue_relloc_t whence, queue_node_t **pn
 
     queue_assert_locked(queue);
 
-    if (queue_count(queue) == 0)
+    if (queue_length(queue) == 0)
         return -ENOENT;
 
     if (whence == QUEUE_TAIL)

@@ -67,7 +67,7 @@ size_t stack_size(stack_t *s) {
     stack_assert_locked(s);
 
     queue_lock(&s->s_queue);
-    size = queue_count(&s->s_queue);
+    size = queue_length(&s->s_queue);
     queue_unlock(&s->s_queue);
     return size;
 }

@@ -108,7 +108,7 @@ extern void queue_flush(queue_t *queue);
 extern int queue_alloc(queue_t **pqp);
 
 // returns the number of items currently on the queue specified by param 'queue'.
-extern size_t queue_count(queue_t *queue);
+extern size_t queue_length(queue_t *queue);
 
 /**
  * @brief Used to take a peek at the front
