@@ -341,8 +341,8 @@ static void MLFQ_push(void) {
 
         queue_unlock(&level->run_queue);
         queue_unlock(&target_level->run_queue);
-        debug("load: %d, pushing: %d, pushed: %d to prio: %s\n",
-            my_load, count, count_pushed, MLFQ_PRIORITY[target_level - target_mlfq->level]);
+        // debug("load: %d, pushing: %d, pushed: %d to prio: %s\n",
+        //     my_load, count, count_pushed, MLFQ_PRIORITY[target_level - target_mlfq->level]);
     }
 }
 
@@ -418,7 +418,7 @@ __noreturn void scheduler_load_balancer(void) {
     pthread_sigmask(SIG_BLOCK, &set, NULL);
 
     loop() {
-        if ((jiffies_get() % (SYS_Hz * 60)) == 0) {
+        if ((jiffies_get() % (SYS_Hz)) == 0) {
             MLFQ_balance();
         }
 

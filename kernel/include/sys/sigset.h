@@ -57,22 +57,25 @@ typedef struct {
 
 
 static inline int sigsetadd(sigset_t *set, int signo) {
-    if (SIGBAD(signo))
+    if (SIGBAD(signo)) {
         return -EINVAL;
+    }
     set->sigset[SIG_INDEX(signo)] |= SIG_BIT(signo);
     return 0;
 }
 
 static inline int sigsetdel(sigset_t *set, int signo) {
-    if (SIGBAD(signo))
+    if (SIGBAD(signo)) {
         return -EINVAL;
+    }
     set->sigset[SIG_INDEX(signo)] &= ~SIG_BIT(signo);
     return 0;
 }
 
 static inline int sigismember(const sigset_t *set, int signo) {
-    if (SIGBAD(signo))
+    if (SIGBAD(signo)) {
         return -EINVAL;
+    }
     return (set->sigset[SIG_INDEX(signo)] & SIG_BIT(signo)) ? 1 : 0;
 }
 
@@ -88,15 +91,17 @@ static inline int sigset_first(sigset_t *set) {
 static inline void sigsetempty(sigset_t *set) {
     set->sigset[0] = 0;
     // If __NR_INT > 1, then loop over remaining indices
-    for (usize i = 1; i < __NR_INT; ++i)
-        set->sigset[1] = 0;
+    for (usize i = 1; i < __NR_INT; ++i) {
+        set->sigset[i] = 0;
+    }
 }
 
 static inline void sigsetfill(sigset_t *set) {
     set->sigset[0] = ~0U;
     // If __NR_INT > 1, then loop over remaining indices
-    for (usize i = 1; i < __NR_INT; ++i)
-        set->sigset[1] = 0;
+    for (usize i = 1; i < __NR_INT; ++i) {
+        set->sigset[i] = 0;
+    }
 }
 
 static inline void sigsetaddmask(sigset_t *set, uint mask) {
@@ -105,4 +110,22 @@ static inline void sigsetaddmask(sigset_t *set, uint mask) {
 
 static inline void sigsetdelmask(sigset_t *set, uint mask) {
     set->sigset[0] &= ~mask;
+}
+
+static inline void sigsetor(const sigset_t *set, const sigset_t *set1, sigset_t *out) {
+    for (usize i = 0; i < __NR_INT; ++i) {
+        out->sigset[i] = set->sigset[i] | set1->sigset[i];
+    }
+}
+
+static inline void sigsetand(const sigset_t *set, const sigset_t *set1, sigset_t *out) {
+    for (usize i = 0; i < __NR_INT; ++i) {
+        out->sigset[i] = set->sigset[i] & set1->sigset[i];
+    }
+}
+
+static inline void sigsettest(const sigset_t *set, const sigset_t *set1, sigset_t *out) {
+    for (usize i = 0; i < __NR_INT; ++i) {
+        out->sigset[i] = set->sigset[i] & set1->sigset[i];
+    }
 }

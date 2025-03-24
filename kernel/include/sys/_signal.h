@@ -60,7 +60,8 @@ extern int  sigaction(int signo, const sigaction_t *act, sigaction_t *oact);
 extern int  sigaltstack(const uc_stack_t *ss, uc_stack_t *oss);
 extern int  sigprocmask(int how, const sigset_t *set, sigset_t *oset);
 extern int  sigsuspend(const sigset_t *mask);
-extern int  sigwait(const sigset_t *set, int *signop);
+extern int  sigwaitinfo(const sigset_t *set, siginfo_t *info);
+extern int  sigtimedwait(const sigset_t *set, siginfo_t *info, const struct timespec *timeout);
 
 /**     THREAD SPECIFIC SIGNAL HANDLING FUNCTIONS */
 

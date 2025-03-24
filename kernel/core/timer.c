@@ -107,10 +107,11 @@ static void deliver_signal_or_event(thread_t *thread, sigevent_t *event) {
     }
 }
 
-static void timer_expiry_handler(void) {
+static void timer_worker(void) {
     loop() {
         posix_timer_t *timer = get_expired_timer();
         if (!timer) {
+            sched_yield();
             continue;
         }
 
@@ -124,7 +125,7 @@ static void timer_expiry_handler(void) {
         }
         spin_unlock(&timer->lock);
     }
-} BUILTIN_THREAD(timer_expiry_handler, timer_expiry_handler, NULL);
+} BUILTIN_THREAD(timer_worker, timer_worker, NULL);
 
 static timer_t generate_unique_timer_id(void) {
     static _Atomic(timer_t) timer_id = 0;

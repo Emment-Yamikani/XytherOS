@@ -18,7 +18,7 @@ void sched(void) {
     cpu_swap_preepmpt(&ncli, &intena);
 
     /// If not used up entire timeslice, drop one priority level.
-    if (current_gettimeslice() > 0) {
+    if (current_gettimeslice() == 0) {
         // Check to prevent underflow.
         if (current->t_info.ti_sched.ts_prio > 0) {
             current->t_info.ti_sched.ts_prio--;
