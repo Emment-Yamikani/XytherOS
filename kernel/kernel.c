@@ -35,11 +35,7 @@ __noreturn void kthread_main(void) {
     setup_signal();
     thread_builtin_init();
 
-    alarm(3);
-
-    debuglog();
-    pause();
-    debuglog();
+    
 
     loop() {
 
