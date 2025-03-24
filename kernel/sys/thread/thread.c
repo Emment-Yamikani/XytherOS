@@ -335,3 +335,52 @@ int current_interrupted(wakeup_t *preason) {
 
     return 0;
 }
+
+int thread_wakeup(thread_t *thread, wakeup_t reason) {    
+    if (thread == NULL || !wakeup_reason_validate(reason)) {
+        return -EINVAL;
+    }
+
+    thread_assert_locked(thread);
+
+    if (thread_isblocked(thread)) {
+        if (thread->t_wait_queue) { // thread is blocked and is on a wait queue?
+            queue_t *wait_queue = thread->t_wait_queue;
+            queue_lock(wait_queue);
+            int err = sched_detach_and_wakeup(wait_queue, thread, reason);
+            queue_unlock(wait_queue);
+            return err;
+        }
+
+        // thread is blocked and is not on a wait queue.
+
+        if (thread_ispark(thread)) { // check if thread had set the park flag.
+            thread_setwake(thread);
+            thread_mask_park(thread);
+        }
+
+        thread->t_wakeup = reason;
+        return thread_schedule(thread);
+    }
+
+    return 0;
+}
+
+int thread_sleep(wakeup_t *preason) {
+    int err;
+
+    current_assert_locked();
+
+    if ((err = current_interrupted(preason))) {
+        return err;
+    }
+    
+    current_enter_state(T_SLEEP);
+    sched();
+    
+    if ((err = current_interrupted(preason))) {
+        return err;
+    }
+
+    return err;
+}

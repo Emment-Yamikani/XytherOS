@@ -22,6 +22,8 @@ int pause(void) {
         return -EINVAL;
     }
 
-    
+    current_lock();
+    thread_sleep(NULL);
+    current_unlock();
     return -EINTR;
 }

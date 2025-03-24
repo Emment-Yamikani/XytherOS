@@ -5,36 +5,22 @@
 #include <sys/thread.h>
 
 int thread_sigsend(thread_t *thread, siginfo_t *siginfo) {
-    int err;
-
     if (thread == NULL || siginfo == NULL) {
         return -EINVAL;
     }
-
+    
     thread_assert_locked(thread);
-
+    
     queue_lock(&thread->t_sigqueue[siginfo->si_signo - 1]);
-    if ((err = sigqueue_enqueue(&thread->t_sigqueue[siginfo->si_signo - 1], siginfo))) {
-        queue_unlock(&thread->t_sigqueue[siginfo->si_signo - 1]);
-        return err;
-    }
+    int err = sigqueue_enqueue(&thread->t_sigqueue[siginfo->si_signo - 1], siginfo);
     queue_unlock(&thread->t_sigqueue[siginfo->si_signo - 1]);
 
-    if (thread_issleep(thread)) {
-        queue_t *wait_queue = thread->t_wait_queue;
-        queue_lock(wait_queue);
-        if ((err = sched_detach_and_wakeup(wait_queue, WAKEUP_SIGNAL, thread))) {
-            int Err = queue_remove(&thread->t_sigqueue[siginfo->si_signo - 1], siginfo);
+    if (err) {
+        return err;
+    }
 
-            assert_eq(Err, 0, "Err[%s]: Failed to remove siginfo[%d] from thread[%d:%d].??\n",
-                perror(Err), siginfo->si_signo, thread_getpid(thread), thread_gettid(thread));
-
-            queue_unlock(wait_queue);
-            queue_unlock(&thread->t_sigqueue[siginfo->si_signo - 1]);
-            return err;
-        }
-        queue_unlock(wait_queue);
-
+    if ((err = thread_wakeup(thread, WAKEUP_SIGNAL))) {
+        return err;
     }
 
     sigsetadd(&thread->t_sigpending, siginfo->si_signo);
@@ -45,19 +31,23 @@ int thread_kill(thread_t *thread, int signo, union sigval value) {
     int         err;
     siginfo_t   *siginfo = NULL;
 
-    if (thread == NULL || SIGBAD(signo))
+    if (thread == NULL || SIGBAD(signo)) {
         return -EINVAL;
+    }
 
     thread_assert_locked(thread);
 
-    if ((err = siginfo_alloc(&siginfo)))
+    if ((err = siginfo_alloc(&siginfo))) {
         return err;
+    }
 
-    if ((err = siginfo_init(siginfo, signo, value)))
+    if ((err = siginfo_init(siginfo, signo, value))) {
         goto error;
+    }
 
-    if ((err = thread_sigsend(thread, siginfo)))
+    if ((err = thread_sigsend(thread, siginfo))) {
         goto error;
+    }
 
     return 0;
 error:

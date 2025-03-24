@@ -58,9 +58,8 @@ int signal_check_pending(void) {
         return -1;
     }
 
-    arch->t_nsig_nested++;
     sigsetempty(&oset);
-
+    
     // block the set of signals we don't want to interrupt this context
     signal_mask_block(siginfo->si_signo, &oact, &oset);
 
@@ -76,8 +75,10 @@ int signal_check_pending(void) {
         do_default_action(siginfo);
         goto done;
     }
-
+    
+    arch->t_nsig_nested++;
     arch_signal_dispatch(&current->t_arch, &oact, siginfo);
+    arch->t_nsig_nested--;
 done:
     signal_mask_restore(&oset); // restore old signal set.
 
@@ -85,7 +86,6 @@ done:
         siginfo_free(siginfo);
     }
 
-    arch->t_nsig_nested--;
     return 0;
 }
 

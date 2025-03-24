@@ -389,6 +389,7 @@ typedef struct thread_t {
 #define thread_isrunning(t)         (thread_in_state(t, T_RUNNING))
 #define thread_issleep(t)           (thread_in_state(t, T_SLEEP))
 #define thread_isstopped(t)         (thread_in_state(t, T_STOPPED))
+#define thread_isblocked(t)         ((thread_issleep(t) || thread_isstopped(t)) ? true : false)
 #define thread_iszombie(t)          (thread_in_state(t, T_ZOMBIE))
 #define thread_isterminated(t)      (thread_in_state(t, T_TERMINATED))
 
@@ -499,6 +500,8 @@ extern int      thread_get_info(tid_t tid, thread_info_t *tip);
 extern int      thread_alloc(usize stack_size, int cflags, thread_t **ptp);
 extern int      thread_reap(thread_t *thread, thread_info_t *info, void **retval);
 
+extern int      thread_sleep(wakeup_t *preason);
+extern int      thread_wakeup(thread_t *thread, wakeup_t reason);
 extern int      find_thread_bytid(queue_t *queue, tid_t tid, thread_t **ptp);
 extern int      thread_group_getby_tid(tid_t tid, thread_t **ptp);
 extern int      thread_join_group(thread_t *thread);

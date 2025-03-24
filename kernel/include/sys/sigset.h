@@ -3,7 +3,40 @@
 #include <bits/errno.h>
 #include <core/types.h>
 
-typedef int signo_t;
+typedef enum signo_t {
+    SIGABRT     = 1,  // abnormal termination (abort)         | terminate+core.
+    SIGALRM     = 2,  // timer expired (alarm)                | terminate.
+    SIGBUS      = 3,  // hardware fault                       | terminate+core.
+    SIGCANCEL   = 4,  // threads library internal use         | ignore.
+    SIGCHLD     = 5,  // change in status of child            | ignore.
+    SIGCONT     = 6,  // continue stopped process             | continue/ignore.
+    SIGEMT      = 7,  // hardware fault                       | terminate+core.
+    SIGFPE      = 8,  // arithmetic exception                 | terminate+core.
+    SIGHUP      = 9,  // hangup                               | terminate.
+    SIGILL      = 10, // illegal instruction                  | terminate+core.
+    SIGINT      = 11, // terminal interrupt character         | terminate.
+    SIGIO       = 12, // asynchronous I/O                     | terminate/ignore.
+    SIGIOT      = 13, // hardware fault                       | terminate+core.
+    SIGKILL     = 14, // termination                          | terminate.
+    SIGPIPE     = 15, // write to pipe with no readers        | terminate.
+    SIGPROF     = 16, // profiling time alarm (setitimer)     | terminate.
+    SIGQUIT     = 17, // terminal quit character              | terminate+core.
+    SIGSEGV     = 18, // invalid memory reference             | terminate+core.
+    SIGSTOP     = 19, // stop                                 | stop process.
+    SIGSYS      = 20, // invalid system call                  | terminate+core.
+    SIGTERM     = 21, // termination                          | terminate.
+    SIGTRAP     = 22, // hardware fault                       | terminate+core.
+    SIGTSTP     = 23, // terminal stop character              | stop process.
+    SIGTTIN     = 24, // background read from control tty     | stop process.
+    SIGTTOU     = 25, // background write to control tty      | stop process.
+    SIGURG      = 26, // urgent condition (sockets)           | ignore.
+    SIGUSR1     = 27, // user-defined signal                  | terminate.
+    SIGUSR2     = 28, // user-defined signal                  | terminate.
+    SIGVTALRM   = 29, // virtual time alarm (setitimer)       | terminate.
+    SIGWINCH    = 30, // terminal window size change          | ignore.
+    SIGXCPU     = 31, // CPU limit exceeded (setrlimit)       | terminate or terminate+core.
+    SIGXFSZ     = 32, // file size limit exceeded (setrlimit) | terminate or terminate+core.
+} signo_t;
 
 #ifndef NSIG
 #define NSIG    32
@@ -11,7 +44,7 @@ typedef int signo_t;
 
 #define SIGMASK(signo)      (1ul << (signo - 1))
 #define SIG_INDEX(signo)    (((signo) - 1) / __BITS_PER_UINT)
-#define SIGBAD(signo)       ({ ((signo) < 1 || (signo) > NSIG); })
+#define SIGBAD(signo)       ((((signo) < 1) || ((signo) > NSIG)))
 #define SIG_BIT(signo)      (1u << (((signo) - 1) % __BITS_PER_UINT))
 
 //bits per unsigned int.

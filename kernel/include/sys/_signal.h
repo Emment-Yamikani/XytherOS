@@ -7,40 +7,6 @@
 #include <sys/siginfo.h>
 #include <sync/spinlock.h>
 
-
-#define SIGABRT     1  // abnormal termination (abort)         | terminate+core.
-#define SIGALRM     2  // timer expired (alarm)                | terminate.
-#define SIGBUS      3  // hardware fault                       | terminate+core.
-#define SIGCANCEL   4  // threads library internal use         | ignore.
-#define SIGCHLD     5  // change in status of child            | ignore.
-#define SIGCONT     6  // continue stopped process             | continue/ignore.
-#define SIGEMT      7  // hardware fault                       | terminate+core.
-#define SIGFPE      8  // arithmetic exception                 | terminate+core.
-#define SIGHUP      9  // hangup                               | terminate.
-#define SIGILL      10 // illegal instruction                  | terminate+core.
-#define SIGINT      11 // terminal interrupt character         | terminate.
-#define SIGIO       12 // asynchronous I/O                     | terminate/ignore.
-#define SIGIOT      13 // hardware fault                       | terminate+core.
-#define SIGKILL     14 // termination                          | terminate.
-#define SIGPIPE     15 // write to pipe with no readers        | terminate.
-#define SIGPROF     16 // profiling time alarm (setitimer)     | terminate.
-#define SIGQUIT     17 // terminal quit character              | terminate+core.
-#define SIGSEGV     18 // invalid memory reference             | terminate+core.
-#define SIGSTOP     19 // stop                                 | stop process.
-#define SIGSYS      20 // invalid system call                  | terminate+core.
-#define SIGTERM     21 // termination                          | terminate.
-#define SIGTRAP     22 // hardware fault                       | terminate+core.
-#define SIGTSTP     23 // terminal stop character              | stop process.
-#define SIGTTIN     24 // background read from control tty     | stop process.
-#define SIGTTOU     25 // background write to control tty      | stop process.
-#define SIGURG      26 // urgent condition (sockets)           | ignore.
-#define SIGUSR1     27 // user-defined signal                  | terminate.
-#define SIGUSR2     28 // user-defined signal                  | terminate.
-#define SIGVTALRM   29 // virtual time alarm (setitimer)       | terminate.
-#define SIGWINCH    30 // terminal window size change          | ignore.
-#define SIGXCPU     31 // CPU limit exceeded (setrlimit)       | terminate or terminate+core.
-#define SIGXFSZ     32 // file size limit exceeded (setrlimit) | terminate or terminate+core.
-
 // 0973633531 Helen Kilepa.
 
 #define SIG_ERR     ((sighandler_t) -1)  /* error setting signal disposition. */

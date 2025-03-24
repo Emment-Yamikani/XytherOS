@@ -70,4 +70,4 @@ static inline int wakeup_reason_validate(wakeup_t reason) {
 extern int sched_wakeup_all(queue_t *wait_queue, wakeup_t reason, size_t *pnt);
 extern int sched_wakeup_specific(queue_t *wait_queue, wakeup_t reason, tid_t tid);
 extern int sched_wakeup(queue_t *wait_queue, wakeup_t reason, queue_relloc_t whence);
-extern int sched_detach_and_wakeup(queue_t *wait_queue, wakeup_t reason, thread_t *thread);
+extern int sched_detach_and_wakeup(queue_t *wait_queue, thread_t *thread, wakeup_t reason);

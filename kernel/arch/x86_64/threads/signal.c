@@ -8,19 +8,20 @@
 const ulong ARCH_NSIG_NESTED = 8;
 
 static void x86_64_signal_start(void) {
+    context_t *sched_ctx;
+
     /*
      * `current->t_arch.t_context' is the dispatch (signal) context created during signal delivery.
      * Its link field must have been set to the scheduler context (sched_ctx)
      * that was current before the signal arrived.
      *
      * To allow the signal handler to be preemptible, we set the current context
-     * to the scheduler context.
-     */
+     * to the scheduler context. */
     if (!current->t_arch.t_context || !current->t_arch.t_context->link) {
-        panic("Invalid dispatch context in signal_start");
+        panic("Invalid dispatch context in %s:%s()\n", __FILE__, __func__);
     }
 
-    context_t *sched_ctx = current->t_arch.t_context->link;
+    sched_ctx = current->t_arch.t_context->link;
     sched_ctx->link = current->t_arch.t_context;
 
     // We expect sched_ctx->link to still be intact (pointing back to `current->t_arch.t_context')
@@ -31,16 +32,19 @@ static void x86_64_signal_start(void) {
 }
 
 void x86_64_signal_return(void) {
+    context_t *sched_ctx;
+
     /*
      * When returning from the signal handler, the current context is the
      * scheduler context (sched_ctx) that was set by x86_64_signal_start.
      * We then want to switch to the dispatch context (`current->t_arch.t_context') so that
      * the signal delivery code (signal_dispatch) can complete and, upon return,
      * the original scheduler context is restored. */
-    context_t *sched_ctx = current->t_arch.t_context;
+
+    sched_ctx = current->t_arch.t_context;
 
     if (!sched_ctx || !sched_ctx->link) {
-        panic("Invalid context chain in signal_return");
+        panic("Invalid context chain in %s:%s()\n", __FILE__, __func__);
     }
 
     current->t_arch.t_context = sched_ctx->link;
@@ -77,9 +81,11 @@ static int x86_64_signal_bycall(arch_thread_t *arch, sigaction_t *act, siginfo_t
         sti();
     }
 
-    if (act->sa_flags & SA_SIGINFO)
+    if (act->sa_flags & SA_SIGINFO) {
         act->sa_handler(siginfo->si_signo, siginfo, arch->t_uctx);
-    else act->sa_handler(siginfo->si_signo);
+    } else {
+        act->sa_handler(siginfo->si_signo);
+    }
 
     if (intena == false) {
         cli();
@@ -87,8 +93,9 @@ static int x86_64_signal_bycall(arch_thread_t *arch, sigaction_t *act, siginfo_t
 
     current_lock();
 
-    if (is_sigctx == false)
+    if (is_sigctx == false) {
         current_mask_sigctx();
+    }
 
     return 0;
 }
@@ -113,7 +120,7 @@ static int x86_64_dispatch_onstack(arch_thread_t *arch, sigaction_t *act, siginf
     mcontext = (mcontext_t *)ALIGN16(arch->t_sstack.ss_sp - sizeof *mcontext);
     memset(mcontext, 0, sizeof *mcontext);
 
-    kstack    = (u64 *)ALIGN16(arch->t_altstack.ss_sp);
+    kstack = (u64 *)ALIGN16(arch->t_altstack.ss_sp);
     *--kstack = (u64)x86_64_signal_return;
 
     mcontext->ss    = SEG_KDATA64 << 3;
@@ -131,10 +138,10 @@ static int x86_64_dispatch_onstack(arch_thread_t *arch, sigaction_t *act, siginf
         mcontext->rdx = (u64)arch->t_uctx;
     }
 
-    kstack    = (u64 *)mcontext;
+    kstack = (u64 *)mcontext;
     *--kstack = (u64)trapret;
 
-    context         = (context_t *)((u64)kstack - sizeof *context);
+    context = (context_t *)((u64)kstack - sizeof *context);
     memset(context, 0, sizeof *context);
 
     context->rip    = (u64)x86_64_signal_start;
@@ -150,8 +157,9 @@ static int x86_64_dispatch_onstack(arch_thread_t *arch, sigaction_t *act, siginf
 }
 
 int x86_64_signal_dispatch(arch_thread_t *arch, sigaction_t *act, siginfo_t *siginfo) {
-    if (!arch || !act || !siginfo)
+    if (!arch || !act || !siginfo) {
         return -EINVAL;
+    }
 
     if (act->sa_flags & SA_ONSTACK) {
         return x86_64_dispatch_onstack(arch, act, siginfo);
