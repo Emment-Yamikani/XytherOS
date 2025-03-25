@@ -33,20 +33,17 @@ static void x86_64_thread_stop(void) {
 #if defined __x86_64__
 
 int x86_64_kthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) {
-    context_t   *ctx    = NULL;
-    mcontext_t  *mctx   = NULL;
-    u64         *kstack = NULL;
-
-    if (!thread || !thread->t_thread || !entry)
+    if (!thread || !thread->t_thread || !entry) {
         return -EINVAL;
-
+    }
+    
     thread_assert_locked(thread->t_thread);
-
-    mctx = (mcontext_t *)ALIGN16(thread->t_sstack.ss_sp - sizeof *mctx);
-
+    
+    mcontext_t  *mctx = (mcontext_t *)ALIGN16(thread->t_sstack.ss_sp - sizeof *mctx);
+    
     memset(mctx, 0, sizeof *mctx);
-
-    kstack      = (u64 *)ALIGN16(thread->t_rsvd);
+    
+    u64 *kstack = (u64 *)ALIGN16(thread->t_rsvd);
     *--kstack   = (u64)x86_64_thread_stop;
     
     mctx->ss    = (SEG_KDATA64 << 3);
@@ -61,7 +58,8 @@ int x86_64_kthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) 
 
     kstack      = (u64 *)mctx;
     *--kstack   = (u64)trapret;
-    ctx         = (context_t *)((u64)kstack - sizeof *ctx);
+
+    context_t *ctx = (context_t *)((u64)kstack - sizeof *ctx);
     ctx->rip    = (u64)x86_64_thread_start;
     ctx->rbp    = mctx->rsp;
     ctx->link   = NULL; // starts with no link to old context.
@@ -71,33 +69,33 @@ int x86_64_kthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) 
 }
 
 int x86_64_uthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) {
-    int         err     = 0;
-    context_t   *ctx    = NULL;
-    mcontext_t  *mctx   = NULL;
-    u64         *kstack = NULL;
-    u64         *ustack = NULL;
-
-    if (!thread || !thread->t_thread || !entry)
+    int err;
+    u64 *ustack;
+    
+    if (!thread || !thread->t_thread || !entry) {
         return -EINVAL;
+    }
 
     thread_assert_locked(thread->t_thread);
 
-    if ((ustack = (u64 *)ALIGN16(thread->t_ustack.ss_sp)) == NULL)
+    if ((ustack = (u64 *)ALIGN16(thread->t_ustack.ss_sp)) == NULL){
         return -EINVAL;
+    }
 
-    if ((err = arch_map_n(((u64)ustack) - PGSZ, PGSZ, thread->t_ustack.ss_flags)))
+    if ((err = arch_map_n(((u64)ustack) - PGSZ, PGSZ, thread->t_ustack.ss_flags))) {
         return err;
+    }
 
-    kstack = (u64 *)thread->t_sstack.ss_sp;
-    
+    u64 *kstack = (u64 *)thread->t_sstack.ss_sp;
+
     assert(kstack, "Invalid Kernel stack.");
-    
+
     assert(is_aligned16(kstack), "Kernel stack is not 16bytes aligned!");
 
     *--kstack   = (u64)x86_64_thread_stop;
     *--ustack   = MAGIC_RETADDR; // push dummy return address.
 
-    mctx = (mcontext_t *)((u64)kstack - sizeof *mctx);
+    mcontext_t  *mctx = (mcontext_t *)((u64)kstack - sizeof *mctx);
 
     memset(mctx, 0, sizeof *mctx);
 
@@ -113,7 +111,8 @@ int x86_64_uthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) 
 
     kstack        = (u64 *)mctx;
     *--kstack     = (u64)trapret;
-    ctx           = (context_t *)((u64)kstack - sizeof *ctx);
+
+    context_t   *ctx = (context_t *)((u64)kstack - sizeof *ctx);
     ctx->rip      = (u64)x86_64_thread_start;
     ctx->rbp      = mctx->rsp;
     ctx->link     = NULL; // starts with no link to old context.

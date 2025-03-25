@@ -244,7 +244,7 @@ typedef struct thread_t {
 
 /**
  * @brief Test and lock a thread. */
-#define thread_recursive_lock(t)     ({ thread_assert(t); spin_recursive_lock(&(t)->t_lock); })
+#define thread_recursive_lock(t)    ({ thread_assert(t); spin_recursive_lock(&(t)->t_lock); })
 
 /**
  * @brief Assert that a thread is locked. */
@@ -273,20 +273,20 @@ typedef struct thread_t {
 
 /**
  * @brief Set specific flags on a thread. */
-#define thread_set(t, f) ({                \
+#define thread_set(t, f) ({                 \
     bool locked = thread_recursive_lock(t); \
-    (t)->t_info.ti_flags |= (f);           \
-    if (locked)                            \
-        thread_unlock(t);                  \
+    (t)->t_info.ti_flags |= (f);            \
+    if (locked)                             \
+        thread_unlock(t);                   \
 })
 
 /**
  * @brief Clear specific flags on a thread. */
-#define thread_mask(t, f) ({               \
+#define thread_mask(t, f) ({                \
     bool locked = thread_recursive_lock(t); \
-    (t)->t_info.ti_flags &= ~(f);          \
-    if (locked)                            \
-        thread_unlock(t);                  \
+    (t)->t_info.ti_flags &= ~(f);           \
+    if (locked)                             \
+        thread_unlock(t);                   \
 })
 
 #define current_test(f)             thread_test(current, f)

@@ -7,13 +7,13 @@ QUEUE(global_thread_queue);
 
 const char *tget_state(tstate_t state) {
     static const char *states[] = {
-        [T_EMBRYO]      = "T_EMBRYO",
-        [T_READY]       = "T_READY",
-        [T_RUNNING]     = "T_RUNNING",
-        [T_SLEEP]       = "T_SLEEP",
-        [T_STOPPED]     = "T_STOPPED",
-        [T_ZOMBIE]      = "T_ZOMBIE",
-        [T_TERMINATED]  = "T_TERMINATED",
+        [T_EMBRYO]      = "EMBRYO",
+        [T_READY]       = "READY",
+        [T_RUNNING]     = "RUNNING",
+        [T_SLEEP]       = "SLEEP",
+        [T_STOPPED]     = "STOPPED",
+        [T_ZOMBIE]      = "ZOMBIE",
+        [T_TERMINATED]  = "TERMINATED",
     };
     if (state < T_EMBRYO || state > T_TERMINATED)
         return "UnknownState";
