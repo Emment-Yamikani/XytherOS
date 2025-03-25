@@ -255,8 +255,7 @@ __unused static void MLFQ_pull(void) {
             &target_level->run_queue,
             &level->run_queue,
             queue_length(&level->run_queue) / 2,
-            count,
-             QUEUE_TAIL
+            count, QUEUE_TAIL
         );
 
         assert_eq(err, 0, "Error[%s]: Failed to migrate threads\n", perror(err));
@@ -293,7 +292,7 @@ static void MLFQ_push(void) {
     }
 
     /** Return if no suitable core is found or if target
-     * core has a load greater or equal to current core's load*/
+     * core has a load greater or equal to current core's load. */
     if (target_mlfq == NULL || target_load >= MLFQ_load(current_mlfq)) {
         return;
     }
@@ -307,7 +306,7 @@ static void MLFQ_push(void) {
         if (queue_trylock(&level->run_queue)) {
             if (queue_trylock(&target_level->run_queue) == 0) {
                 // Locks not avalable.
-                queue_lock(&level->run_queue);
+                queue_unlock(&level->run_queue);
                 /**
                  * @brief Spinning for the locks here is not desirable.
                  * 

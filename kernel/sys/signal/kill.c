@@ -64,7 +64,7 @@ int pthread_sigqueue(tid_t tid, int signo, union sigval sigval) {
         return -EINVAL;
     }
 
-    if ((err = thread_group_getby_tid(tid, &thread))) {
+    if ((err = thread_group_get_by_tid(tid, &thread))) {
         return err;
     }
 

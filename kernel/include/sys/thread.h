@@ -466,6 +466,14 @@ extern builtin_thread_t __builtin_thrds_end[];
  *  Miscellaneous Definitions and Function Prototypes
  *====================================================================*/
 
+#define thread_enqueue(queue, thread, member, whence) ({                     \
+    queue_assert_locked(queue);                                              \
+    thread_assert_locked(thread);                                            \
+    embedded_enqueue_whence(queue, &(thread)->member, QUEUE_UNIQUE, whence); \
+})
+
+extern int  enqueue_global_thread(thread_t *thread);
+
 static inline jiffies_t current_gettimeslice(void) {
     return atomic_read(&current->t_info.ti_sched.ts_timeslice);
 }
@@ -496,16 +504,18 @@ extern void     thread_free(thread_t *thread);
 extern int      thread_schedule(thread_t *thread);
 extern int      thread_get_prio(thread_t *thread);
 extern int      thread_set_prio(thread_t *thread, int prio);
-extern int      thread_get_info(tid_t tid, thread_info_t *tip);
 extern int      thread_alloc(usize stack_size, int cflags, thread_t **ptp);
 extern int      thread_reap(thread_t *thread, thread_info_t *info, void **retval);
 
 extern int      thread_sleep(wakeup_t *preason);
-extern int      thread_wakeup(thread_t *thread, wakeup_t reason);
-extern int      find_thread_bytid(queue_t *queue, tid_t tid, thread_t **ptp);
-extern int      thread_group_getby_tid(tid_t tid, thread_t **ptp);
-extern int      thread_join_group(thread_t *thread);
 extern int      thread_create_group(thread_t *thread);
+extern int      thread_wakeup(thread_t *thread, wakeup_t reason);
+extern int      thread_group_get_by_tid(tid_t tid, thread_t **ptp);
+extern int      thread_join_group(thread_t *peer, thread_t *thread);
+extern int      global_find_by_tid(tid_t tid, thread_t **ptp);
+extern int      thread_get_info_by_id(tid_t tid, thread_info_t *info);
+extern int      thread_get_info(thread_t *thread, thread_info_t *pinfo);
+extern int      thread_queue_find_by_tid(queue_t *queue, tid_t tid, thread_t **ptp);
 
 extern int      thread_builtin_init(void);
 

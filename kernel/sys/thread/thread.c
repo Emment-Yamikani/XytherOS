@@ -63,30 +63,10 @@ int thread_set_prio(thread_t *thread, int prio) {
 }
 
 int thread_schedule(thread_t *thread) {
-    if (thread == NULL)
+    if (thread == NULL) {
         return -EINVAL;
-    return sched_enqueue(thread);
-}
-
-int thread_get_info(tid_t tid, thread_info_t *ip) {
-    if (ip == NULL)
-        return -EINVAL;
-
-    queue_lock(global_thread_queue);
-
-    embedded_queue_foreach(global_thread_queue, thread_t, thread, t_global_qnode) {
-        thread_lock(thread);
-        if (thread_gettid(thread) == tid) {
-            *ip = thread->t_info;
-            thread_unlock(thread);
-            queue_unlock(global_thread_queue);
-            return 0;
-        }
-        thread_unlock(thread);
     }
-    queue_unlock(global_thread_queue);
-
-    return -ESRCH;
+    return sched_enqueue(thread);
 }
 
 void thread_info_dump(thread_info_t *info) {
@@ -173,29 +153,30 @@ error:
     return err;
 }
 
-int thread_join_group(thread_t *thread) {
+int thread_join_group(thread_t *peer, thread_t *thread) {
     int err = 0;
 
-    if (thread == NULL || current == NULL)
+    if (thread == NULL || peer == NULL) {
         return -EINVAL;
+    }
 
     thread_assert_locked(thread);
 
-    queue_lock(current->t_group);
-    if ((err = embedded_enqueue(current->t_group, &thread->t_group_qnode, QUEUE_UNIQUE))) {
-        queue_unlock(current->t_group);
+    queue_lock(peer->t_group);
+    if ((err = embedded_enqueue(peer->t_group, &thread->t_group_qnode, QUEUE_UNIQUE))) {
+        queue_unlock(peer->t_group);
         return err;
     }
-    queue_unlock(current->t_group);
+    queue_unlock(peer->t_group);
 
-    thread->t_alarm       = current->t_alarm;
-    thread->t_proc        = current->t_proc;
-    thread->t_mmap        = current->t_mmap;
-    thread->t_cred        = current->t_cred;
-    thread->t_fctx        = current->t_fctx;
-    thread->t_group       = current->t_group;
-    thread->t_signals     = current->t_signals;
-    thread->t_info.ti_tgid= current->t_info.ti_tgid;
+    thread->t_alarm       = peer->t_alarm;
+    thread->t_proc        = peer->t_proc;
+    thread->t_mmap        = peer->t_mmap;
+    thread->t_cred        = peer->t_cred;
+    thread->t_fctx        = peer->t_fctx;
+    thread->t_group       = peer->t_group;
+    thread->t_signals     = peer->t_signals;
+    thread->t_info.ti_tgid= peer->t_info.ti_tgid;
 
     return 0;
 }
@@ -218,7 +199,7 @@ int thread_builtin_init(void) {
     return 0;
 }
 
-int find_thread_bytid(queue_t *thread_queue, tid_t tid, thread_t **ptp) {
+int thread_queue_find_by_tid(queue_t *thread_queue, tid_t tid, thread_t **ptp) {
     if (thread_queue == NULL) {
         return -EINVAL;
     }
@@ -239,147 +220,64 @@ int find_thread_bytid(queue_t *thread_queue, tid_t tid, thread_t **ptp) {
     return -ESRCH;
 }
 
-int thread_group_getby_tid(tid_t tid, thread_t **ptp) {
+int thread_group_get_by_tid(tid_t tid, thread_t **ptp) {
     if (ptp == NULL) {
         return -EINVAL;
     }
 
     queue_lock(current->t_group);
-    int err = find_thread_bytid(current->t_group, tid, ptp);
+    int err = thread_queue_find_by_tid(current->t_group, tid, ptp);
     queue_unlock(current->t_group);
 
     return err;
 }
 
-int thread_wait(thread_t *thread) {
-    
+int global_find_by_tid(tid_t tid, thread_t **ptp) {
+    if (!ptp) {
+        return -EINVAL;
+    }
+
+    queue_lock(global_thread_queue);
+    int err = thread_queue_find_by_tid(global_thread_queue, tid, ptp);
+    queue_unlock(global_thread_queue);
+    return err;
+}
+
+int enqueue_global_thread(thread_t *thread) {
     if (thread == NULL) {
         return -EINVAL;
     }
-    
-    if (thread == current) {
-        return -EDEADLK;
-    }
 
-    if (thread_iszombie(thread) || thread_isterminated(thread)) {
-        return 0;
-    }
-
-    while (!thread_in_state(thread, T_ZOMBIE)) {
-        int err = cond_wait_releasing(&thread->t_event, &thread->t_lock);
-        if (err != 0) {
-            return err;
-        }
-    }
-
-    return 0;
+    queue_lock(global_thread_queue);
+    int err = thread_enqueue(global_thread_queue, thread, t_global_qnode, QUEUE_TAIL);
+    queue_unlock(global_thread_queue);
+    return err;
 }
 
-int thread_join(tid_t tid, thread_info_t *info, void **prp) {
-    int         err;
-    thread_t    *thread = NULL;
-
-    if (tid == gettid()) {
-        return -EDEADLK;
-    }
-
-    if ((err = thread_group_getby_tid(tid, &thread))) {
-        return err;
-    }
-
-    if ((err = thread_wait(thread))) {
-        thread_unlock(thread);
-        return err;
-    }
-
-    // If we get here, target thread is a T_ZOMBIE and we can clean it.
-    return thread_reap(thread, info, prp);
-}
-
-/**
- * @brief check the reason for the interrupt.
- * 
- * @param reason[in] is one of four(4) values as specified by 'wakeup_t' enum.
- * @return true if reason is != WAKEUP_NONE or != WAKEUP_NORMAL.
- * @return false if reason is WAKEUP_SIGNAL or WAKEUP_TIMEOUT.
- */
-static bool wakeup_interrupt(wakeup_t reason) {
-    return ((reason == WAKEUP_SIGNAL) || (reason == WAKEUP_TIMEOUT)) ? true : false;
-}
-
-/**
- * @brief 
- * 
- * @param preason 
- * @return int 
- */
-int current_interrupted(wakeup_t *preason) {
-    wakeup_t reason = WAKEUP_NONE;
-
-    current_assert_locked();
-    
-    if (current->t_wakeup != WAKEUP_NONE) {
-        reason = current->t_wakeup;
-        current->t_wakeup = WAKEUP_NONE;
-
-        if (reason == WAKEUP_SIGNAL) {
-            signal_check_pending();
-        }
-    }
-    
-    if (preason) *preason = reason;
-
-    if (current_iscanceled() || wakeup_interrupt(reason)) {
-        return reason == WAKEUP_TIMEOUT ? -ETIMEDOUT : -EINTR;
-    }
-
-    return 0;
-}
-
-int thread_wakeup(thread_t *thread, wakeup_t reason) {    
-    if (thread == NULL || !wakeup_reason_validate(reason)) {
+int thread_get_info(thread_t *thread, thread_info_t *info) {
+    if (!thread || !info) {
         return -EINVAL;
     }
 
     thread_assert_locked(thread);
 
-    if (thread_isblocked(thread)) {
-        if (thread->t_wait_queue) { // thread is blocked and is on a wait queue?
-            queue_t *wait_queue = thread->t_wait_queue;
-            queue_lock(wait_queue);
-            int err = sched_detach_and_wakeup(wait_queue, thread, reason);
-            queue_unlock(wait_queue);
-            return err;
-        }
-
-        // thread is blocked and is not on a wait queue.
-
-        if (thread_ispark(thread)) { // check if thread had set the park flag.
-            thread_setwake(thread);
-            thread_mask_park(thread);
-        }
-
-        thread->t_wakeup = reason;
-        return thread_schedule(thread);
-    }
+    *info = thread->t_info;
 
     return 0;
 }
 
-int thread_sleep(wakeup_t *preason) {
-    int err;
+int thread_get_info_by_id(tid_t tid, thread_info_t *info) {
+    thread_t *thread = NULL;
 
-    current_assert_locked();
-
-    if ((err = current_interrupted(preason))) {
-        return err;
+    if (!info) {
+        return -EINVAL;
     }
-    
-    current_enter_state(T_SLEEP);
-    sched();
-    
-    if ((err = current_interrupted(preason))) {
-        return err;
+
+    int err = thread_group_get_by_tid(tid, &thread);
+
+    if (thread) {
+        *info = thread->t_info;
+        thread_unlock(thread);
     }
 
     return err;

@@ -29,13 +29,18 @@ void *thread(void *) {
     loop() {
         sched_yield();
     }
-}
+} BUILTIN_THREAD(thread, thread, NULL);
 
 __noreturn void kthread_main(void) {
     setup_signal();
     thread_builtin_init();
 
-    
+    thread_info_t info;
+    current_lock();
+    thread_get_info(current, &info);
+    current_unlock();
+
+    thread_info_dump(&info);
 
     loop() {
 

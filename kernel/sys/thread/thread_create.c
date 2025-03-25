@@ -29,10 +29,14 @@ static tid_t alloc_tid(void) {
 static int thread_alloc_kstack(usize kstack_size, void **pp) {
     int err;
     uintptr_t addr;
-    if (pp == NULL || ((kstack_size < KSTACK_SIZE) || (kstack_size > KSTACK_MAXSIZE)))
+    if (pp == NULL || ((kstack_size < KSTACK_SIZE) || (kstack_size > KSTACK_MAXSIZE))) {
         return -EINVAL;
-    if ((err = arch_pagealloc(kstack_size, &addr)))
+    }
+
+    if ((err = arch_pagealloc(kstack_size, &addr))) {
         return err;
+    }
+
     *pp = (void *)addr;
     return 0;
 }
@@ -58,11 +62,13 @@ int thread_alloc(usize kstack_size, int flags, thread_t **ptp) {
     thread_info_t   *tinfo  = NULL;
     thread_t        *thread = NULL;
 
-    if (ptp == NULL)
+    if (ptp == NULL) {
         return -EINVAL;
+    }
 
-    if ((err = thread_alloc_kstack(kstack_size, (void **)&stack)))
+    if ((err = thread_alloc_kstack(kstack_size, (void **)&stack))) {
         return err;
+    }
 
     /* Place the thread structure at the top of the allocated stack */
     thread = (thread_t *)ALIGN16((stack + kstack_size) - sizeof(*thread));
@@ -116,6 +122,122 @@ int thread_alloc(usize kstack_size, int flags, thread_t **ptp) {
     return 0;
 }
 
+static int create_user_thread(thread_attr_t *attr, thread_entry_t entry, void *arg, int cflags, thread_t **ptp) {
+    int         err;
+    vmr_t       *ustack = NULL;
+    thread_t    *thread = NULL;
+    uc_stack_t  uc_stack = {0};
+
+    if (!attr || !entry || !ptp) {
+        return -EINVAL;
+    }
+
+    if (!current || !current_isuser()) {
+        return -EINVAL;
+    }
+
+    if (cflags & THREAD_CREATE_GROUP) {
+        return -EINVAL;
+    }
+
+    if ((err = thread_alloc(KSTACK_SIZE, cflags, &thread))) {
+        return err;
+    }
+
+    mmap_lock(current->t_mmap);
+
+    if (attr->stackaddr == 0) {
+        if ((err = mmap_alloc_stack(current->t_mmap, attr->stacksz, &ustack))) {
+            mmap_unlock(current->t_mmap);
+            goto error;
+        }
+    } else {
+        err = -EFAULT;
+        if (NULL == (ustack = mmap_find(current->t_mmap, attr->stackaddr))) {
+            mmap_unlock(current->t_mmap);
+            goto error;
+        }
+
+        if (__isstack(ustack) == 0) {
+            mmap_unlock(current->t_mmap);
+            goto error;
+        }
+    }
+
+    uc_stack.ss_size    = __vmr_size(ustack);
+    uc_stack.ss_flags   = __vmr_vflags(ustack);
+    uc_stack.ss_sp      = (void *)__vmr_upper_bound(ustack);
+
+    mmap_unlock(current->t_mmap);
+
+    /// TODO: Optmize size of ustack according to attr;
+    /// TODO: maybe perform a split? But then this will mean
+    /// free() and unmap() calls to reverse malloc() and mmap() respectively
+    /// for this region may fail. ???
+    thread->t_arch.t_ustack = uc_stack;
+
+    thread->t_proc = current->t_proc;
+
+    if ((err = arch_uthread_init(&thread->t_arch, entry, arg))) {
+        goto error;
+    }
+
+    // add thread to current thread group.
+    if ((err = thread_join_group(current, thread))) {
+        goto error;
+    }
+
+    *ptp = thread;
+    return 0;
+error:
+    if (thread) {
+        thread_free(thread);
+    }
+
+    return err;
+}
+
+static int create_kernel_thread(thread_attr_t *attr, thread_entry_t entry, void *arg, int cflags, thread_t **ptp) {
+    int      err;
+    thread_t *thread = NULL;
+
+    if (!attr || !entry || !ptp) {
+        return -EINVAL;
+    }
+
+    // allocate the thread struct and kernel struct.
+    if ((err = thread_alloc(attr->stacksz, cflags, &thread))) {
+        return err;
+    }
+
+    // Initialize the kernel execution context.
+    if ((err = arch_kthread_init(&thread->t_arch, entry, arg))) {
+        goto error;
+    }
+
+    // Do we want to create a new thread group?
+    if (cflags & THREAD_CREATE_GROUP) {
+        // If so create a thread group and make thread the main thread.
+        if ((err = thread_create_group(thread))) {
+            goto error;
+        }
+    } else {
+        // add thread to current thread group.
+        if ((err = thread_join_group(current, thread))) {
+            goto error;
+        }
+    }
+
+    *ptp = thread;
+    return 0;
+error:
+    if (thread) {
+        thread_free(thread);
+    }
+
+    return err;
+}
+
 /**
  * @brief Create a new thread.
  *
@@ -140,18 +262,21 @@ int thread_alloc(usize kstack_size, int flags, thread_t **ptp) {
  * @return 0 on success, or a negative error code on failure.
  */
 int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, int cflags, thread_t **ptp) {
-    int             err     = 0;
-    thread_attr_t   t_attr  = {0};
+    int             err;
+    thread_attr_t   t_attr;
     thread_t        *thread = NULL;
+    bool            user_thread = (cflags & THREAD_CREATE_USER);
+    int             (*create_thread)() = user_thread ? &create_user_thread : &create_kernel_thread;
+
+    if (!entry) {
+        return -EINVAL;
+    }
 
     /* Set default attributes if none provided */
-    if (attr)
+    if (attr) {
         t_attr = *attr;
-    else {
-        if (cflags & THREAD_CREATE_USER)
-            t_attr = UTHREAD_ATTR_DEFAULT;
-        else
-            t_attr = KTHREAD_ATTR_DEFAULT;
+    } else {
+        t_attr = user_thread ? UTHREAD_ATTR_DEFAULT : KTHREAD_ATTR_DEFAULT;
     }
 
     cflags |= current == NULL  ? THREAD_CREATE_GROUP : 0;
@@ -159,103 +284,30 @@ int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, int cfla
     // create a self detatching thread.
     cflags |= t_attr.detachstate ? THREAD_CREATE_DETACHED : 0;
 
-    // user requested a USER thread creation?
-    if (cflags & THREAD_CREATE_USER) {
-        uc_stack_t  uc_stack = {0};
-        vmr_t       *ustack  = NULL;
-
-        if (!current || !current_isuser())
-            return -EINVAL;
-
-        if (cflags & THREAD_CREATE_GROUP)
-            return -EINVAL;
-
-        if ((err = thread_alloc(KSTACK_SIZE, cflags, &thread)))
-            return err;
-
-        mmap_lock(current->t_mmap);
-
-        if (t_attr.stackaddr == 0) {
-            if ((err = mmap_alloc_stack(current->t_mmap, t_attr.stacksz, &ustack))) {
-                mmap_unlock(current->t_mmap);
-                goto error;
-            }
-        } else {
-            err = -EINVAL;
-            if (NULL == (ustack = mmap_find(current->t_mmap, t_attr.stackaddr))) {
-                mmap_unlock(current->t_mmap);
-                goto error;
-            }
-
-            if (__isstack(ustack) == 0) {
-                mmap_unlock(current->t_mmap);
-                goto error;
-            }
-        }
-
-        uc_stack.ss_size    = __vmr_size(ustack);
-        uc_stack.ss_flags   = __vmr_vflags(ustack);
-        uc_stack.ss_sp      = (void *)__vmr_upper_bound(ustack);
-
-        mmap_unlock(current->t_mmap);
-
-        /// TODO: Optmize size of ustack according to attr;
-        /// TODO: maybe perform a split? But then this will mean
-        /// free() and unmap() calls to reverse malloc() and mmap() respectively
-        /// for this region may fail. ???
-        thread->t_arch.t_ustack = uc_stack;
-
-        thread->t_proc = current->t_proc;
-
-        if ((err = arch_uthread_init(&thread->t_arch, entry, arg)))
-            goto error;
-
-        // add thread to current thread group.
-        if ((err = thread_join_group(thread))) {
-            goto error;
-        }
-    } else { // create a kernel thread instead.
-        // allocate the thread struct and kernel struct.
-        if ((err = thread_alloc(t_attr.stacksz, cflags, &thread)))
-            return err;
-
-        // Initialize the kernel execution context.
-        if ((err = arch_kthread_init(&thread->t_arch, entry, arg)))
-            goto error;
-
-        // Do we want to create a new thread group?
-        if (cflags & THREAD_CREATE_GROUP) {
-            // If so create a thread group and make thread the main thread.
-            if ((err = thread_create_group(thread)))
-                goto error;
-        } else {
-            // add thread to current thread group.
-            if ((err = thread_join_group(thread))) {
-                goto error;
-            }
-        }
+    if ((err = create_thread(&t_attr, entry, arg, cflags, &thread))) {
+        return err;
     }
 
     // set the thread's entry point.
     thread->t_info.ti_entry  = entry;
 
     // Insert this new thread in the global thread queue.
-    queue_lock(global_thread_queue);
-    if ((err = embedded_enqueue(global_thread_queue, &thread->t_global_qnode, QUEUE_UNIQUE))) {
-        queue_unlock(global_thread_queue);
+    if ((err = enqueue_global_thread(thread))) {
         goto error;
     }
 
-    queue_unlock(global_thread_queue);
-
     // schedule the newly created thread?
     if (cflags & THREAD_CREATE_SCHED) {
-        if ((err = thread_schedule(thread)))
+        if ((err = thread_schedule(thread))) {
             goto error;
+        }
     }
 
-    if (ptp) *ptp = thread;
-    else thread_unlock(thread);
+    if (ptp) {
+        *ptp = thread;
+    } else {
+        thread_unlock(thread);
+    }
 
     return 0;
 error:
@@ -269,8 +321,9 @@ void thread_free(thread_t *thread) {
     arch_thread_t   *arch   = NULL;
     queue_t         *queue  = NULL;
 
-    if (thread == NULL)
+    if (thread == NULL) {
         return;
+    }
     
     thread_recursive_lock(thread);
 
