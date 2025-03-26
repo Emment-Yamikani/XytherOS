@@ -128,10 +128,6 @@ static int create_user_thread(thread_attr_t *attr, thread_entry_t entry, void *a
     thread_t    *thread = NULL;
     uc_stack_t  uc_stack = {0};
 
-    if (!attr || !entry || !ptp) {
-        return -EINVAL;
-    }
-
     if (!current || !current_isuser()) {
         return -EINVAL;
     }
@@ -146,22 +142,12 @@ static int create_user_thread(thread_attr_t *attr, thread_entry_t entry, void *a
 
     mmap_lock(current->t_mmap);
 
-    if (attr->stackaddr == 0) {
-        if ((err = mmap_alloc_stack(current->t_mmap, attr->stacksz, &ustack))) {
-            mmap_unlock(current->t_mmap);
-            goto error;
-        }
-    } else {
-        err = -EFAULT;
-        if (NULL == (ustack = mmap_find(current->t_mmap, attr->stackaddr))) {
-            mmap_unlock(current->t_mmap);
-            goto error;
-        }
+    err = !attr->stackaddr ? mmap_alloc_stack(current->t_mmap, attr->stacksz, &ustack)
+                           : mmap_find_stack(current->t_mmap, attr->stackaddr, &ustack);
 
-        if (__isstack(ustack) == 0) {
-            mmap_unlock(current->t_mmap);
-            goto error;
-        }
+    if (err) {
+        mmap_unlock(current->t_mmap);
+        goto error;
     }
 
     uc_stack.ss_size    = __vmr_size(ustack);
@@ -201,10 +187,6 @@ static int create_kernel_thread(thread_attr_t *attr, thread_entry_t entry, void 
     int      err;
     thread_t *thread = NULL;
 
-    if (!attr || !entry || !ptp) {
-        return -EINVAL;
-    }
-
     // allocate the thread struct and kernel struct.
     if ((err = thread_alloc(attr->stacksz, cflags, &thread))) {
         return err;
@@ -216,16 +198,10 @@ static int create_kernel_thread(thread_attr_t *attr, thread_entry_t entry, void 
     }
 
     // Do we want to create a new thread group?
-    if (cflags & THREAD_CREATE_GROUP) {
-        // If so create a thread group and make thread the main thread.
-        if ((err = thread_create_group(thread))) {
-            goto error;
-        }
-    } else {
-        // add thread to current thread group.
-        if ((err = thread_join_group(current, thread))) {
-            goto error;
-        }
+    err = cflags & THREAD_CREATE_GROUP ? thread_create_group(thread) // If so create a thread group and make 'thread' the main thread.
+    /* else just join the current thread group.*/: thread_join_group(current, thread);
+    if (err) {
+        goto error;
     }
 
     *ptp = thread;

@@ -307,6 +307,25 @@ vmr_t *mmap_find(mmap_t *mmap, uintptr_t addr) {
     return NULL;
 }
 
+int mmap_find_stack(mmap_t *mmap, uintptr_t addr, vmr_t **pvp) {
+    vmr_t *stack;
+
+    if (!mmap || !pvp) {
+        return -EINVAL;
+    }
+
+    if (!(stack = mmap_find(mmap, addr))) {
+        return -EFAULT;
+    }
+
+    if (__isstack(stack) == 0) {
+        return -EFAULT;
+    }
+
+    *pvp = stack;
+    return 0;
+}
+
 vmr_t *mmap_find_exact(mmap_t *mmap, uintptr_t start, uintptr_t end) {
     vmr_t *vmr = NULL;
 

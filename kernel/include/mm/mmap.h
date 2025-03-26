@@ -181,6 +181,7 @@ int mmap_contains(mmap_t *mmap, vmr_t *region);
 
 int mmap_remove(mmap_t *mmap, vmr_t *region);
 
+int mmap_find_stack(mmap_t *mmap, uintptr_t addr, vmr_t **pvp);
 vmr_t *mmap_find(mmap_t *mmap, uintptr_t addr);
 vmr_t *mmap_find_exact(mmap_t *mmap, uintptr_t start, uintptr_t end);
 vmr_t *mmap_find_vmr_next(mmap_t *mmap, uintptr_t addr, vmr_t **pnext);
