@@ -198,7 +198,7 @@ static int create_kernel_thread(thread_attr_t *attr, thread_entry_t entry, void 
     }
 
     // Do we want to create a new thread group?
-    err = cflags & THREAD_CREATE_GROUP ? thread_create_group(thread) // If so create a thread group and make 'thread' the main thread.
+    err = (cflags & THREAD_CREATE_GROUP) ? thread_create_group(thread) // If so create a thread group and make 'thread' the main thread.
     /* else just join the current thread group.*/: thread_join_group(current, thread);
     if (err) {
         goto error;
