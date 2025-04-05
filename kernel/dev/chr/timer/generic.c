@@ -22,7 +22,7 @@ void timer_wait(timer_t timer, double sec) {
 int timer_init(void) {
     int err = 0;
     if ((err = hpet_init())) {
-        debug("Error[%s]: HPET init failed. Fallback to PIT\n", perror(err));
+        debug("Error[%s]: HPET init failed. Fallback to PIT\n", strerror(err));
         pit_init();
         return 0;
     }

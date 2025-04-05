@@ -44,9 +44,9 @@ typedef struct fb_varinfo {
 } fb_varinfo_t;
 
 typedef struct framebuffer {
-    uint32_t  id;
-    void *priv;
-    struct dev *  dev;
+    uint32_t    id;
+    device_t    *dev;
+    void        *priv;
     fb_fixinfo_t *fixinfo;
     fb_varinfo_t *varinfo;
     spinlock_t   lock;

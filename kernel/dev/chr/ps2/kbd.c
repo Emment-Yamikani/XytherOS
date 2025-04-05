@@ -9,8 +9,8 @@
 #include <sys/thread.h>
 #include <sys/schedule.h>
 
-DEV_DECL_OPS(static, ps2kbd);
-static DEV_INIT(ps2kbd, FS_CHR, DEV_KBD0, 0);
+DECL_DEVOPS(static, ps2kbd);
+static DECL_DEVICE(ps2kbd, FS_CHR, DEV_KBD0, 0);
 
 #define KBD_BUFFSZ      256  // size of keyboard buffer.
 
@@ -32,7 +32,7 @@ void ps2kbd_intr(void) {
     sched_wakeup(kbd_waiter, WAKEUP_NORMAL, QUEUE_HEAD);
 }
 
-static int ps2kbd_probe(void) {
+static int ps2kbd_probe(devid_t *dd __unused) {
     int err = 0;
 
     // Disable PS/2 port 1
@@ -71,9 +71,13 @@ static int ps2kbd_probe(void) {
     return 0;
 }
 
+static int ps2kbd_fini(struct devid *dd __unused) {
+    return 0;
+}
+
 int ps2kbd_init(void) {
-    printk("Initializing \e[025453;011m%s\e[0m chardev...\n", ps2kbddev.dev_name);
-    return kdev_register(&ps2kbddev, DEV_KBD0, FS_CHR);
+    printk("Initializing \e[025453;011m%s\e[0m chardev...\n", ps2kbddev.name);
+    return dev_register(&ps2kbddev);
 }
 
 static int ps2kbd_close(struct devid *dd __unused) {

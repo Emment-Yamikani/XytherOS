@@ -155,4 +155,5 @@
 #  define ENOTSUP		EOPNOTSUPP
 # endif
 
-extern const char *perror(int err);
+extern const char *strerror(int err);
+extern void perror(const char *s, int err);

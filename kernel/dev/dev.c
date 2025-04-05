@@ -1,326 +1,459 @@
-#include <bits/errno.h>
 #include <dev/dev.h>
-#include <lib/printk.h>
+#include <ds/bitmap.h>
 #include <mm/kalloc.h>
 #include <string.h>
+#include <sys/thread.h>
 
-#define DEVMAX 256 
+typedef struct {
+    bitmap_t    minor_map[MAX_MAJOR];
+    device_t    *devices[MAX_MAJOR][MAX_MINOR];
+    spinlock_t  spinlock;
+} device_table_t;
 
-static dev_t *chrdev[DEVMAX];
-static spinlock_t *chrdevlk = &SPINLOCK_INIT();
+static device_table_t *bdev = &(device_table_t){0};
+static device_table_t *cdev = &(device_table_t){0};
 
-static dev_t *blkdev[DEVMAX];
-static spinlock_t *blkdevlk = &SPINLOCK_INIT();
+#define table_assert(t)         assert(t, "Invalid device table.")
+#define table_lock(t)           ({ table_assert(t); spin_lock(&(t)->spinlock); })
+#define table_unlock(t)         ({ table_assert(t); spin_unlock(&(t)->spinlock); })
+#define table_islocked(t)       ({ table_assert(t); spin_islocked(&(t)->spinlock); })
+#define table_assert_locked(t)  ({ table_assert(t); spin_assert_locked(&(t)->spinlock); })
+
+#define table_peek_device(t, major, minor) ({ table_assert_locked(t); (t)->devices[major][minor]; })
+
+static inline device_table_t *get_device_table(int type) {
+    device_table_t *table;
+
+    if (!valid_device_type(type)) {
+        return NULL;
+    }
+
+    table = (device_table_t *[]){[CHRDEV] = cdev, [BLKDEV] = bdev}[type];
+    table_lock(table);
+    return table;
+}
+
+static int alloc_minor(int type, devno_t major, devno_t *pminor) {
+    if (!pminor || !valid_device_type(type) || !valid_major(major)) {
+        return -EINVAL;
+    }
+
+    devno_t minor = 0;
+    device_table_t *table = get_device_table(type);
+
+    int err = bitmap_alloc_range(&table->minor_map[major], 1, (usize *)&minor);
+
+    table_unlock(table);
+
+    if (err == 0) {
+        *pminor = minor;
+    }
+
+    return err;
+}
+
+static device_t *get_device_by_devid(struct devid *dd) {
+    if (!valid_devid(dd)) {
+        return NULL;
+    }
+    
+    device_table_t *table = get_device_table(dd->type);
+    device_t *dev = table_peek_device(table, dd->major, dd->minor);
+
+    if (dev) {
+        atomic_inc(&dev->refcnt);
+    }
+
+    table_unlock(table);
+    return dev;
+}
+
+static int get_device_by_name(const char *name, int type, struct devid *dd) {
+    if (!name || !valid_device_type(type) || !dd) {
+        return -EINVAL;
+    }
+
+    device_table_t *table = get_device_table(type);
+
+    for (usize major = 0; major < MAX_MAJOR; ++major) {
+        for (usize minor = 0; minor < MAX_MINOR; ++minor) {
+            device_t *dev = table->devices[major][minor];
+            if (dev && string_eq(name, dev->name)) {
+                *dd = dev->devid;
+                table_unlock(table);
+                return 0;
+            }
+        }
+    }
+
+    table_unlock(table);
+    return -ENODEV;
+}
+
+static inline device_t *device_get(int type, devno_t major, devno_t minor) {
+    if (!valid_device_type(type) || !valid_device_numbers(major, minor)) {
+        return NULL;
+    }
+
+    device_table_t *table = get_device_table(type);
+    device_t *dev = table_peek_device(table, major, minor);
+
+    if (dev) {
+        atomic_inc(&dev->refcnt);
+    }
+
+    table_unlock(table);
+    return dev;
+}
+
+static inline int device_already_registered(int type, dev_t devid) {
+    devno_t major = DEV_TO_MAJOR(devid), minor = DEV_TO_MINOR(devid);
+
+    if (!valid_device_type(type) || !valid_device_numbers(major, minor)) {
+        return -EINVAL;
+    }
+
+    device_table_t *table = get_device_table(type);
+    device_t *dev = table_peek_device(table, major, minor);
+
+    table_unlock(table);
+
+    return dev ? 0 : -ENODEV;
+}
+
+static inline device_t *get_bdev(devno_t major, devno_t minor) {
+    return device_get(BLKDEV, major, minor);
+}
+
+static inline device_t *get_cdev(devno_t major, devno_t minor) {
+    return device_get(CHRDEV, major, minor);
+}
+
+static int mux_init(void) {
+    for (usize major = 0; major < MAX_MAJOR; ++major) {
+        for (usize minor = 0; minor < MAX_MINOR; ++minor) {
+            bdev->devices[major][minor] = NULL;
+            cdev->devices[major][minor] = NULL;
+        }
+
+        int err = bitmap_init_array(&bdev->minor_map[major], MAX_MINOR);
+        if (err != 0) {
+            return err;
+        }
+
+        err = bitmap_init_array(&cdev->minor_map[major], MAX_MINOR);
+        if (err != 0) {
+            kfree(bdev->minor_map[major].bm_map);
+            return err;
+        }
+    }
+
+    spinlock_init(&bdev->spinlock);
+    spinlock_init(&cdev->spinlock);
+
+    printk("Device multiplexer initialized.\n");
+    return 0;
+}
 
 int dev_init(void) {
-    int err = 0;
+    int err = mux_init();
 
-    printk("initaliazing devices...\n");
-
-    memset(chrdev, 0, sizeof chrdev);
-    memset(blkdev, 0, sizeof blkdev);
-
-    if ((err = modules_init()))
+    if (err != 0) {
         return err;
+    }
+
+    foreach_builtin_device() {
+        if ((err = (dev->init)(dev->arg))) {
+            return err;
+        }
+    }
 
     return 0;
+} BUILTIN_THREAD(device_subsys, dev_init, NULL);
+
+int find_bdev_by_name(const char *name, struct devid *dd) {
+    return get_device_by_name(name, BLKDEV, dd);
 }
 
-dev_t *kdev_get(struct devid *dd) {
-
-    if (!dd) return NULL;
-
-    // printk("%s:%d: %d->rdev[%d:%d]: %p\n",
-        //    __FILE__, __LINE__, dd->type, dd->major, dd->minor, dd);
-
-    switch (dd->type) {
-    case FS_BLK:
-        spin_lock(blkdevlk);
-        forlinked(dev, blkdev[dd->major], dev->dev_next) {
-            if (DEVID_CMP(&dev->dev_id, dd)) {
-                spin_unlock(blkdevlk);
-                return dev;
-            }
-        }
-        spin_unlock(blkdevlk);
-        break;
-    case FS_CHR:
-        spin_lock(chrdevlk);
-        forlinked(dev, chrdev[dd->major], dev->dev_next) {
-            if (DEVID_CMP(&dev->dev_id, dd)) {
-                spin_unlock(chrdevlk);
-                return dev;
-            }
-        }
-        spin_unlock(chrdevlk);
-        break;
-    }
-
-    return NULL;
+int find_cdev_by_name(const char *name, struct devid *dd) {
+    return get_device_by_name(name, CHRDEV, dd);
 }
 
-int    kdev_register(dev_t *dev, u8 major, u8 type) {
-    int     err     = 0;
-    dev_t   *tail   = NULL;
-    dev_t   **table = NULL;
-    spinlock_t *lock= NULL;
-
-    if (!dev || (dev->dev_id.type != type)) return -EINVAL;
-
-    switch (type) {
-    case FS_BLK:
-        table   = blkdev;
-        lock    = blkdevlk;
-        break;
-
-    case FS_CHR:
-        table   = chrdev;
-        lock    = chrdevlk;
-        break;
-    default:
-        printk("WARNING: Can't register file, not a device file\n");
-        err = -ENXIO;
-        goto error;
-    }
-
-    spin_lock(lock);
-    forlinked(node, table[major], node->dev_next) {
-        tail = node;
-        if (node->dev_id.minor == dev->dev_id.minor) {
-            err = -EEXIST;
-            spin_unlock(lock);
-            goto error;
-        }
-    }
-
-    if (tail)
-        tail->dev_next = dev;
-    else table[major] = dev;
-
-    dev->dev_prev = tail;
-    dev->dev_next = NULL;
-
-    if (dev->dev_probe) {
-        if ((err = dev->dev_probe())) {
-            spin_unlock(lock);
-            goto error;
-        }
-    }
-
-    spin_unlock(lock);
-    return 0;
-error:
-    return err;
-}
-
-int kdev_unregister(struct devid *dd) {
-    spinlock_t  *lock   = NULL;
-    dev_t       *next   = NULL;
-    dev_t       **table = NULL;
-
-    if (dd == NULL)
+int kdev_create(const char *dev_name, int type, dev_t devid, const devops_t *devops, device_t **pdp) {
+    if (!dev_name) {
         return -EINVAL;
-    
-    switch (dd->type) {
-    case FS_CHR:
-        table   = chrdev;
-        lock    = chrdevlk;
-        break;
-    case FS_BLK:
-        table   = blkdev;
-        lock    = blkdevlk;
-        break;
-    default:
-        return -ENXIO;
     }
 
-    spin_lock(lock);
-
-    forlinked(dev, table[dd->major], next) {
-        // secure the next dev struct before removal of this dev.
-        next = dev->dev_next;
-
-        // check if this dev struct matched the dev_id.
-        if (DEVID_CMP(&dev->dev_id, dd)) {
-            // call the finalizer function on this device.
-            if (dev->dev_fini != NULL)
-                dev->dev_fini(dd);
-            
-            // remove the dev struct from the device table.
-            if (dev->dev_prev != NULL)
-                dev->dev_prev->dev_next = dev->dev_next;
-            if (dev->dev_next != NULL)
-                dev->dev_next->dev_prev = dev->dev_prev;
-            break; // done.
-        }
+    const usize name_len = strlen(dev_name);
+    if (name_len >= sizeof ((device_t){0}).name) {
+        return -ENAMETOOLONG;
     }
 
-    spin_unlock(lock);
-    return 0;
-}
-
-int     kdev_close(struct devid *dd) {
-    dev_t *dev = NULL;
-    if (!(dev = kdev_get(dd)))
-        return -ENXIO;
-    
-    if (!(dev->dev_ops.close))
-        return -ENOSYS;
-    return dev->dev_ops.close(dd);
-}
-
-int     kdev_open(struct devid *dd, inode_t **pip) {
-    dev_t *dev = NULL;
-    if (!(dev = kdev_get(dd)))
-        return -ENXIO;
-    
-    if (!(dev->dev_ops.open))
-        return -ENOSYS;
-    return dev->dev_ops.open(dd, pip);
-}
-
-off_t   kdev_lseek(struct devid *dd, off_t off, int whence) {
-    dev_t *dev = NULL;
-    if (!(dev = kdev_get(dd)))
-        return -ENXIO;
-    
-    if (!(dev->dev_ops.lseek))
-        return -ENOSYS;
-    return dev->dev_ops.lseek(dd, off, whence);
-}
-
-int     kdev_ioctl(struct devid *dd, int request, void *argp) {
-    dev_t *dev = NULL;
-    if (!(dev = kdev_get(dd)))
-        return -ENXIO;
-    
-    if (!(dev->dev_ops.ioctl))
-        return -ENOSYS;
-    return dev->dev_ops.ioctl(dd, request, argp);
-}
-
-ssize_t kdev_read(struct devid *dd, off_t off, void *buf, size_t nbyte) {
-    dev_t *dev = NULL;
-    if (!(dev = kdev_get(dd)))
-        return -ENXIO;
-    
-    if (!(dev->dev_ops.read))
-        return -ENOSYS;
-    return dev->dev_ops.read(dd, off, buf, nbyte);
-}
-
-ssize_t kdev_write(struct devid *dd, off_t off, void *buf, size_t nbyte) {
-    dev_t *dev = NULL;
-
-    // printk("%s:%d: %d->rdev[%d:%d]: %p\n",
-        //    __FILE__, __LINE__, dd->type, dd->major, dd->minor, dd);
-
-    if (!(dev = kdev_get(dd)))
-        return -ENXIO;
-    
-    if (!(dev->dev_ops.write))
-        return -ENOSYS;
-    return dev->dev_ops.write(dd, off, buf, nbyte);
-}
-
-int kdev_open_bdev(const char *bdev_name, struct devid *pdev) {
-    dev_t *dev = NULL;
-
-    if (bdev_name == NULL || pdev == NULL)
-        return -EINVAL;
-    
-    spin_lock(blkdevlk);
-    for (int i =0; i < DEVMAX; ++i) {
-        dev = blkdev[i];
-        if (dev == NULL)
-            continue;
-    
-        if (string_eq(bdev_name, dev->dev_name)) {
-            spin_unlock(blkdevlk);
-            *pdev = dev->dev_id;
-            return 0;
-        }
-    }
-    spin_unlock(blkdevlk);
-    return -ENOENT;
-}
-
-int kdev_getinfo(struct devid *dd, void *info) {
-    dev_t *dev = NULL;
-
-    if (dd == NULL || info == NULL)
-        return -EINVAL;
-    
-    if ((dev = kdev_get(dd)) == NULL)
-        return -ENOENT;
-
-    if (NULL == dev->dev_ops.getinfo)
-        return -ENOSYS;
-
-    return dev->dev_ops.getinfo(dd, info);
-}
-
-int kdev_create(const char *dev_name, u8 type, u8 major, u8 minor, dev_t **pdev) {
-    int     err     = 0;
-    dev_t   *dev    = NULL;
-    char    *name   = NULL;
-
-    if (type != FS_BLK && type != FS_CHR)
-        return -EINVAL;
-
-    if ((dev = kdev_get(DEVID_PTR(type, DEV_T(major, minor)))))
-        return -EEXIST;
-
-    if (dev_name == NULL || pdev == NULL)
-        return -EINVAL;
-
-    if ((dev = (dev_t *)kmalloc(sizeof *dev)) == NULL)
-        return -ENOMEM;
-    
-    if (NULL == (name = strdup(dev_name))) {
-        kfree((void *)dev);
+    device_t *dev = kmalloc(sizeof (device_t));
+    if (dev == NULL) {
         return -ENOMEM;
     }
 
-    memset(dev, 0, sizeof *dev);
+    int err = device_already_registered(type, devid);
+    if (err != -ENODEV) {
+        kfree(dev);
+        err = err == 0 ? -EEXIST : err;
+        return err;
+    }
 
-    dev->dev_name = name;
-    dev->dev_lck  = SPINLOCK_INIT();
+    devno_t major = DEV_TO_MAJOR(devid), minor = DEV_TO_MINOR(devid);
+    device_table_t *table = get_device_table(type);
+    bitmap_set(&table->minor_map[major], minor, 1);
+    table_unlock(table);
+
+    dev->private= NULL;
+    dev->devid  = DEVID(NULL, type, devid);
+    dev->devops = devops ? *devops : (devops_t){0};
+
+    spinlock_init(&dev->spinlock);
+    safestrncpy(dev->name, dev_name, sizeof (dev->name) - 1);
+
     dev_lock(dev);
 
-    dev->dev_id = DEVID(type, DEV_T(major, minor));
-    *pdev = dev;
-
+    *pdp = dev;
     return 0;
-    if (dev) kfree(dev);
+}
+
+
+int dev_create(const char *name, int type, devno_t major, const devops_t *devops, device_t **pdp) {
+    devno_t minor = 0;
+    
+    int err = alloc_minor(type, major, &minor);
+    if (err != 0) {
+        return err;
+    }
+    
+    err = kdev_create(name, type, DEV_T(major, minor), devops, pdp);
+    if (err != 0) {
+        device_table_t *table = get_device_table(type);
+        bitmap_unset(&table->minor_map[major], minor, 1);
+        table_unlock(table);
+        return err;
+    }
+
     return err;
 }
 
-void kdev_free(dev_t *dev) {
-    if (dev == NULL)
+void dev_destroy(device_t *dev) {
+    if (dev == NULL) {
         return;
-    
-    if (!dev_islocked(dev))
-        dev_lock(dev);
-    
-    if (dev->dev_name)
-        kfree(dev->dev_name);
-    
+    }
+
+    dev_recursive_lock(dev);
+
+    if (atomic_dec(&dev->refcnt) <= 0) {
+        dev_unlock(dev);
+        return;
+    }
+
     dev_unlock(dev);
+
     kfree(dev);
 }
 
-int kdev_mmap(struct devid *dd, vmr_t *region) {
-    dev_t *dev = NULL;
+int dev_register(device_t *dev) {
+    devno_t major, minor;
 
-    if (dd == NULL || region == NULL)
+    if (!valid_device(dev)) {
         return -EINVAL;
-    
-    if ((dev = kdev_get(dd)) == NULL)
-        return -ENXIO;
-    
-    if (NULL == dev->dev_ops.mmap)
-        return -ENOSYS;
+    }
 
-    return dev->dev_ops.mmap(dd, region);
+    major = dev->devid.major;
+    minor = dev->devid.minor;
+    
+    if (dev->devops.probe) {
+        int err = dev->devops.probe(&dev->devid);
+        if (err != 0) {
+            return err;
+        }
+    }
+
+    device_table_t *table = get_device_table(dev->devid.type);
+    
+    if (table_peek_device(table, major, minor)) {
+        table_unlock(table);
+        return -EEXIST;
+    }
+    
+    table->devices[major][minor] = dev;
+    atomic_inc(&dev->refcnt);
+
+    bitmap_set(&table->minor_map[major], minor, 1);
+
+    table_unlock(table);
+    
+    // printk("Registered \e[025453;011m%s\e[0m %s...\n", dev->name, DEVICE_TYPE(dev) == CHRDEV ? "chardev" : "blkdev");
+
+    return 0;
+}
+
+int dev_unregister(struct devid *dd) {
+    device_t       *dev;
+    device_table_t *table;
+
+    if (!valid_devid(dd)) {
+        return -EINVAL;
+    }
+
+    table = get_device_table(dd->type);
+    dev   = table_peek_device(table, dd->major, dd->minor);
+
+    if (dev == NULL) {
+        table_unlock(table);
+        return -ENODEV;
+    }
+
+    table->devices[dd->major][dd->minor] = NULL;
+    atomic_dec(&dev->refcnt);
+
+    table_unlock(table);
+
+    if (dev->devops.fini) {
+        return dev->devops.fini(&dev->devid);
+    }
+
+    return 0;
+}
+
+int dev_probe(struct devid *dd) {
+    device_t *dev = get_device_by_devid(dd);
+    if (dev == NULL) {
+        return -ENXIO;
+    }
+
+    if (dev->devops.probe == NULL) {
+        return -ENOSYS;
+    }
+
+    return dev->devops.probe(dd);
+}
+
+int dev_finit(struct devid *dd) {
+    device_t *dev = get_device_by_devid(dd);
+    if (dev == NULL) {
+        return -ENXIO;
+    }
+
+    if (dev->devops.fini == NULL) {
+        return -ENOSYS;
+    }
+
+    return dev->devops.fini(dd);
+}
+
+int dev_close(struct devid *dd) {
+    device_t *dev = get_device_by_devid(dd);
+    if (dev == NULL) {
+        return -ENXIO;
+    }
+
+    if (dev->devops.close == NULL) {
+        return -ENOSYS;
+    }
+
+    return dev->devops.close(dd);
+}
+
+int dev_open(struct devid *dd, inode_t **pip) {
+    device_t *dev = get_device_by_devid(dd);
+    if (dev == NULL) {
+        return -ENXIO;
+    }
+
+    if (dev->devops.open == NULL) {
+        return -ENOSYS;
+    }
+
+    return dev->devops.open(dd, pip);
+}
+
+int dev_getinfo(struct devid *dd, void *info) {
+    device_t *dev = get_device_by_devid(dd);
+    if (dev == NULL) {
+        return -ENXIO;
+    }
+
+    if (info == NULL) {
+        return -EFAULT;
+    }
+
+    if (dev->devops.getinfo == NULL) {
+        return -ENOSYS;
+    }
+
+    return dev->devops.getinfo(dd, info);
+}
+
+int dev_mmap(struct devid *dd, vmr_t *vmregion) {
+    device_t *dev = get_device_by_devid(dd);
+    if (dev == NULL) {
+        return -ENXIO;
+    }
+
+    if (vmregion == NULL) {
+        return -EFAULT;
+    }
+
+    if (dev->devops.mmap == NULL) {
+        return -ENOSYS;
+    }
+
+    return dev->devops.mmap(dd, vmregion);
+}
+
+int dev_ioctl(struct devid *dd, int request, void *arg) {
+    device_t *dev = get_device_by_devid(dd);
+    if (dev == NULL) {
+        return -ENXIO;
+    }
+
+    if (dev->devops.ioctl == NULL) {
+        return -ENOSYS;
+    }
+
+    return dev->devops.ioctl(dd, request, arg);
+}
+
+off_t dev_lseek(struct devid *dd, off_t offset, int whence) {
+    device_t *dev = get_device_by_devid(dd);
+    if (dev == NULL) {
+        return -ENXIO;
+    }
+
+    if (dev->devops.lseek == NULL) {
+        return -ENOSYS;
+    }
+
+    return dev->devops.lseek(dd, offset, whence);
+}
+
+isize dev_read(struct devid *dd, off_t off, void *buf, usize size) {
+    device_t *dev = get_device_by_devid(dd);
+    if (dev == NULL) {
+        return -ENXIO;
+    }
+
+    if (dev->devops.read == NULL) {
+        return -ENOSYS;
+    }
+
+    return dev->devops.read(dd, off, buf, size);
+}
+
+isize dev_write(struct devid *dd, off_t off, void *buf, usize size) {
+    device_t *dev = get_device_by_devid(dd);
+    if (dev == NULL) {
+        return -ENXIO;
+    }
+
+    if (dev->devops.write == NULL) {
+        return -ENOSYS;
+    }
+
+    return dev->devops.write(dd, off, buf, size);
 }

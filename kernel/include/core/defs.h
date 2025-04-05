@@ -20,6 +20,10 @@
 #define forlinked(elem, list, iter) \
     for (typeof(list) elem = list; elem; elem = iter)
 
+#define forlinked_take(elem, list, iter, count) \
+    usize __forlinked_count__ = 0;              \
+    for (typeof(list) elem = list; elem && __forlinked_count__ < count; elem = iter, ++__forlinked_count__)
+
 #define foreach(elem, list)                                             \
     for (typeof(*list) *__tmp__foreach = list,                          \
         elem = (typeof(elem))(__tmp__foreach ? *__tmp__foreach : NULL); \

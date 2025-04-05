@@ -147,7 +147,7 @@ static thread_t *MLFQ_get_next(void) {
             /// panic is this fails. What could possibly go run?
             assert_eq(err = embedded_queue_detach(&level->run_queue, thread_node), 0,
                 "Failed to remove thread[%d:%d] at priority level: %s: Error: %s\n",
-                thread_getpid(thread), thread_gettid(thread), MLFQ_PRIORITY[level - mlfq->level], perror(err)
+                thread_getpid(thread), thread_gettid(thread), MLFQ_PRIORITY[level - mlfq->level], strerror(err)
             );
 
             thread->t_info.ti_sched.ts_timeslice = level->quantum;
@@ -258,7 +258,7 @@ __unused static void MLFQ_pull(void) {
             count, QUEUE_TAIL
         );
 
-        assert_eq(err, 0, "Error[%s]: Failed to migrate threads\n", perror(err));
+        assert_eq(err, 0, "Error[%s]: Failed to migrate threads\n", strerror(err));
         count_pulled += count;
  
         // Unlock in the reverse order of locking
@@ -334,7 +334,7 @@ static void MLFQ_push(void) {
             count,
             QUEUE_HEAD
         );
-        assert_eq(err, 0, "Error[%s]: Failed to migrate threads\n", perror(err));
+        assert_eq(err, 0, "Error[%s]: Failed to migrate threads\n", strerror(err));
 
         count_pushed += count;
 
@@ -365,7 +365,7 @@ static void hanlde_thread_state(void) {
             break;
         case T_READY:
             assert_eq(err = MLFQ_enqueue(current), 0,
-                "Failed to enqueue current thread. error: %s\n", perror(err));
+                "Failed to enqueue current thread. error: %s\n", strerror(err));
             break;
         case T_SLEEP:
         case T_STOPPED:

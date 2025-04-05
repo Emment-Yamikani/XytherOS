@@ -1,5 +1,6 @@
 #include <bits/errno.h>
 #include <core/defs.h>
+#include <lib/printk.h>
 
 static const char *ErrMsg[] = {
     [0]         = "OK",
@@ -136,9 +137,14 @@ static const char *ErrMsg[] = {
     [EHWPOISON]     = "EHWPOISON",
 };
 
-const char *perror(int err) {
+const char *strerror(int err) {
     if (err >= (int)NELEM(ErrMsg)) {
         return "Unknown_Error";
     }
+
     return ErrMsg[ABS(err)];
+}
+
+void perror(const char *s, int err) {
+    printk("%s: %s\n", s ? s : " ", strerror(err));
 }

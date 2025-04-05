@@ -22,6 +22,16 @@ struct dirent {
     char   d_name[MAXFNAME];
 };
 
+/* Directory entry type macros (d_type values) */
+#define DT_UNKNOWN 0 // Unknown file type
+#define DT_FIFO 1    // Named pipe (FIFO)
+#define DT_CHR 2     // Character device
+#define DT_DIR 4     // Directory
+#define DT_BLK 6     // Block device
+#define DT_REG 8     // Regular file
+#define DT_LNK 10    // Symbolic link
+#define DT_SOCK 12   // Unix domain socket
+
 struct filesystem;
 struct devid;
 struct superblock;
@@ -108,8 +118,8 @@ int vfs_resolve_path(const char *pathname, dentry_t *dir, cred_t *cred, int ofla
 int vfs_lookup(const char *fn, cred_t *cred, int oflags, dentry_t **pdp);
 int vfs_lookupat(const char *pathname, dentry_t *dir, cred_t *__cred, int oflags, dentry_t **pdp);
 
-int vfs_mknod(const char *pathname, cred_t *cred, mode_t mode, devid_t dev);
-int vfs_mknodat(dentry_t *dir, const char *pathname, cred_t *cred, mode_t mode, devid_t dev);
+int vfs_mknod(const char *pathname, cred_t *cred, mode_t mode, dev_t dev);
+int vfs_mknodat(dentry_t *dir, const char *pathname, cred_t *cred, mode_t mode, dev_t dev);
 
 int vfs_mkdir(const char *path, cred_t *cred, mode_t mode);
 int vfs_mkdirat(const char *pathname, dentry_t *dir, cred_t *cred, mode_t mode);

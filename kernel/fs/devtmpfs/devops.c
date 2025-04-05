@@ -36,7 +36,7 @@ int dev_iopen(inode_t *idev, inode_t **pip) {
     if (idev == NULL)
         return -EINVAL;
     
-    if ((err = kdev_open(IDEVID(idev), &ip)))
+    if ((err = dev_open(IDEVID(idev), &ip)))
         return err;
     
     if (pip) *pip = ip;
@@ -54,7 +54,7 @@ int dev_iclose(inode_t *idev) {
     if (idev == NULL)
         return -EINVAL;
     
-    return kdev_close(IDEVID(idev));
+    return dev_close(IDEVID(idev));
 }
 
 int dev_iunlink(inode_t *idev) {
@@ -75,7 +75,7 @@ int dev_igetattr(inode_t *idev, void *attr) {
     if (idev == NULL)
         return -EINVAL;
 
-    return kdev_getinfo(IDEVID(idev), attr);
+    return dev_getinfo(IDEVID(idev), attr);
 }
 
 int dev_isetattr(inode_t *idev, void *attr __unused) {
@@ -96,14 +96,14 @@ int dev_iioctl(inode_t *idev, int req, void *argp) {
     if (idev == NULL)
         return -EINVAL;
 
-    return kdev_ioctl(IDEVID(idev), req, argp);
+    return dev_ioctl(IDEVID(idev), req, argp);
 }
 
 isize dev_iread(inode_t *idev, off_t off, void *buf, usize nb) {
     if (idev == NULL)
         return -EINVAL;
 
-    return kdev_read(IDEVID(idev), off, buf, nb);
+    return dev_read(IDEVID(idev), off, buf, nb);
 }
 
 isize dev_iwrite(inode_t *idev, off_t off, void *buf, usize nb) {
@@ -111,7 +111,7 @@ isize dev_iwrite(inode_t *idev, off_t off, void *buf, usize nb) {
         return -EINVAL;
     // printk("%s:%d: %s->rdev[%d:%d]: %p\n",
         //    __FILE__, __LINE__, itype_strings[idev->i_type], idev->i_rdev & 0xff, idev->i_rdev >> 8, IDEVID(idev));
-    return kdev_write(IDEVID(idev), off, buf, nb);
+    return dev_write(IDEVID(idev), off, buf, nb);
 }
 
 int dev_imkdir(inode_t *didev __unused, const char *fname __unused, mode_t mode __unused) {

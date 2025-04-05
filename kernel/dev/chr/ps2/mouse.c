@@ -2,16 +2,20 @@
 #include <dev/dev.h>
 #include <dev/ps2.h>
 
-DEV_DECL_OPS(static, ps2mouse);
+DECL_DEVOPS(static, ps2mouse);
 
-static DEV_INIT(ps2mouse, FS_CHR, DEV_MOUSE0, 1);
+static DECL_DEVICE(ps2mouse, FS_CHR, DEV_MOUSE0, 1);
 
 int ps2mouse_init(void) {
-    printk("Initializing \e[025453;011m%s\e[0m chardev...\n", ps2mousedev.dev_name);
-    return kdev_register(&ps2mousedev, DEV_MOUSE0, FS_CHR);
+    printk("Initializing \e[025453;011m%s\e[0m chardev...\n", ps2mousedev.name);
+    return dev_register(&ps2mousedev);
 }
 
-static int ps2mouse_probe(void) {
+static int ps2mouse_probe(struct devid *dd __unused) {
+    return 0;
+}
+
+static int ps2mouse_fini(struct devid *dd __unused) {
     return 0;
 }
 

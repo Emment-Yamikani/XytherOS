@@ -335,7 +335,7 @@ void thread_free(thread_t *thread) {
         mmap_lock(thread->t_mmap);
         assert_eq(err = mmap_unmap(thread->t_mmap,
             (uintptr_t)(arch->t_ustack.ss_sp - arch->t_ustack.ss_size),
-            arch->t_ustack.ss_size), 0, "Error[%s]: Unmapping vmr.\n", perror(err)
+            arch->t_ustack.ss_size), 0, "Error[%s]: Unmapping vmr.\n", strerror(err)
         );
         mmap_unlock(thread->t_mmap);
     }

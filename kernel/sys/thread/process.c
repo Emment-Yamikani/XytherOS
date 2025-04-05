@@ -103,7 +103,7 @@ error:
 
     thread_free(thread);
 
-    debug("Err[%s]: Failed to allocate a process for [%s].\n", perror(err), name);
+    debug("Err[%s]: Failed to allocate a process for [%s].\n", strerror(err), name);
     return err;
 }
 
@@ -147,6 +147,6 @@ error:
     mmap_free(thread->t_mmap);
     thread_free(thread);
 
-    debug("Error[%s]: Failed to spawn [%s]\n", perror(err), path);
+    debug("Error[%s]: Failed to spawn [%s]\n", strerror(err), path);
     return err;
 }

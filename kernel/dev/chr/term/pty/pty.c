@@ -6,7 +6,7 @@
 #include <sync/atomic.h>
 
 // pseudoterminal devices.
-static pty_t       pseudo_terms[NPTMX] = {0};
+static pty_t pseudo_terms[NPTMX];
 static SPINLOCK(pseudo_termslk);
 
 #define pseudo_lock()           spin_lock(pseudo_termslk)

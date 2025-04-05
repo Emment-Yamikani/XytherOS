@@ -12,20 +12,20 @@ void early_init(void) {
     int err = 0;
 
     assert_eq(err = vmman.init(), 0,
-        "Error[%s]: initializing virtual memory manager.\n", perror(err));
+        "Error[%s]: initializing virtual memory manager.\n", strerror(err));
 
     assert_eq(err = interrupt_controller_init(), 0,
-        "Error[%s]: initializing intterupt controller.\n", perror(err));
+        "Error[%s]: initializing intterupt controller.\n", strerror(err));
 
     assert_eq(err = timer_init(), 0,
-        "Error[%s]: initializing timers.\n", perror(err));
+        "Error[%s]: initializing timers.\n", strerror(err));
 
     ap_signal(); // inform APs that early initialization is done.
 
     // TODO: add anything else to kthread_main().
 
     assert_eq(err = thread_create(NULL, (thread_entry_t)kthread_main, NULL, THREAD_CREATE_SCHED, NULL), 0,
-        "Failed to create main kernel thread: err: %s\n", perror(err));
+        "Failed to create main kernel thread: err: %s\n", strerror(err));
 
     scheduler(); // being executing threads.
 

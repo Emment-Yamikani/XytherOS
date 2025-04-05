@@ -9,7 +9,7 @@
 
 volatile int use_uart = 0;
 
-struct dev uartdev;
+device_t uartdev;
 
 #define SERIAL_MMIO 0
 #define SERIAL_PORT 0x3F8

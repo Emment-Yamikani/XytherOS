@@ -30,7 +30,7 @@ typedef enum {
 } itype_t;
 
 #define iextract_type(mode) ({ \
-    itype_t type = 0;          \
+    itype_t type = FS_INV;     \
     if (S_ISDIR(mode))         \
         type = FS_DIR;         \
     else if (S_ISCHR(mode))    \
@@ -55,7 +55,7 @@ typedef struct inode {
     uid_t           i_uid;      // User identifier of owner.
     gid_t           i_gid;      // Group identifier of group that owns this file.
     itype_t         i_type;     // Type of file this inode represents.
-    devid_t         i_rdev;     // Device description.
+    dev_t           i_rdev;     // Device description.
     mode_t          i_mode;     // Inode's access mode.
     size_t          i_size;     // Inode's data size.
     
@@ -146,7 +146,8 @@ typedef struct iops {
 #define IISSOCK(ip)({ IISTYPE(ip, FS_SOCK); })
 #define IISDEV(ip) ({ IISCHR(ip) || IISBLK(ip); })
 
-
+#define INODE_TYPE(ip)  ((ip)->i_type)
+#define INODE_DEV(ip)   ((ip)->i_rdev)
 
 #define IISPTMX(ip) ({ IISDEV(ip) && ((ip)->i_flags & INO_PTMX); })
 

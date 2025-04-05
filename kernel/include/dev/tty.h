@@ -6,7 +6,7 @@
 #define NTTY    8
 
 typedef struct tty_t {
-    dev_t       *dev;
+    device_t       *dev;
 } tty_t;
 
 

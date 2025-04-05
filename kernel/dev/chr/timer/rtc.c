@@ -11,16 +11,6 @@
 #include <string.h>
 #include <sync/cond.h>
 
-int     rtc_probe();
-int     rtc_close(struct devid *dd);
-int     rtc_getinfo(struct devid *dd, void *info);
-int     rtc_open(struct devid *dd __unused, inode_t **pip __unused);
-int     rtc_ioctl(struct devid *dd, int req, void *argp);
-off_t   rtc_lseek(struct devid *dd, off_t off, int whence);
-ssize_t rtc_read(struct devid *dd, off_t off, void *buf, size_t sz);
-ssize_t rtc_write(struct devid *dd, off_t off, void *buf, size_t sz);
-int     rtc_mmap(struct devid *dd, vmr_t *r);
-
 #define RTC_CMD (0x70)  // RTC command port.
 #define RTC_IO  (0x71)  // RTC io data port.
 
@@ -38,11 +28,13 @@ int     rtc_mmap(struct devid *dd, vmr_t *r);
 // Status register B
 #define RTC_STB 0x0B
 
-static DEV_INIT(rtc, FS_CHR, DEV_RTC0, 0);
+DECL_DEVOPS(static, rtc);
+
+static DECL_DEVICE(rtc, FS_CHR, DEV_RTC0, 0);
 
 #define CURRENT_YEAR    2023
 
-static dev_t        rtcdev;
+static device_t        rtcdev;
 static size_t       rtc_secs    = 0;
 static size_t       rtc_ticks   = 0;
 static uint16_t     RTC_CENT    = 0;
@@ -140,7 +132,11 @@ static int rtc_retrieve_time(rtc_time_t *tm) {
     return 0;
 }
 
-int rtc_probe(void) {
+static int rtc_fini(struct devid *dd __unused) {
+    return 0;
+}
+
+static int rtc_probe(struct devid *dd __unused) {
     acpiFADT_t *FADT = (acpiFADT_t *)acpi_enumerate("FACP");
 
     RTC_CENT = FADT ? FADT->RTC_CENTURY: 0;
@@ -168,19 +164,19 @@ int rtc_probe(void) {
     return 0;
 }
 
-int rtc_open(struct devid *dd __unused, inode_t **pip __unused) {
+static int rtc_open(struct devid *dd __unused, inode_t **pip __unused) {
     return 0;
 }
 
-int rtc_close(struct devid *dd __unused) {
+static int rtc_close(struct devid *dd __unused) {
     return 0;
 }
 
-int rtc_getinfo(struct devid *dd __unused, void *info __unused) {
+static int rtc_getinfo(struct devid *dd __unused, void *info __unused) {
     return -ENOTSUP;
 }
 
-int rtc_ioctl(struct devid *dd, int req, void *argp) {
+static int rtc_ioctl(struct devid *dd, int req, void *argp) {
     int err = 0;
 
     if (dd == NULL)
@@ -205,14 +201,14 @@ int rtc_ioctl(struct devid *dd, int req, void *argp) {
     return err;
 }
 
-off_t rtc_lseek(struct devid *dd, off_t off, int whence) {
+static off_t rtc_lseek(struct devid *dd, off_t off, int whence) {
     (void)dd;
     (void)off;
     (void)whence;
     return -ENOTSUP;
 }
 
-ssize_t rtc_read(struct devid *dd, off_t off, void *buf, size_t sz) {
+static ssize_t rtc_read(struct devid *dd, off_t off, void *buf, size_t sz) {
     (void)dd;
     (void)off;
     (void)buf;
@@ -220,7 +216,7 @@ ssize_t rtc_read(struct devid *dd, off_t off, void *buf, size_t sz) {
     return -ENOTSUP;
 }
 
-ssize_t rtc_write(struct devid *dd, off_t off, void *buf, size_t sz) {
+static ssize_t rtc_write(struct devid *dd, off_t off, void *buf, size_t sz) {
     (void)dd;
     (void)off;
     (void)buf;
@@ -228,7 +224,7 @@ ssize_t rtc_write(struct devid *dd, off_t off, void *buf, size_t sz) {
     return -ENOTSUP;
 }
 
-int rtc_mmap(struct devid *dd __unused, vmr_t *r __unused) {
+static int rtc_mmap(struct devid *dd __unused, vmr_t *r __unused) {
     if (dd == NULL)
         return -EINVAL;
 
@@ -315,7 +311,7 @@ void rtc_intr(void) {
 
 int rtc_init(void) {
     printk("Initializing Real Time Clock (RTC)...\n");
-    return kdev_register(&rtcdev, DEV_RTC0, FS_CHR);
+    return dev_register(&rtcdev);
 }
 
-MODULE_INIT(rtcdev, rtc_init, NULL, NULL);
+BUILTIN_DEVICE(rtcdev, rtc_init, NULL, NULL);

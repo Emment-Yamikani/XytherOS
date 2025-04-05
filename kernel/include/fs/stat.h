@@ -5,13 +5,13 @@
 
 
 struct  stat  {
-  devid_t         st_dev;
+  dev_t         st_dev;
   ino_t           st_ino;
   mode_t          st_mode;
   unsigned long   st_nlink;
   uid_t           st_uid;
   gid_t           st_gid;
-  devid_t         st_rdev;
+  dev_t         st_rdev;
   size_t          st_size;
   time_t          st_atime;
   time_t          st_mtime;
@@ -55,6 +55,8 @@ struct  stat  {
 #define S_ISLNK(mode)  (((mode) & S_IFMT) == S_IFLNK)   // Test for a symbolic link
 #define S_ISSOCK(mode) (((mode) & S_IFMT) == S_IFSOCK)  // Test for a socket
 
+#define S_ISDEV(mode) (S_ISBLK(mode) || S_ISCHR(mode))
+
 #define S_IRWXU     (S_IRUSR | S_IWUSR | S_IXUSR)
 #define     S_IRUSR 0000400 /* read permission, owner */
 #define     S_IWUSR 0000200 /* write permission, owner */
@@ -67,6 +69,10 @@ struct  stat  {
 #define     S_IROTH 0000004 /* read permission, other */
 #define     S_IWOTH 0000002 /* write permission, other */
 #define     S_IXOTH 0000001/* execute/search permission, other */
+
+static inline bool valid_mode_type(mode_t mode) {
+    return !(!S_ISCHR(mode) && !S_ISBLK(mode) && !S_ISFIFO(mode) && !S_ISSOCK(mode) && !S_ISREG(mode));
+}
 
 int fstat(int fd, struct stat *buf);
 int stat(const char *restrict path, struct stat *restrict buf);

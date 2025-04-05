@@ -19,4 +19,4 @@ static int ps2_init(void) {
         return err;
 
     return 0;
-} MODULE_INIT(ps2_controler, ps2_init, NULL, NULL);
+} BUILTIN_DEVICE(ps2_controler, ps2_init, NULL, NULL);

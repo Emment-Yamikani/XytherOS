@@ -5,20 +5,24 @@
 #include <string.h>
 #include <sys/thread.h>
 
-DEV_DECL_OPS(static, ptmx);
+DECL_DEVOPS(static, ptmx);
 
-static DEV_INIT(ptmx, FS_CHR, DEV_PTMX, 2);
+static DECL_DEVICE(ptmx, FS_CHR, DEV_PTMX, 2);
 
 static int ptmx_init(void) {
     int err = 0;
 
-    printk("Initializing \e[025453;011m%s\e[0m chardev...\n", ptmxdev.dev_name);
+    printk("Initializing \e[025453;011m%s\e[0m chardev...\n", ptmxdev.name);
     if ((err = pseudo_init()))
         return err;
-    return kdev_register(&ptmxdev, DEV_PTMX, FS_CHR);
+    return dev_register(&ptmxdev);
 }
 
-static int ptmx_probe(void) {
+static int ptmx_probe(struct devid *dd __unused) {
+    return 0;
+}
+
+static int ptmx_fini(struct devid *dd __unused) {
     return 0;
 }
 
@@ -127,4 +131,4 @@ static int ptmx_mmap(struct devid *dd, vmr_t *region) {
     return -ENOSYS;
 }
 
-MODULE_INIT(ptmx, ptmx_init, NULL, NULL);
+BUILTIN_DEVICE(ptmx, ptmx_init, NULL, NULL);

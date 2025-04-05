@@ -6,24 +6,22 @@
 #include <sys/thread.h>
 #include <mm/kalloc.h>
 
-DEV_DECL_OPS(static, pts);
+DECL_DEVOPS(static, pts);
+static devops_t *pts_devops = DEVOPS_PTR(pts);
 
 int pts_mkslave(PTY pty) {
-    char    name[32]= {0};
     int     err     = 0;
-    dev_t   *dev    = NULL;
+    char    name[32]= {0};
+    device_t*dev    = NULL;
     mode_t  mode    = S_IFCHR; // mode will be set by grantpt().
 
     if (pty == NULL)
         return -EINVAL;
 
-    if ((err = kdev_create(name, FS_CHR, DEV_PTS, pty->pt_id, &dev)))
+    if ((err = dev_create(name, FS_CHR, DEV_PTS, pts_devops, &dev)))
         return err;
 
-    dev->dev_probe  = pts_probe;
-    dev->dev_ops    = DEVOPS(pts);
-
-    if ((err = kdev_register(dev, DEV_PTS, FS_CHR))) {
+    if ((err = dev_register(dev))) {
         dev_unlock(dev);
         kfree(dev);
         return err;
@@ -48,7 +46,11 @@ __unused static int pts_init(void) {
     return 0;
 }
 
-static int pts_probe(void) {
+static int pts_probe(struct devid *dd __unused) {
+    return 0;
+}
+
+static int pts_fini(struct devid *dd __unused) {
     return 0;
 }
 

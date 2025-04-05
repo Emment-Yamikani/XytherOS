@@ -4,16 +4,20 @@
 #include <string.h>
 #include <sync/spinlock.h>
 
-DEV_DECL_OPS(static, zero);
+DECL_DEVOPS(static, zero);
 
-static DEV_INIT(zero, FS_CHR, DEV_ZERO, 5);
+static DECL_DEVICE(zero, FS_CHR, DEV_ZERO, 5);
 
 static int zero_init(void) {
-    printk("Initializing \e[025453;011m%s\e[0m chardev...\n", zerodev.dev_name);
-    return kdev_register(&zerodev, DEV_ZERO, FS_CHR);
+    printk("Initializing \e[025453;011m%s\e[0m chardev...\n", zerodev.name);
+    return dev_register(&zerodev);
 }
 
-static int zero_probe(void) {
+static int zero_probe(struct devid *dd __unused) {
+    return 0;
+}
+
+static int zero_fini(struct devid *dd __unused) {
     return 0;
 }
 
@@ -53,4 +57,4 @@ static int zero_mmap(struct devid *dd, vmr_t *region) {
     return -ENOSYS;
 }
 
-MODULE_INIT(zero, zero_init, NULL, NULL);
+BUILTIN_DEVICE(zero, zero_init, NULL, NULL);

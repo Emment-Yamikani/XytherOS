@@ -3,14 +3,34 @@
 #include <mm/kalloc.h>
 #include <string.h>
 
+int bitmap_init_array(bitmap_t *bitmap, usize bm_size) {
+    if (!bitmap) {
+        return -EINVAL;
+    }
+
+    usize num_units = (bm_size + BITS_PER_USIZE - 1) / BITS_PER_USIZE;
+    usize *bm_array = (usize *)kcalloc(num_units, sizeof(usize));
+    if (!bm_array) {
+        return -ENOMEM; // Allocation failed
+    }
+
+    int err = bitmap_init(bitmap, bm_array, bm_size);
+    if (err) {
+        kfree(bm_array);
+        return err;
+    }
+
+    return 0;
+}
+
 int bitmap_init(bitmap_t *bitmap, usize *bm_array, usize bm_size) {
-    if (!bitmap || !bm_array || bm_size == 0) {
+    if (!bitmap || !bm_array || !bm_size) {
         return -EINVAL; // Invalid input
     }
 
-    bitmap->bm_map = bm_array;
     bitmap->bm_size = bm_size;
-    bitmap->bm_lock = SPINLOCK_INIT();
+    bitmap->bm_map  = bm_array;
+    spinlock_init(&bitmap->bm_lock);
 
     // Clear all bits
     usize num_units = (bm_size + BITS_PER_USIZE - 1) / BITS_PER_USIZE;
@@ -23,9 +43,9 @@ int bitmap_init(bitmap_t *bitmap, usize *bm_array, usize bm_size) {
 
 // Allocate a new bitmap and initialize it
 int bitmap_alloc(usize bm_size, bitmap_t **ppbm) {
-    int err = 0;
+    int err;
 
-    if (!ppbm || bm_size == 0) {
+    if (!ppbm || !bm_size) {
         return -1; // Invalid input
     }
 
@@ -38,13 +58,15 @@ int bitmap_alloc(usize bm_size, bitmap_t **ppbm) {
     bitmap_t *bitmap = (bitmap_t *)kmalloc(sizeof(bitmap_t));
     if (!bitmap) {
         kfree(bm_array);
-        return -1; // Allocation failed
+        return -ENOMEM; // Allocation failed
     }
 
-    if ((err = bitmap_init(bitmap, bm_array, bm_size) < 0)) {
-        return -err; // Initialization failed
+    if ((err = bitmap_init(bitmap, bm_array, bm_size))) {
+        kfree(bitmap);
+        kfree(bm_array);
+        return err; // Initialization failed
     }
-    
+
     *ppbm = bitmap;
 
     return 0; // Success
@@ -58,8 +80,9 @@ void bitmap_free(bitmap_t *bitmap) {
     bitmap_assert(bitmap);
     bitmap->bm_size = 0;
     
-    if (bitmap->bm_map)
+    if (bitmap->bm_map) {
         kfree(bitmap->bm_map);
+    }
     
     bitmap->bm_map = NULL;
     kfree(bitmap);
@@ -106,7 +129,7 @@ int bitmap_unset(bitmap_t *bitmap, usize pos, usize nbits) {
     // Check if any bit in the range is already unset
     for (usize i = 0; i < nbits; ++i) {
         usize index = (pos + i) / BITS_PER_USIZE;
-        usize bit = (pos + i) % BITS_PER_USIZE;
+        usize bit   = (pos + i) % BITS_PER_USIZE;
         if ((bitmap->bm_map[index] & (1UL << bit)) == 0) {
             bitmap_unlock(bitmap);
             return -EALREADY; // Attempt to unset an already unset bit
@@ -184,7 +207,7 @@ int bitmap_alloc_range(bitmap_t *bitmap, usize nbits, usize *pos) {
     }
 
     bitmap_unlock(bitmap);
-    return -ENOMEM; // No free range found
+    return -ENOSPC; // No free range found
 }
 
 /**
@@ -205,7 +228,7 @@ void bitmap_dump(bitmap_t *bitmap) {
     // Iterate through all the units in the bitmap
     for (usize i = 0; i < num_units; i += 4) {
         usize first_index = i;
-        usize last_index = first_index + 3;
+        usize last_index  = first_index + 3;
 
         if (last_index >= num_units) {
             last_index = num_units - 1;
@@ -239,7 +262,6 @@ void bitmap_dump(bitmap_t *bitmap) {
 /**
  * Dumps a specific range of the bitmap in hexadecimal format.
  * Dump a specific range of the bitmap in hexadecimal format as a table of 4 columns
- * Dump a specific range of the bitmap in hexadecimal format as a table of 4 columns
  * Each row shows the integer index and the range of bits it represents.
  * Dump a specific range of the bitmap in a formatted table with proper column alignment
  * 
@@ -257,7 +279,7 @@ void bitmap_dump_range(bitmap_t *bitmap, usize start, usize end) {
     }
 
     usize start_index = start / BITS_PER_USIZE;
-    usize end_index = (end + BITS_PER_USIZE - 1) / BITS_PER_USIZE; // Round up to include the end bit
+    usize end_index   = (end + BITS_PER_USIZE - 1) / BITS_PER_USIZE; // Round up to include the end bit
     usize total_units = end_index - start_index;
 
     
@@ -268,7 +290,7 @@ void bitmap_dump_range(bitmap_t *bitmap, usize start, usize end) {
     // Iterate through the relevant part of the bitmap
     for (usize i = 0; i < total_units; i += 4) {
         usize first_index = start_index + i;
-        usize last_index = first_index + 3;
+        usize last_index  = first_index + 3;
 
         if (last_index >= end_index) {
             last_index = end_index - 1;
@@ -286,12 +308,13 @@ void bitmap_dump_range(bitmap_t *bitmap, usize start, usize end) {
             }
 
             usize bit_start = current_index * BITS_PER_USIZE;
-            usize bit_end = bit_start + BITS_PER_USIZE - 1;
+            usize bit_end   = bit_start + BITS_PER_USIZE - 1;
 
             // Ensure bit ranges are clamped to the requested range
             if (bit_start < start) {
                 bit_start = start;
             }
+
             if (bit_end >= end) {
                 bit_end = end - 1;
             }
@@ -323,7 +346,7 @@ void bitmap_dump_with_columns(bitmap_t *bitmap, usize num_columns) {
 
     for (usize i = 0; i < num_units; i += num_columns) {
         usize first_index = i;
-        usize last_index = first_index + num_columns - 1;
+        usize last_index  = first_index + num_columns - 1;
 
         if (last_index >= num_units) {
             last_index = num_units - 1;
@@ -368,7 +391,7 @@ void bitmap_dump_range_with_columns(bitmap_t *bitmap, usize start, usize end, us
     }
 
     usize start_unit = start / BITS_PER_USIZE;
-    usize end_unit = end / BITS_PER_USIZE;
+    usize end_unit   = end / BITS_PER_USIZE;
     // usize num_units = end_unit - start_unit + 1;
 
     
@@ -378,7 +401,7 @@ void bitmap_dump_range_with_columns(bitmap_t *bitmap, usize start, usize end, us
 
     for (usize i = start_unit; i <= end_unit; i += num_columns) {
         usize first_index = i;
-        usize last_index = first_index + num_columns - 1;
+        usize last_index  = first_index + num_columns - 1;
 
         if (last_index > end_unit) {
             last_index = end_unit;
@@ -395,12 +418,13 @@ void bitmap_dump_range_with_columns(bitmap_t *bitmap, usize start, usize end, us
             }
 
             usize bit_start = current_index * BITS_PER_USIZE;
-            usize bit_end = bit_start + BITS_PER_USIZE - 1;
+            usize bit_end   = bit_start + BITS_PER_USIZE - 1;
 
             // Clip the bit range to the specified range
             if (bit_start < start) {
                 bit_start = start;
             }
+
             if (bit_end > end) {
                 bit_end = end;
             }

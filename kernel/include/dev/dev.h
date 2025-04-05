@@ -1,10 +1,8 @@
 #pragma once
 
-#include <core/module.h>
 #include <core/types.h>
 #include <dev/rtc.h>
 #include <fs/fs.h>
-#include <lib/printk.h>
 #include <sync/spinlock.h>
 
 /*Character Devices */
@@ -35,124 +33,183 @@
 #define DEV_SDA     8   // minor=[0..n-1]
 #define DEV_CDROM   11  // minor=[0..n-1]
 
-typedef struct {
+#define DEV_TO_MAJOR(dev)      ((devno_t)((dev) & 0xffu))
+#define MAJOR_TO_DEV(major)    ((dev_t)((devno_t)(major) & 0xffu))
+
+#define DEV_TO_MINOR(dev)      ((devno_t)(((dev) >> 8) & 0xffu))
+#define MINOR_TO_DEV(minor)    ((dev_t)(((devno_t)(minor) << 8) & 0xff00u))
+
+#define DEV_T(major, minor)     (MINOR_TO_DEV(minor) | MAJOR_TO_DEV(major))
+
+#define DEVID_MAJOR(dd)         ((dd)->major)
+#define DEVID_MINOR(dd)         ((dd)->minor)
+#define DEVID_TYPE(dd)          ((dd)->type)
+#define DEVID_TO_DEVT(dd)       DEV_T(DEVID_MINOR(dd), DEVID_MAJOR(dd))
+
+#define DEVNO_EQ(d0, d1)        ((d0) == (d1))
+#define DEVID_EQ(dd0, dd1)      (DEVNO_EQ((dd0)->major, (dd1)->major) && DEVNO_EQ((dd0)->minor, (dd1)->minor))
+#define DEVID_CMP(dd0, dd1)     (((dd0) == (dd1) || DEVID_EQ(dd0, dd1)))
+
+#define DEVID(ip, typ, dev) (devid_t){  \
+    .inode = (ip),                      \
+    .type  = (typ),                     \
+    .major = DEV_TO_MAJOR(dev),         \
+    .minor = DEV_TO_MINOR(dev),         \
+}
+
+#define DEVID_PTR(ip, typ, dev) (&DEVID(ip, typ, dev))    
+
+#define IDEVID(ip)          DEVID_PTR(ip, INODE_TYPE(ip), INODE_DEV(ip))
+#define INODE_TO_DEVID(ip)  DEVID_PTR(ip, INODE_TYPE(ip), INODE_DEV(ip))
+
+#define MAX_MAJOR   256
+#define MAX_MINOR   256
+
+static inline bool valid_devno(devno_t num, devno_t limit) {
+    return (num >= 0 && num < limit) ? true : false;
+}
+
+static inline bool valid_major(devno_t major) {
+    return valid_devno(major, MAX_MINOR);
+}
+
+static inline bool valid_minor(devno_t minor) {
+    return valid_devno(minor, MAX_MINOR);
+}
+
+static inline bool valid_device_numbers(devno_t major, devno_t minor) {
+    return valid_major(major) && valid_minor(minor);
+}
+
+enum {CHRDEV = FS_CHR, BLKDEV = FS_BLK};
+
+static inline bool valid_device_type(int type) {
+    return (type == CHRDEV || type == BLKDEV) ? true : false;
+}
+
+static inline bool valid_devid(struct devid *dd) {
+    return (dd && (valid_device_type(dd->type) && valid_device_numbers(dd->major, dd->minor))) ? true : false;
+}
+
+typedef struct devops {
+    int     (*probe)(struct devid *dd);
+    int     (*fini)(struct devid *dd);
     int     (*close)(struct devid *dd);
     int     (*open)(struct devid *dd, inode_t **pip);
-    int     (*mmap)(struct devid *dd, vmr_t *region);
     int     (*getinfo)(struct devid *dd, void *info);
-    off_t   (*lseek)(struct devid *dd, off_t off, int whence);
+    int     (*mmap)(struct devid *dd, vmr_t *vmregion);
     int     (*ioctl)(struct devid *dd, int request, void *arg);
-    ssize_t (*read)(struct devid *dd, off_t off, void *buf, size_t nbyte);
-    ssize_t (*write)(struct devid *dd, off_t off, void *buf, size_t nbyte);
+    off_t   (*lseek)(struct devid *dd, off_t offset, int whence);
+    isize   (*read)(struct devid *dd, off_t off, void *buf, usize size);
+    isize   (*write)(struct devid *dd, off_t off, void *buf, usize size);
 } devops_t;
 
+#define DEVOPS(prefix) (devops_t) {    \
+    .probe      = prefix##_probe,      \
+    .fini       = prefix##_fini,      \
+    .close      = prefix##_close,      \
+    .open       = prefix##_open,       \
+    .getinfo    = prefix##_getinfo,    \
+    .mmap       = prefix##_mmap,       \
+    .ioctl      = prefix##_ioctl,      \
+    .lseek      = prefix##_lseek,      \
+    .read       = prefix##_read,       \
+    .write      = prefix##_write,      \
+}
+
+#define DEVOPS_PTR(prefix) &DEVOPS(prefix)
+
+#define DECL_DEVOPS(__privacy__, __prefix__)                                             \
+__privacy__ int __prefix__##_probe(struct devid *dd);                                    \
+__privacy__ int __prefix__##_fini(struct devid *dd);                                     \
+__privacy__ int __prefix__##_close(struct devid *dd);                                    \
+__privacy__ int __prefix__##_open(struct devid *dd, inode_t **pip);                      \
+__privacy__ int __prefix__##_getinfo(struct devid *dd, void *info);                      \
+__privacy__ int __prefix__##_mmap(struct devid *dd, vmr_t *vmregion);                    \
+__privacy__ int __prefix__##_ioctl(struct devid *dd, int request, void *arg);            \
+__privacy__ off_t __prefix__##_lseek(struct devid *dd, off_t offset, int whence);        \
+__privacy__ isize __prefix__##_read(struct devid *dd, off_t off, void *buf, usize size); \
+__privacy__ isize __prefix__##_write(struct devid *dd, off_t off, void *buf, usize size);
+
+typedef struct device {
+    struct devid    devid;
+    devops_t        devops;
+    atomic_long     refcnt;
+    char            name[32];
+    void            *private;
+    spinlock_t      spinlock;
+} device_t;
+
+#define DEVICE_TYPE(dev)    ((dev)->devid.type)
+
+#define DECL_DEVICE(__name, __type, __major, __minor)      \
+device_t __name##dev = {                                   \
+    .refcnt = 0,                                           \
+    .private = NULL,                                       \
+    .name = #__name,                                       \
+    .devops = DEVOPS(__name),                              \
+    .spinlock = SPINLOCK_INIT(),                           \
+    .devid = DEVID(NULL, __type, DEV_T(__major, __minor)), \
+}
+
+#define dev_assert(dev)         assert(dev, "Invalid device.")
+#define dev_lock(dev)           ({ dev_assert(dev); spin_lock(&(dev)->spinlock); })
+#define dev_unlock(dev)         ({ dev_assert(dev); spin_unlock(&(dev)->spinlock); })
+#define dev_islocked(dev)       ({ dev_assert(dev); spin_islocked(&(dev)->spinlock); })
+#define dev_recursive_lock(dev) ({ dev_assert(dev); spin_recursive_lock(&(dev)->spinlock); })
+#define dev_assert_locked(dev)  ({ dev_assert(dev); spin_assert_locked(&(dev)->spinlock); })
+
+static inline int valid_device(device_t *dev) {
+    return (dev && valid_devid(&dev->devid)) ? true : false;
+}
+
+typedef struct builtin_device {
+    void    *arg;
+    char    *name;
+    int     (*init)();
+    int     (*fini)();
+} builtin_device_t;
+
+extern builtin_device_t __builtin_devices[];
+extern builtin_device_t __builtin_devices_end[];
+
 /**
- * @brief Macro to declare function ops for a device driver.
- * This is for easy and faster implemention to avoid duplication
- * as much as possible.*/
-#define DEV_DECL_OPS(__privacy__, __prefix__)                                                     \
-    __privacy__ int __prefix__##_probe(void);                                                     \
-    __privacy__ int __prefix__##_close(struct devid *dd);                                         \
-    __privacy__ int __prefix__##_getinfo(struct devid *dd, void *info);                           \
-    __privacy__ int __prefix__##_open(struct devid *dd, inode_t **pip);                           \
-    __privacy__ off_t __prefix__##_lseek(struct devid *dd, off_t off, int whence);                \
-    __privacy__ int __prefix__##_ioctl(struct devid *dd, int request, void *arg);                 \
-    __privacy__ ssize_t __prefix__##_read(struct devid *dd, off_t off, void *buf, size_t nbyte);  \
-    __privacy__ ssize_t __prefix__##_write(struct devid *dd, off_t off, void *buf, size_t nbyte); \
-    __privacy__ int __prefix__##_mmap(struct devid *dd, vmr_t *region)
+ * @brief Declare a builtin device driver.
+ * 
+ * @param n[in] name of device driver.
+ * @param i[in] init function of device driver.
+ * @param a[in] argument passed to init.
+ * @param f[in] fini function of device driver.
+ * 
+ */
+#define BUILTIN_DEVICE(n, i, a, f) \
+    builtin_device_t __used_section(.__builtin_devices) __dev_##n = {.name = #n, .arg = a, .init = i, .fini = f}
 
-#define DEVOPS(__prefix__)(devops_t){\
-    .close = __prefix__##_close,     \
-    .open = __prefix__##_open,       \
-    .mmap = __prefix__##_mmap,       \
-    .getinfo = __prefix__##_getinfo, \
-    .lseek = __prefix__##_lseek,     \
-    .ioctl = __prefix__##_ioctl,     \
-    .read = __prefix__##_read,       \
-    .write = __prefix__##_write,     \
-}
-
-typedef struct dev {
-    struct devid    dev_id;             // device id.
-    devops_t        dev_ops;            // device operations.
-    char            *dev_name;          // name of device.
-    void            *dev_priv;          // device private data.
-    int             (*dev_probe)();     // dev prober, call by kdev_register().
-    int             (*dev_mount)();     // dev mount function. (TODO: may we don't need this?)
-    void            (*dev_fini)(struct devid *dd);
-    struct dev      *dev_prev;          // prev in this dev major(driver)'s list.
-    struct dev      *dev_next;          // next in this dev major(driver)'s list.
-    spinlock_t      dev_lck;            // dev struct lock.
-} dev_t;
-
-#define dev_assert(dev)         ({ assert((dev), "No dev"); })
-#define dev_lock(dev)           ({ dev_assert(dev); spin_lock(&(dev)->dev_lck); })
-#define dev_unlock(dev)         ({ dev_assert(dev); spin_unlock(&(dev)->dev_lck); })
-#define dev_islocked(dev)       ({ dev_assert(dev); spin_islocked(&(dev)->dev_lck); })
-#define dev_assert_locked(dev)  ({ dev_assert(dev); spin_assert_locked(&(dev)->dev_lck); })
-
-#define DEVID(_type, _rdev) ((struct devid){   \
-    .major = ((devid_t)(_rdev)) & 0xffu,       \
-    .minor = (((devid_t)(_rdev)) >> 8) & 0xffu,\
-    .type = ((itype_t)_type),                  \
-})
-
-#define DEVID_PTR(_type, _rdev) (&DEVID(_type, _rdev))
-
-#define IDEVID(__ip__) (&(struct devid){                  \
-    .inode = (inode_t *)(__ip__),                         \
-    .major = ((devid_t)((__ip__)->i_rdev)) & 0xffu,       \
-    .minor = (((devid_t)((__ip__)->i_rdev)) >> 8) & 0xffu,\
-    .type = ((itype_t)(__ip__)->i_type),                  \
-})
-
-#define DEVID_CMP(dd0, dd1) ({((dd0)->major == (dd1)->major) && ((dd0)->minor == (dd1)->minor); })
-
-#define DEV_T(major, minor) ((devid_t)(((devid_t)(minor) << 8) & 0xff00u) | ((devid_t)(major) & 0xffu))
-
-#define DEV_INIT(name, _type, _major, _minor) \
-dev_t name##dev = {                       \
-    .dev_lck = SPINLOCK_INIT(),           \
-    .dev_name = #name,                    \
-    .dev_next = NULL,                     \
-    .dev_prev = NULL,                     \
-    .dev_probe = name##_probe,            \
-    .dev_id = {                           \
-        .type = (_type),                  \
-        .major = (_major),                \
-        .minor = (_minor),                \
-    },                                    \
-    .dev_ops = {                          \
-        .close = name##_close,            \
-        .getinfo = name##_getinfo,        \
-        .open = name##_open,              \
-        .lseek = name##_lseek,            \
-        .ioctl = name##_ioctl,            \
-        .read = name##_read,              \
-        .write = name##_write,            \
-        .mmap = name##_mmap,              \
-    },                                    \
-}
-
-extern int dev_init(void);
-extern int kdev_unregister(struct devid *dd);
-extern dev_t *kdev_get(struct devid *dd);
-extern int kdev_register(dev_t *, uint8_t major, uint8_t type);
-
-extern int     kdev_close(struct devid *dd);
-extern int     kdev_open(struct devid *dd, inode_t **pip);
-extern int     kdev_mmap(struct devid *dd, vmr_t *region);
-extern off_t   kdev_lseek(struct devid *dd, off_t off, int whence);
-extern int     kdev_ioctl(struct devid *dd, int request, void *argp);
-extern ssize_t kdev_read(struct devid *dd, off_t off, void *buf, size_t nbyte);
-extern ssize_t kdev_write(struct devid *dd, off_t off, void *buf, size_t nbyte);
+#define foreach_builtin_device() \
+    for (builtin_device_t *dev = __builtin_devices; dev < __builtin_devices_end; ++dev)
 
 typedef struct {
     size_t bi_size;
     size_t bi_blocksize;
 } bdev_info_t;
 
-extern void kdev_free(dev_t *dev);
-extern int kdev_getinfo(struct devid *dd, void *info);
-extern int kdev_open_bdev(const char *bdev_name, struct devid *pdd);
-extern int kdev_create(const char *devname, uint8_t type, uint8_t major, uint8_t minor, dev_t **pdd);
+extern int  find_bdev_by_name(const char *name, struct devid *dd);
+extern int  find_cdev_by_name(const char *name, struct devid *dd);
+
+extern int  dev_register(device_t *dev);
+extern int  dev_unregister(struct devid *dd);
+
+extern void dev_destroy(device_t *dev);
+extern int  kdev_create(const char *dev_name, int type, dev_t devid, const devops_t *devops, device_t **pdp);
+extern int  dev_create(const char *name, int type, devno_t major, const devops_t *devops, device_t **pdp);
+
+extern int  dev_probe(struct devid *dd);
+extern int  dev_fini(struct devid *dd);
+extern int  dev_close(struct devid *dd);
+extern int  dev_open(struct devid *dd, inode_t **pip);
+extern int  dev_getinfo(struct devid *dd, void *info);
+extern int  dev_mmap(struct devid *dd, vmr_t *vmregion);
+extern int  dev_ioctl(struct devid *dd, int request, void *arg);
+extern off_t dev_lseek(struct devid *dd, off_t offset, int whence);
+extern isize dev_read(struct devid *dd, off_t off, void *buf, usize size);
+extern isize dev_write(struct devid *dd, off_t off, void *buf, usize size);

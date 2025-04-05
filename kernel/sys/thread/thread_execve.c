@@ -38,7 +38,7 @@ error:
 
     if (ustack_vmr) mmap_remove(thread->t_mmap, ustack_vmr);
 
-    todo("Implement a function to reverse mmap_argenvcpy(): Error[%s].\n", perror(err));
+    todo("Implement a function to reverse mmap_argenvcpy(): Error[%s].\n", strerror(err));
 
     return err;
 }

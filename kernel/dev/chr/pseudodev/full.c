@@ -4,16 +4,20 @@
 #include <string.h>
 #include <sync/spinlock.h>
 
-DEV_DECL_OPS(static, full);
+DECL_DEVOPS(static, full);
 
-static DEV_INIT(full, FS_CHR, DEV_FULL, 7);
+static DECL_DEVICE(full, FS_CHR, DEV_FULL, 7);
 
 static int full_init(void) {
-    printk("Initializing \e[025453;011m%s\e[0m chardev...\n", fulldev.dev_name);
-    return kdev_register(&fulldev, DEV_FULL, FS_CHR);
+    printk("Initializing \e[025453;011m%s\e[0m chardev...\n", fulldev.name);
+    return dev_register(&fulldev);
 }
 
-static int full_probe(void) {
+static int full_probe(struct devid *dd __unused) {
+    return 0;
+}
+
+static int full_fini(struct devid *dd __unused) {
     return 0;
 }
 
@@ -55,4 +59,4 @@ static int full_mmap(struct devid *dd, vmr_t *region) {
     return -ENOSYS;
 }
 
-MODULE_INIT(full, full_init, NULL, NULL);
+BUILTIN_DEVICE(full, full_init, NULL, NULL);

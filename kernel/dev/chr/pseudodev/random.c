@@ -4,15 +4,19 @@
 #include <string.h>
 #include <sync/spinlock.h>
 
-DEV_DECL_OPS(static, random);
-static DEV_INIT(random, FS_CHR, DEV_RANDOM, 8);
+DECL_DEVOPS(static, random);
+static DECL_DEVICE(random, FS_CHR, DEV_RANDOM, 8);
 
 static int random_init(void) {
-    printk("Initializing \e[025453;011m%s\e[0m chardev...\n", randomdev.dev_name);
-    return kdev_register(&randomdev, DEV_RANDOM, FS_CHR);
+    printk("Initializing \e[025453;011m%s\e[0m chardev...\n", randomdev.name);
+    return dev_register(&randomdev);
 }
 
-static int random_probe(void) {
+static int random_probe(struct devid *dd __unused) {
+    return 0;
+}
+
+static int random_fini(struct devid *dd __unused) {
     return 0;
 }
 
@@ -52,4 +56,4 @@ static int random_mmap(struct devid *dd, vmr_t *region) {
     return -ENOSYS;
 }
 
-MODULE_INIT(random, random_init, NULL, NULL);
+BUILTIN_DEVICE(random, random_init, NULL, NULL);

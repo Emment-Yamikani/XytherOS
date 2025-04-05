@@ -34,8 +34,9 @@ void zone_dump(zone_t *zone) {
 
 
 int getzone_byaddr(uintptr_t paddr, usize size, zone_t **ppz) {
-    if (ppz == NULL)
+    if (ppz == NULL) {
         return -EINVAL;
+    }
     
     for (zone_t *zone = zones; zone < &zones[NZONE]; ++zone) {
         zone_lock(zone);
@@ -51,8 +52,9 @@ int getzone_byaddr(uintptr_t paddr, usize size, zone_t **ppz) {
 }
 
 int getzone_bypage(page_t *page, zone_t **ppz) {
-    if (page == NULL || ppz == NULL)
+    if (page == NULL || ppz == NULL) {
         return -EINVAL;
+    }
     
     for (zone_t *zone = zones; zone < &zones[NZONE]; ++zone) {
         zone_lock(zone);
@@ -70,8 +72,9 @@ int getzone_bypage(page_t *page, zone_t **ppz) {
 int getzone_byindex(int zone_i, zone_t **ref) {
     zone_t *zone = NULL;
 
-    if ((zone_i < 0) || (zone_i > (int)NELEM(zones)))
+    if ((zone_i < 0) || (zone_i > (int)NELEM(zones))) {
         return -EINVAL;
+    }
 
     zone = &zones[zone_i];
     zone_lock(zone);
@@ -93,10 +96,9 @@ int getzone_byindex(int zone_i, zone_t **ref) {
  * @return 0 on success, -EINVAL if the previous zone isn't valid.
  */
 static int zone_enumerate(zone_t *zone, usize *memsz) {
-    int         err  = 0;
-
-    if (zone == NULL)
+    if (zone == NULL) {
         return -EINVAL;
+    }
 
     zone_assert_locked(zone);
 
@@ -104,24 +106,20 @@ static int zone_enumerate(zone_t *zone, usize *memsz) {
 
     switch (zone - zones) {
     case ZONEi_DMA:
-        if (*memsz > M2KiB(16)) {
-            zone->size = MiB(16);
-        } else zone->size = KiB(*memsz);
-
         zone->start = 0; // DMA zone starts at 0x0
+        zone->size  = (*memsz > M2KiB(16)) ? MiB(16) : KiB(*memsz);
         break;
     case ZONEi_NORM:
         // enure that the previous zone is initialize before this one.
-        if (!((zone - 1)->flags & ZONE_VALID))
+        if (!((zone - 1)->flags & ZONE_VALID)) {
             return -EINVAL;
+        }
 
         /// manipulate the available memory size.
         /// if available memory size is large split it.
         /// else use as is.
         /// memsz is in KiB.
-        if (*memsz > M2KiB(2032)) {
-            zone->size = MiB(2032);
-        } else zone->size = KiB(*memsz);
+        zone->size = (*memsz > M2KiB(2032)) ? MiB(2032) : KiB(*memsz);
 
         /// set this zone starts @ 16MiB.
         zone->start = MiB(16);
@@ -129,8 +127,9 @@ static int zone_enumerate(zone_t *zone, usize *memsz) {
         break;
     case ZONEi_HOLE:
         // enure that the previous zone is initialize before this one.
-        if (!((zone - 1)->flags & ZONE_VALID))
+        if (!((zone - 1)->flags & ZONE_VALID)) {
             return -EINVAL;
+        }
 
         /** We add 1 MiB because multiboot says;
          * "The value returned for upper memory is
@@ -145,11 +144,12 @@ static int zone_enumerate(zone_t *zone, usize *memsz) {
         break;
     case ZONEi_HIGH:
         // enure that the previous zone is initialize before this one.
-        if (!((zone - 1)->flags & ZONE_VALID))
+        if (!((zone - 1)->flags & ZONE_VALID)) {
             return -EINVAL;
+        }
 
         /// for HIGH memory zone, no spliting is needed.
-        zone->size     = KiB(*memsz);
+        zone->size  = KiB(*memsz);
 
         /// set this zone starts @ 4GiB.
         zone->start = GiB(4);
@@ -161,27 +161,33 @@ static int zone_enumerate(zone_t *zone, usize *memsz) {
     zone->npages   = NPAGE(zone->size);
 
     if (zone_size(zone) != 0) {
-        usize bitmap_u64s   = 0;
-        usize *bitmap_array = NULL;
-        size_t size = 0;
+        size_t size;
+        usize  bitmap_u64s;
+        page_t *page_array;
+        usize  *bitmap_array;
 
         bitmap_u64s = ((zone->npages + BITS_PER_USIZE - 1) / BITS_PER_USIZE);
 
-        size = bitmap_u64s * sizeof(usize);
-        size += zone->npages * sizeof(page_t);
-        size = NPAGE(size) * PGSZ;
+        size         = bitmap_u64s * sizeof(usize);
+        size         += zone->npages * sizeof(page_t);
+        size         = NPAGE(size) * PGSZ;
         bitmap_array = boot_alloc(size, PGSZ);
+        /* index into the allocated bitmap to get the address
+         of the page_array, this is because the bitmap array and 
+         page array are both allocated together in one buffer. */
+        page_array   = (page_t *)&bitmap_array[bitmap_u64s];
 
-        if ((err = bitmap_init(&zone->bitmap, bitmap_array, zone->npages)))
+        int err;
+        if ((err = bitmap_init(&zone->bitmap, bitmap_array, zone->npages))) {
             return err;
+        }
 
-        zone->pages = (page_t *)&bitmap_array[bitmap_u64s];
+        zone->pages = page_array;
 
         // mark zone as valid for use.
         zone_flags_set(zone, ZONE_VALID);
         // clear the page array.
         memset(zone->pages, 0, sizeof(page_t) * zone->npages);
-
     }
 
     *memsz -= B2KiB(zone->size);
@@ -224,8 +230,9 @@ static int process_pages(zone_t *zone, uintptr_t addr, usize size) {
     usize   np      = 0;
     page_t  *page   = NULL;
 
-    if (zone == NULL)
+    if (zone == NULL) {
         return -EINVAL;
+    }
 
     page = zone->pages + NPAGE(addr - zone->start);
     for (np = NPAGE(size); np; --np, page++, addr += PGSZ) {
@@ -255,19 +262,22 @@ static int process_memory_map(boot_mmap_t *map) {
     zone_t      *zone   = NULL;
 
     // Skip available regions or regions outside the physical memory.
-    if ((map->addr >= V2HI(MEMMIO)) || (map->type == MULTIBOOT_MEMORY_AVAILABLE))
+    if ((map->addr >= V2HI(MEMMIO)) || (map->type == MULTIBOOT_MEMORY_AVAILABLE)) {
         return 0;
+    }
 
     size = map->size;
     addr = PGROUND(V2LO(map->addr));
 
-    if ((err = getzone_byaddr(addr, size, &zone)))
+    if ((err = getzone_byaddr(addr, size, &zone))) {
         panic("PANIC: %s(): %s:%d: Couldn't get zone for mmap[%p: %d], err: %d\n",
             __func__, __FILE__, __LINE__, addr, size, err);
+    }
 
-    if ((err = process_pages(zone, addr, size)))
+    if ((err = process_pages(zone, addr, size))) {
         panic("PANIC: %s(): %s:%d: Couldn't process memory region[%p: %ld]. err: %d\n",
             __func__, __FILE__, __LINE__, addr, size, err);
+    }
 
     zone_unlock(zone);
     return 0;
@@ -284,14 +294,16 @@ int zones_init(void) {
 
     // Initialize zones.
     for (zone = zones; zone < &zones[NZONE]; ++zone) {
-        if ((err = initialize_memory_zone(zone, &memsz)))
+        if ((err = initialize_memory_zone(zone, &memsz))) {
             return err;
+        }
     }
 
     // Process memory map regions.
     for (map = bootinfo.mmap; map < &bootinfo.mmap[bootinfo.mmapcnt]; ++map) {
-        if ((err = process_memory_map(map)))
+        if ((err = process_memory_map(map))) {
             return err;
+        }
     }
 
     // printk("Memory zones initialized.\n");
@@ -305,8 +317,9 @@ int physical_memory_init(void) {
     uintptr_t   addr = 0;
     boot_mmap_t *map = bootinfo.mmap;
 
-    if ((err = zones_init()))
+    if ((err = zones_init())) {
         return 0;
+    }
     
     size = GiB(2) - PGROUNDUP(zones[ZONEi_NORM].size);
 

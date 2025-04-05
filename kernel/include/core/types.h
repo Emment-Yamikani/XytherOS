@@ -57,21 +57,23 @@ typedef     struct timeval          timeval_t;
 typedef     struct timespec         timespec_t;
 
 
-typedef     uint16_t                devid_t;
+typedef     uint16_t                dev_t;
 typedef     slong                   ssize_t;
 
 typedef     struct inode*           INODE;
 typedef     struct inode            inode_t;
 typedef     struct __pipe_t         pipe_t;
 
-struct devid {
-    inode_t     *inode;
-    uint8_t     major;
-    uint8_t     minor;
-    uint8_t     type;
-};
+typedef     int                     devno_t;
 
-typedef     struct dev              dev_t;
+typedef struct devid {
+    inode_t *inode;
+    devno_t major; // major number.
+    devno_t minor; // minor number.
+    int     type;  // type of device.
+} devid_t;
+
+typedef     struct device           device_t;
 
 typedef     struct cpu_t            cpu_t;
 

@@ -9,11 +9,11 @@
 #include <string.h>
 #include <sync/spinlock.h>
 
-DEV_DECL_OPS(static, fb);
+DECL_DEVOPS(static, fb);
 
 static int fb_vmr_fault(vmr_t *region, vm_fault_t *fault);
 
-static dev_t            fbdev;
+static device_t            fbdev;
 fb_fixinfo_t            fix_info       = {0};
 fb_varinfo_t            var_info       = {0};
 static framebuffer_t    fbs[NFBDEV]    = {0};
@@ -28,7 +28,7 @@ static vmr_ops_t fb_vmrops = {
 #define fbislocked(fb)  ({ spin_islocked(&(fb)->lock); })
 
 
-static DEV_INIT(fb, FS_CHR, DEV_FB, 0);
+static DECL_DEVICE(fb, FS_CHR, DEV_FB, 0);
 
 #define VESA_ID    "VESA-VBE3"
 
@@ -69,11 +69,15 @@ int framebuffer_gfx_init(void) {
 }
 
 static int fb_init(void) {
-    printk("Initializing \e[025453;011m%s\e[0m chardev...\n", fbdev.dev_name);
-    return kdev_register(&fbdev, DEV_FB, FS_CHR);
+    printk("Initializing \e[025453;011m%s\e[0m chardev...\n", fbdev.name);
+    return dev_register(&fbdev);
 }
 
-static int fb_probe(void) {
+static int fb_probe(devid_t *dd __unused) {
+    return 0;
+}
+
+static int fb_fini(struct devid *dd __unused) {
     return 0;
 }
 
@@ -279,4 +283,4 @@ static int fb_mmap(struct devid *dd, vmr_t *region) {
     return 0;
 }
 
-MODULE_INIT(fbdev, fb_init, NULL, NULL);
+BUILTIN_DEVICE(fbdev, fb_init, NULL, NULL);

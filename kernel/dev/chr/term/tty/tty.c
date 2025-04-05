@@ -4,76 +4,81 @@
 #include <string.h>
 #include <sys/thread.h>
 
-DEV_DECL_OPS(static, tty);
+DECL_DEVOPS(static, tty);
 
 static tty_t ttys[NTTY];
 
-static int tty_probe(void) {
-    return 0;
-}
-
 static int tty_init(void) {
-    int     err     = 0;
-    dev_t   *dev    = NULL;
-    char    tty_name[8];
-
+    device_t *dev = NULL;
+    char     tty_name[8];
+    
     memset(ttys, 0, sizeof ttys);
-
+    
     for (int tty = 0; tty < NTTY; ++tty) {
-        snprintf(tty_name, sizeof tty_name, "tty%d", tty);
-
-        if ((err = kdev_create(tty_name, FS_CHR, DEV_TTY, tty, &dev)))
+        snprintf(tty_name, sizeof tty_name - 1, "tty%d", tty);
+        
+        int err = dev_create(tty_name, CHRDEV, DEV_TTY, DEVOPS_PTR(tty), &dev);
+        if (err != 0) {
+            perror("Failed to create tty device descriptor", err);
             return err;
+        }
 
         ttys[tty].dev   = dev;
-        dev->dev_probe  = tty_probe;
-        dev->dev_ops    = DEVOPS(tty);
 
-        printk("Initializing \e[025453;011m%s\e[0m chardev...\n", dev->dev_name);
+        printk("Initializing \e[025453;011m%s\e[0m chardev...\n", dev->name);
 
-        if ((err = kdev_register(dev, DEV_TTY, FS_CHR))) {
+        if ((err = dev_register(dev))) {
             for (int tty = 0; tty < NTTY; ++tty) {
-                int     err = 0;
+                int err = 0;
     
-                if ((err = kdev_unregister(DEVID_PTR(FS_CHR, DEV_T(DEV_TTY, tty))))) {
+                if ((err = dev_unregister(DEVID_PTR(NULL, FS_CHR, DEV_T(DEV_TTY, tty))))) {
                     printk("%s:%d: Error unregistering device, err: %d\n",
                         __FILE__, __LINE__, err);
 
                     // FIXME: is continuing the bes thing to do here or freeing dev?
                     continue;
                 }
-                kdev_free(ttys[tty].dev);
+                dev_destroy(ttys[tty].dev);
             }
 
+            printk("Failed to create tty: %s\n", strerror(err));
             return err;
         }
-        dev_unlock(dev); // dev was locked in kdev_create();
+        dev_unlock(dev); // dev was locked in dev_create();
     }
 
     return 0;
-} MODULE_INIT(tty, tty_init, NULL, NULL);
+} BUILTIN_DEVICE(tty, tty_init, NULL, NULL);
 
-static int     tty_close(struct devid *dd __unused) {
+static int tty_probe(struct devid *dd __unused) {
     return 0;
 }
 
-static int     tty_open(struct devid *dd __unused, inode_t **pip __unused) {
+static int tty_fini(struct devid *dd __unused) {
     return 0;
 }
 
-static int     tty_mmap(struct devid *dd __unused, vmr_t *region __unused) {
+static int tty_close(struct devid *dd __unused) {
+    return 0;
+}
+
+static int tty_open(struct devid *dd __unused, inode_t **pip __unused) {
+    return 0;
+}
+
+static int tty_mmap(struct devid *dd __unused, vmr_t *region __unused) {
     return -ENOSYS;
 }
 
-static int     tty_getinfo(struct devid *dd __unused, void *info __unused) {
+static int tty_getinfo(struct devid *dd __unused, void *info __unused) {
     return -ENOSYS;
 }
 
-static off_t   tty_lseek(struct devid *dd __unused, off_t off __unused, int whence __unused) {
+static off_t tty_lseek(struct devid *dd __unused, off_t off __unused, int whence __unused) {
     return -ENOSYS;
 }
 
-static int     tty_ioctl(struct devid *dd __unused, int request __unused, void *arg __unused) {
+static int tty_ioctl(struct devid *dd __unused, int request __unused, void *arg __unused) {
     return -ENOSYS;
 }
 

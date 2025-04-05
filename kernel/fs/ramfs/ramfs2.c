@@ -58,7 +58,7 @@ static int ramfs_fill_sb(filesystem_t *fs, const char *target, struct devid *dev
     if (fs == NULL || devid == NULL || sb == NULL)
         return -EINVAL;
 
-    if ((kdev_read(devid, 0, &hdr, sizeof hdr)) != sizeof hdr)
+    if ((dev_read(devid, 0, &hdr, sizeof hdr)) != sizeof hdr)
         return -EFAULT;
 
     sbsz = sizeof hdr + (hdr.nfile * sizeof(ramfs2_node_t));
@@ -66,7 +66,7 @@ static int ramfs_fill_sb(filesystem_t *fs, const char *target, struct devid *dev
     if ((ramfs2_super = kcalloc(1, sbsz)) == NULL)
         return -ENOMEM;
 
-    if ((err = kdev_read(devid, 0, ramfs2_super, sbsz)) < 0)
+    if ((err = dev_read(devid, 0, ramfs2_super, sbsz)) < 0)
         return err;
 
     if ((err = ramfs2_validate(ramfs2_super)))
@@ -227,7 +227,7 @@ static ssize_t ramfs2_read_data(inode_t *ip, off_t off, void *buf, size_t sz) {
     off += node->offset + ramfs2_super->header.data_offset;
     
     sblock(ip->i_sb);
-    retval = kdev_read(&ip->i_sb->sb_devid, off, buf, sz);
+    retval = dev_read(&ip->i_sb->sb_devid, off, buf, sz);
     sbunlock(ip->i_sb);
     return retval;
 }

@@ -7,7 +7,7 @@
 #include <sys/thread.h>
 
 int vfs_mknodat(dentry_t *dir, const char *pathname,
-                    cred_t *cred, mode_t mode, devid_t dev) {
+                    cred_t *cred, mode_t mode, dev_t dev) {
     int         err   = 0;
     vfspath_t   *path = NULL;
     
@@ -57,6 +57,6 @@ error:
     return err;
 }
 
-int vfs_mknod(const char *pathname, cred_t *cred, mode_t mode, devid_t dev) {
+int vfs_mknod(const char *pathname, cred_t *cred, mode_t mode, dev_t dev) {
     return vfs_mknodat(NULL, pathname, cred, mode, dev);
 }
