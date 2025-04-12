@@ -15,6 +15,7 @@
 #define __used_section(__section__)     __attribute__((used, section(#__section__)))
 
 #define loop()                          for (;;)
+#define loop_and_yield()                for (;; sched_yield() )
 #define barrier()                       ({ asm volatile ("":::"memory"); })
 
 #define forlinked(elem, list, iter) \

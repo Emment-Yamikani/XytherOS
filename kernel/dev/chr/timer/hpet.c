@@ -8,6 +8,7 @@
 #include <string.h>
 #include <sync/atomic.h>
 #include <sync/spinlock.h>
+#include <sys/schedule.h>
 
 typedef struct {
     acpiSDT_t       SdtHdr;     // ACPI SDT header.
@@ -187,7 +188,9 @@ ulong hpet_get_time(void) {
 void hpet_nanowait(ulong ns) {
     ulong duration = ns + hpet_get_time();
     while (time_before(hpet_get_time(), duration)) {
-        asm volatile ("pause");
+        if (current) {
+            sched_yield(); // Avoid busy-waiting.
+        }
     }
 }
 
