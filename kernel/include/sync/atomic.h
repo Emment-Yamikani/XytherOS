@@ -37,7 +37,8 @@ typedef atomic_u64      atomic_t;
 
 // Atomic read and write operations
 #define atomic_read(ptr)                __atomic_load_n((ptr), __ATOMIC_SEQ_CST)
-#define atomic_write(ptr, val)          __atomic_store_n((ptr), (val), __ATOMIC_SEQ_CST)
+#define atomic_set(ptr, val)            __atomic_store_n((ptr), (val), __ATOMIC_SEQ_CST)
+#define atomic_write(ptr, val)          atomic_set(ptr, val)
 
 // Atomic clear (used with 'char' or 'bool')
 #define atomic_clear(ptr)               __atomic_clear((ptr), __ATOMIC_SEQ_CST)

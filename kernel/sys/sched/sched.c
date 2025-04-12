@@ -269,3 +269,10 @@ int sched_wakeup_all(queue_t *wait_queue, wakeup_t reason, size_t *pnt) {
 
     return count > 0 ? 0 : -ESRCH;
 }
+
+usize sched_wait_queue_length(queue_t *wait_queue) {
+    queue_lock(wait_queue);
+    const usize length = queue_length(wait_queue);
+    queue_unlock(wait_queue);
+    return length;
+}

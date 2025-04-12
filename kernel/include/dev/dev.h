@@ -106,7 +106,7 @@ typedef struct devops {
 
 #define DEVOPS(prefix) (devops_t) {    \
     .probe      = prefix##_probe,      \
-    .fini       = prefix##_fini,      \
+    .fini       = prefix##_fini,       \
     .close      = prefix##_close,      \
     .open       = prefix##_open,       \
     .getinfo    = prefix##_getinfo,    \

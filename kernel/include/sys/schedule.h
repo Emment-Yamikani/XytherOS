@@ -67,6 +67,7 @@ static inline int wakeup_reason_validate(wakeup_t reason) {
             reason != WAKEUP_TIMEOUT) ? 0 : 1;
 }
 
+extern usize sched_wait_queue_length(queue_t *wait_queue);
 extern int sched_wakeup_all(queue_t *wait_queue, wakeup_t reason, size_t *pnt);
 extern int sched_wakeup_specific(queue_t *wait_queue, wakeup_t reason, tid_t tid);
 extern int sched_wakeup(queue_t *wait_queue, wakeup_t reason, queue_relloc_t whence);

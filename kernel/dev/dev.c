@@ -22,18 +22,21 @@ static device_table_t *cdev = &(device_table_t){0};
 #define table_peek_device(t, major, minor) ({ table_assert_locked(t); (t)->devices[major][minor]; })
 
 static inline device_table_t *get_device_table(int type) {
-    device_table_t *table;
-
     if (!valid_device_type(type)) {
         return NULL;
     }
+    
+    device_table_t *table;
+    table = (device_table_t *[]){
+        [CHRDEV] = cdev,
+        [BLKDEV] = bdev,
+    }[type];
 
-    table = (device_table_t *[]){[CHRDEV] = cdev, [BLKDEV] = bdev}[type];
     table_lock(table);
     return table;
 }
 
-static int alloc_minor(int type, devno_t major, devno_t *pminor) {
+static int dev_alloc_minor(int type, devno_t major, devno_t *pminor) {
     if (!pminor || !valid_device_type(type) || !valid_major(major)) {
         return -EINVAL;
     }
@@ -48,6 +51,22 @@ static int alloc_minor(int type, devno_t major, devno_t *pminor) {
     if (err == 0) {
         *pminor = minor;
     }
+
+    return err;
+}
+
+int dev_alloc_minor_set(int type, devno_t major, int pos, int cnt) {
+    if (!valid_mode_type(type) || !valid_major(major)) {
+        return -EINVAL;
+    }
+
+    if (!valid_minor(pos) || (cnt + pos) >= MAX_MINOR) {
+        return -EINVAL;
+    }
+
+    device_table_t *table = get_device_table(type);
+    int err = bitmap_set(&table->minor_map[major], pos, cnt);
+    table_unlock(table);
 
     return err;
 }
@@ -219,11 +238,10 @@ int kdev_create(const char *dev_name, int type, dev_t devid, const devops_t *dev
     return 0;
 }
 
-
 int dev_create(const char *name, int type, devno_t major, const devops_t *devops, device_t **pdp) {
     devno_t minor = 0;
     
-    int err = alloc_minor(type, major, &minor);
+    int err = dev_alloc_minor(type, major, &minor);
     if (err != 0) {
         return err;
     }
@@ -333,7 +351,7 @@ int dev_probe(struct devid *dd) {
     return dev->devops.probe(dd);
 }
 
-int dev_finit(struct devid *dd) {
+int dev_fini(struct devid *dd) {
     device_t *dev = get_device_by_devid(dd);
     if (dev == NULL) {
         return -ENXIO;
