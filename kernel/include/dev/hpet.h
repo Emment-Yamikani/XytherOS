@@ -15,8 +15,8 @@ extern long     hpet_freq(void);
 extern void     hpet_wait(double s);
 extern void     hpet_microwait(ulong us);
 extern void     hpet_milliwait(ulong ms);
-extern void     hpet_nanowait(ulong ns);
-extern ulong    hpet_get_time(void);
+extern void     hpet_nanosleep(ulong ns);
+extern ulong    hpet_now(void);
 
 extern int hpet_getres(struct timespec *res);
 extern int hpet_gettime(struct timespec *tp);

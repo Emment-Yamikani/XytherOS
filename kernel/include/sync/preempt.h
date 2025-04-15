@@ -4,11 +4,12 @@
 #include <arch/x86_64/asm.h>
 #include <core/assert.h>
 
-static inline void pushcli(void) {
+static inline bool pushcli(void) {
     bool intena = is_intena();
     cli();
     if (intena) cpu->intena = intena;
     cpu->ncli++;
+    return intena;
 }
 
 static inline void popcli(void) {
@@ -19,3 +20,6 @@ static inline void popcli(void) {
         sti();
     }
 }
+
+extern void disable_preemption(void);
+extern void enable_preemption(void);

@@ -14,7 +14,7 @@ void sched(void) {
         return;
     }
 
-    disable_preemption();
+    disable_interrupts();
     cpu_swap_preepmpt(&ncli, &intena);
 
     /// If not used up entire timeslice, drop one priority level.
@@ -29,7 +29,7 @@ void sched(void) {
     context_switch(&current->t_arch.t_context);
 
     cpu_swap_preepmpt(&ncli, &intena);
-    enable_preemption();
+    enable_interrupts();
 }
 
 /**

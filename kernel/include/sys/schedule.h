@@ -13,14 +13,15 @@ typedef struct {
 
 typedef struct {
     uint64_t total_context_switches;
-    uint64_t total_cpu_time;       // Total CPU time across all threads.
-    uint64_t total_wait_time;      // Total wait time for all threads.
     uint64_t total_threads_executed;
-    uint64_t idle_time;            // Time CPU spent idle.
-    uint64_t preemption_count;
-    uint64_t steal_attempts;
+    uint64_t last_idle_time;            // Time CPU spent idle.
+    uint64_t last_active_time;
+    uint64_t total_load;
     uint64_t successful_steals;
 } sched_metrics_t;
+
+extern sched_metrics_t *get_metrics(int core);
+extern sched_metrics_t per_cpu_metrics[NCPU];
 
 // Number of scheduling levels in the MLFQ
 #define NSCHED_LEVEL 4
@@ -33,6 +34,10 @@ typedef struct {
 
 // Highest priority level.
 #define MLFQ_HIGH    (NSCHED_LEVEL - 1)
+
+#define AGING_THRESHOLD      5    // Boost after 5 scheduler cycles
+#define AGING_INTERVAL_MS    100  // Run aging every 100ms
+#define SOFT_AFFINITY_BIAS   2    // Prefer current CPU unless others have 2+ less load
 
 // Lowest priority level.
 #define MLFQ_LOW     0

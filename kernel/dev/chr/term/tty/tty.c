@@ -23,7 +23,7 @@ static int tty_init(void) {
             return err;
         }
 
-        ttys[tty].dev   = dev;
+        ttys[tty].t_dev   = dev;
 
         printk("Initializing \e[025453;011m%s\e[0m chardev...\n", dev->name);
 
@@ -38,7 +38,7 @@ static int tty_init(void) {
                     // FIXME: is continuing the bes thing to do here or freeing dev?
                     continue;
                 }
-                dev_destroy(ttys[tty].dev);
+                dev_destroy(ttys[tty].t_dev);
             }
 
             printk("Failed to create tty: %s\n", strerror(err));

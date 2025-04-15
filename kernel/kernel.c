@@ -10,39 +10,20 @@
 #include <arch/x86_64/isr.h>
 #include <core/timer.h>
 #include <dev/tsc.h>
-
-void handle_signal(signo_t sig, siginfo_t *, void *) {
-    debug("%s\n", signal_str[sig - 1]);
-}
-
-int setup_signal() {
-    sigaction_t act;
-
-    act.sa_flags   = 0;
-    act.sa_handler = handle_signal;
-    sigsetempty(&act.sa_mask);
-
-    return sigaction(SIGALRM, &act, NULL);
-}
+#include <sync/rwlock.h>
+#include <dev/cga.h>
 
 void *thread(void *) {
-    loop() {
-        sched_yield();
-    }
-} BUILTIN_THREAD(thread, thread, NULL);
+    loop_and_yield();
+}
 
 __noreturn void kthread_main(void) {
-    setup_signal();
     thread_builtin_init();
 
-    thread_info_t info;
-    current_lock();
-    thread_get_info(current, &info);
-    current_unlock();
+    for (int i = 0; i < 300; ++i) {
+        thread_create(NULL, thread, NULL, THREAD_CREATE_SCHED, NULL);
+    }
 
-    thread_info_dump(&info);
-
-    loop() {
-
+    loop_and_yield() {
     }
 }

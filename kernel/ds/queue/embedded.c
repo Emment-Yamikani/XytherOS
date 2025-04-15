@@ -2,19 +2,36 @@
 #include <core/debug.h>
 #include <ds/queue.h>
 
+int validate_whence(queue_relloc_t whence) {
+    return (whence != QUEUE_HEAD && whence != QUEUE_TAIL) ? -EINVAL : 0;
+}
+
+int validate_uniqueness(queue_uniqueness_t uniqueness) {
+    return (uniqueness != QUEUE_UNIQUE && uniqueness != QUEUE_DUPLICATES) ? -EINVAL : 0;
+}
+
+int validate_uniqueness_and_whence(queue_uniqueness_t uniqueness, queue_relloc_t whence) {
+    int err = validate_uniqueness(uniqueness);
+    if (err != 0) {
+        return err;
+    }
+
+    return validate_whence(whence);
+}
+
 inline bool embedded_queue_empty(queue_t *queue) {
     queue_assert_locked(queue);
     return queue_length(queue) ? false : true;
 }
 
 void embedded_queue_flush(queue_t *queue) {
-    queue_node_t *next = NULL, *prev = NULL;
+    queue_node_t *next;
 
     queue_assert_locked(queue);
 
     forlinked(node, queue->head, next) {
         next = node->next;
-        prev = node->prev;
+        queue_node_t *prev = node->prev;
 
         if (prev)
             prev->next = next;
@@ -115,17 +132,13 @@ int embedded_enqueue_before(queue_t *queue, queue_node_t *node, queue_node_t *ne
     return 0;
 }
 
-int embedded_enqueue(queue_t *queue, queue_node_t *qnode, queue_uniqueness_t uniqueness) {
-    if (queue == NULL || qnode == NULL)
-        return -EINVAL;
-
-    queue_assert_locked(queue);
-
-    if (uniqueness == QUEUE_UNIQUE){
-        if (embedded_queue_contains(queue, qnode) == 0)
-            return -EEXIST;
-    }
-
+/**
+ * @brief Inserts a node into an embedded queue.
+ * 
+ * @param queue[in] embedded queue into which to insert the node.
+ * @param qnode[in] node to insert
+ * @return int      returns 0, No error is indicated at the moment because this function expects the callers to validate the input. */
+static inline int embedded_queue_insert(queue_t *queue, queue_node_t *qnode) {
     qnode->prev = qnode->next = NULL;
 
     if (queue->head == NULL) {
@@ -135,21 +148,38 @@ int embedded_enqueue(queue_t *queue, queue_node_t *qnode, queue_uniqueness_t uni
         qnode->prev = queue->tail;
     }
 
-    queue->tail  = qnode;
-
+    queue->tail = qnode;
     queue->q_count++;
     return 0;
 }
 
-int embedded_enqueue_head(queue_t *queue, queue_node_t *qnode, queue_uniqueness_t uniqueness) {
-    if (queue == NULL || qnode == NULL)
+int embedded_enqueue(queue_t *queue, queue_node_t *qnode, queue_uniqueness_t uniqueness) {
+    if (!queue || !qnode) {
         return -EINVAL;
+    }
+
+    queue_assert_locked(queue);
+
+    if (uniqueness == QUEUE_UNIQUE){
+        if (embedded_queue_contains(queue, qnode) == 0) {
+            return -EEXIST;
+        }
+    }
+
+    return embedded_queue_insert(queue, qnode);
+}
+
+int embedded_enqueue_head(queue_t *queue, queue_node_t *qnode, queue_uniqueness_t uniqueness) {
+    if (!queue || !qnode) {
+        return -EINVAL;
+    }
 
     queue_assert_locked(queue);
 
     if (uniqueness == QUEUE_UNIQUE) {
-        if (embedded_queue_contains(queue, qnode) == 0)
+        if (embedded_queue_contains(queue, qnode) == 0) {
             return -EEXIST;
+        }
     }
 
     qnode->prev = qnode->next = NULL;
@@ -255,27 +285,30 @@ int embedded_dequeue_whence(queue_t *queue, queue_relloc_t whence, queue_node_t 
 }
 
 int embedded_queue_detach(queue_t *queue, queue_node_t *qnode) {
-    queue_node_t *next = NULL, *prev = NULL;
-
-    if (queue == NULL || qnode == NULL)
+    if (!queue || !qnode) {
         return -EINVAL;
+    }
 
     queue_assert_locked(queue);
 
-    next = qnode->next;
-    prev = qnode->prev;
+    queue_node_t *next = qnode->next;
+    queue_node_t *prev = qnode->prev;
 
-    if (prev)
+    if (prev) {
         prev->next = next;
+    }
 
-    if (next)
+    if (next) {
         next->prev = prev;
+    }
 
-    if (qnode == queue->head)
+    if (qnode == queue->head) {
         queue->head = next;
+    }
 
-    if (qnode == queue->tail)
+    if (qnode == queue->tail) {
         queue->tail = prev;
+    }
 
     queue->q_count--;
 
@@ -372,7 +405,7 @@ int embedded_queue_migrate(queue_t *dst, queue_t *src, usize pos, usize n, queue
         last = last->next;
     }
 
-    // Remove the nodes from source queue.
+    // Remove the nodes dst source queue.
     if (first->prev)
         first->prev->next = last->next;
     else src->head = last->next;
@@ -502,5 +535,50 @@ int enqueue_sorted(queue_t *queue, queue_node_t *qnode, queue_uniqueness_t uniqu
     }
 
     queue->q_count++;
+    return 0;
+}
+
+static inline int validate_dest_and_srcq(queue_t *dest, queue_t *src) {
+    return (!dest || !src) ? -EINVAL : 0;
+}
+
+static inline int embedded_queue_check_relloc_input(queue_t *dst, queue_t *src, queue_node_t *node, queue_uniqueness_t uniqueness, queue_relloc_t whence) {
+    int err = validate_uniqueness_and_whence(uniqueness, whence);
+    if (err != 0) {
+        return err;
+    }
+    
+    err = validate_dest_and_srcq(dst, src);
+    if (err != 0) {
+        return err;
+    }
+    
+    if (!node) {
+        return -EINVAL;
+    }
+
+    return 0;
+}
+
+int embedded_queue_relloc(queue_t *dst, queue_t *src, queue_node_t *node, queue_uniqueness_t uniqueness, queue_relloc_t whence) {
+    int err = embedded_queue_check_relloc_input(dst, src, node, uniqueness, whence);
+    if (err != 0) {
+        return err;
+    }
+
+    queue_assert_locked(src);
+    queue_assert_locked(dst);
+
+    err = embedded_queue_remove(src, node);
+    if (err != 0) {
+        return err;
+    }
+
+    err = embedded_enqueue_whence(dst, node, uniqueness, whence);
+    if (err != 0) {
+        embedded_queue_insert(src, node);
+        return err;
+    }
+
     return 0;
 }

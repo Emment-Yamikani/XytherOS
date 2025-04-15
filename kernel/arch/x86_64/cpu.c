@@ -29,16 +29,16 @@ void setcls(cpu_t *c) {
 }
 
 thread_t *get_current(void) {
-    disable_preemption();
+    disable_interrupts();
     thread_t *thread = cpu ? cpu->thread : NULL;
-    enable_preemption();
+    enable_interrupts();
     return thread;
 }
 
 bool set_current(thread_t *thread) {
-    disable_preemption();
+    disable_interrupts();
     cpu->thread = thread;
-    enable_preemption();
+    enable_interrupts();
     return current ? true : false;
 }
 
@@ -48,11 +48,11 @@ int getcpuid(void) {
     return ((b >> 24) & 0xFF);
 }
 
-void disable_preemption(void) {
+void disable_interrupts(void) {
     pushcli();
 }
 
-void enable_preemption(void) {
+void enable_interrupts(void) {
     popcli();
 }
 

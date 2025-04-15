@@ -181,29 +181,31 @@ void hpet_intr(void) {
     }
 }
 
-ulong hpet_get_time(void) {
+ulong hpet_now(void) {
     return HPET_MAIN_COUNTER_VAL * hpet_period_ns;
 }
 
-void hpet_nanowait(ulong ns) {
-    ulong duration = ns + hpet_get_time();
-    while (time_before(hpet_get_time(), duration)) {
+void hpet_nanosleep(ulong ns) {
+    ulong duration = ns + hpet_now();
+    while (time_before(hpet_now(), duration)) {
         if (current) {
             sched_yield(); // Avoid busy-waiting.
+        } else {
+            asm volatile ("pause" ::: "memory");
         }
     }
 }
 
 void hpet_microwait(ulong us) {
-    hpet_nanowait(us * NSEC_PER_USEC);
+    hpet_nanosleep(us * NSEC_PER_USEC);
 }
 
 void hpet_milliwait(ulong ms) {
-    hpet_nanowait(ms * NSEC_PER_MSEC);
+    hpet_nanosleep(ms * NSEC_PER_MSEC);
 }
 
 void hpet_wait(double s) {
-    hpet_nanowait(s * NSEC_PER_SEC);
+    hpet_nanosleep(s * NSEC_PER_SEC);
 }
 
 int hpet_getres(timespec_t *res) {
@@ -230,6 +232,6 @@ int hpet_gettime(timespec_t *tp) {
         return -EINVAL;
     }
 
-    hpet_to_timespec(hpet_get_time(), tp);
+    hpet_to_timespec(hpet_now(), tp);
     return 0;
 }

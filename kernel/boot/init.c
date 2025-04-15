@@ -10,6 +10,7 @@ extern __noreturn void kthread_main(void);
 
 void early_init(void) {
     int err = 0;
+    printk("\e[0JInitializing kernel...\n");
 
     assert_eq(err = vmman.init(), 0,
         "Error[%s]: initializing virtual memory manager.\n", strerror(err));
@@ -20,14 +21,14 @@ void early_init(void) {
     assert_eq(err = timer_init(), 0,
         "Error[%s]: initializing timers.\n", strerror(err));
 
-    ap_signal(); // inform APs that early initialization is done.
+    ap_signal(); // Inform APs that early initialization is done.
 
-    // TODO: add anything else to kthread_main().
+    // TODO: Add anything else to kthread_main().
 
     assert_eq(err = thread_create(NULL, (thread_entry_t)kthread_main, NULL, THREAD_CREATE_SCHED, NULL), 0,
         "Failed to create main kernel thread: err: %s\n", strerror(err));
 
     scheduler(); // being executing threads.
 
-    loop() asm volatile ("pause");
+    loop() asm volatile ("pause" ::: "memory");
 }

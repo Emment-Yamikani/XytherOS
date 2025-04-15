@@ -47,8 +47,8 @@ extern int isbsp(void);
 extern thread_t *get_current(void);
 extern bool set_current(thread_t *thread);
 
-extern void disable_preemption(void);
-extern void enable_preemption(void);
+extern void disable_interrupts(void);
+extern void enable_interrupts(void);
 
 extern void cpu_swap_preepmpt(isize *ncli, isize *intena);
 

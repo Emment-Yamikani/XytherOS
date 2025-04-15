@@ -97,6 +97,7 @@ typedef struct thread_sched_t {
     jiffies_t   ts_cpu_time;    /**< CPU time consumed (jiffies) */
     jiffies_t   ts_total_time;  /**< Cumulative run time (jiffies) */
 
+    int         ts_age;         /**< Cycles spent waiting on a wait queue. */
     time_t      ts_ctime;       /**< Thread creation time (Epoch time) */
     time_t      ts_last_time;   /**< Timestamp of last scheduling (Epoch time) */
     time_t      ts_exit_time;   /**< Timestamp of exit (Epoch time) */
@@ -221,6 +222,8 @@ typedef struct thread_t {
 #define THREAD_SUSPEND              BS(13)  /**< Thread execution is suspended */
 #define THREAD_KILLEXCEPT           BS(14)  /**< Special kill exception flag */
 #define THREAD_INTR                 BS(15)  /**< thread was interrupted. */
+#define THREAD_NO_PREEMPT           BS(16)  /**< Don't preempt thread thread */
+#define THREAD_NO_MIGRATE           BS(17)  /**< Don't migrate thread to other CPU */
 
 /*=====================================================================
  *  Thread Locking and Flag Manipulation Macros
@@ -504,6 +507,20 @@ extern void     thread_free(thread_t *thread);
 extern int      thread_schedule(thread_t *thread);
 extern int      thread_get_prio(thread_t *thread);
 extern int      thread_set_prio(thread_t *thread, int prio);
+
+#define THREAD_PRIO_INC    0
+#define THREAD_PRIO_DEC    1
+
+/**
+ * @brief Increases or decreases the priority.
+ *
+ * @param thread[in] thread whose priority we wish to change.
+ * @param how[in]    increase if how == THREAD_PRIO_INC or decrease if how == THREAD_PRIO_DEC.
+ * @param by[in]     amount by which to chance the priority; NOTE: negative values are not allowed.
+ * @param old[out]   If non-null, the old priority is place in the buffer pointed to by old.
+ * @param new[out]   If non-null, the new priority is place in the buffer pointed to by new.
+ * @return int       0 on success or -EINVAL if an error occurs. */
+extern int      thread_bump_priority(thread_t *thread, int how, int by, int *old, int *new);
 extern int      thread_alloc(usize stack_size, int cflags, thread_t **ptp);
 extern int      thread_reap(thread_t *thread, thread_info_t *info, void **retval);
 

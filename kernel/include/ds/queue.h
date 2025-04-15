@@ -73,6 +73,17 @@ typedef struct queue {
          item##_node; item##_node = prev_item##_node, prev_item##_node = item##_node ? item##_node->prev : NULL) \
         for (type *item = container_of(item##_node, type, member); item##_node; item##_node = NULL)
 
+#define queue_foreach_entry(queue, item, member)                                                                \
+    queue_assert_locked(queue);                                                                                 \
+    for (queue_node_t *item##_node = (queue)->head, *next_item##_node = item##_node ? item##_node->next : NULL; \
+         item##_node ? ((item) = container_of(item##_node, typeof(*(item)), member)) : NULL;                    \
+         (item##_node = next_item##_node, next_item##_node = item##_node ? item##_node->next : NULL))
+
+#define queue_foreach_entry_reverse(queue, item, member)                                                        \
+    queue_assert_locked(queue);                                                                                 \
+    for (queue_node_t *item##_node = (queue)->head, *prev_item##_node = item##_node ? item##_node->prev : NULL; \
+         item##_node ? ((item) = container_of(item##_node, typeof(*(item)), member)) : NULL;                    \
+         (item##_node = prev_item##_node, prev_item##_node = item##_node ? item##_node->prev : NULL))
 
 /**
  * @brief Iterates over a queue's node.
@@ -343,7 +354,6 @@ extern int embedded_queue_migrate(queue_t *dst, queue_t *src, usize pos, usize n
 
 extern bool embedded_queue_empty(queue_t *queue);
 
-
 enum {
     QUEUE_EQUAL,
     QUEUE_LESSER,
@@ -356,3 +366,15 @@ typedef enum {
 } queue_order_t;
 
 extern int enqueue_sorted(queue_t *queue, queue_node_t *qnode, queue_uniqueness_t uniqueness, queue_order_t order, int (*compare)());
+
+/**
+ * @brief 
+ * 
+ * @param dst[in] 
+ * @param src[in] 
+ * @param node[in] 
+ * @param uniqueness[in] 
+ * @param whence[in] 
+ * @return int 
+ */
+extern int embedded_queue_relloc(queue_t *dst, queue_t *src, queue_node_t *node, queue_uniqueness_t uniqueness, queue_relloc_t whence);

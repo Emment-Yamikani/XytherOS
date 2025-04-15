@@ -53,6 +53,35 @@ int thread_get_prio(thread_t *thread) {
     return thread->t_info.ti_sched.ts_prio;
 }
 
+int thread_bump_priority(thread_t *thread, int how, int by, int *old, int *new) {
+    if (thread == NULL) {
+        return -EINVAL;
+    }
+
+    thread_assert_locked(thread);
+
+    // get the old priority.
+    if (old) { *old = thread->t_info.ti_sched.ts_prio; }
+
+    switch (how) {
+        case THREAD_PRIO_INC:
+            thread->t_info.ti_sched.ts_prio += by;
+            break;
+        case THREAD_PRIO_DEC:
+            thread->t_info.ti_sched.ts_prio -= by;
+            if (thread->t_info.ti_sched.ts_prio < 0) {
+                thread->t_info.ti_sched.ts_prio = 0;
+            }
+            break;
+        default:
+            return -EINVAL;
+    }
+
+    if (new) { *new = thread->t_info.ti_sched.ts_prio; }
+
+    return 0;
+}
+
 int thread_set_prio(thread_t *thread, int prio) {
     if ((thread == NULL) || (prio < MLFQ_LOW) || (prio > MLFQ_HIGH))
         return -EINVAL;
