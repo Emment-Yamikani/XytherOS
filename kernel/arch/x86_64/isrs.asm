@@ -112,6 +112,10 @@ extern trap
     push    rdi
     push    rsi
     push    rbp
+
+    mov     rax, cr2
+    push    rax
+
     push    r8
     push    r9
     push    r10
@@ -124,10 +128,12 @@ extern trap
     mov     rax, ds
     push    rax
     push    fs
+    sub     rsp, 56
 %endmacro
 
 ; Restore CPU context
 %macro rstor_mctx 0
+    add     rsp, 56
     pop     fs
     pop     rax
     mov     ds, ax
@@ -140,6 +146,10 @@ extern trap
     pop     r10
     pop     r9
     pop     r8
+
+    pop     rax
+    mov     cr2, rax
+
     pop     rbp
     pop     rsi
     pop     rdi
@@ -151,7 +161,7 @@ extern trap
 
 ; Common stub for ISRs and IRQs
 stub:
-    swapgs                      ; Swap GS base (if needed for user-space handling)
+    ; swapgs                      ; Swap GS base (if needed for user-space handling)
     save_mctx                   ; Save CPU registers
 
     ; Reserve space for ucontext_t struct (uc_link, uc_sigmask, uc_stack)
@@ -166,7 +176,7 @@ stub:
 
 trapret:
     rstor_mctx                  ; Restore CPU ritrs
-    swapgs                      ; Restore GS base (if needed)
+    ; swapgs                      ; Restore GS base (if needed)
     add     rsp, 16             ; Remove interrupt number and error code
     iretq                       ; Return from interrupt
 

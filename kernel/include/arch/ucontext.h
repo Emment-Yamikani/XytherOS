@@ -5,7 +5,7 @@
 #include <core/defs.h>
 #include <sys/_signal.h>
 
-#define x86_64_tf_isuser(tf)    ({((tf)->errno & 0x4) ? 1 : 0; })
+#define x86_64_tf_isuser(tf)    ({((tf)->eno & 0x4) ? 1 : 0; })
 
 typedef struct __context_t context_t;
 struct __context_t {
@@ -52,9 +52,11 @@ extern void context_switch(context_t **pcontext, ...);
 typedef struct __mcontext_t {
     // general purpose registers.
 #if defined (__x86_64__)
+    u64 _[7];
+    
     u64 fs;
     u64 ds;
-
+    
     u64 r15;
     u64 r14;
     u64 r13;
@@ -64,6 +66,8 @@ typedef struct __mcontext_t {
     u64 r9;
     u64 r8;
 
+    u64 cr2;
+
     u64 rbp;
     u64 rsi;
     u64 rdi;
@@ -72,10 +76,10 @@ typedef struct __mcontext_t {
     u64 rbx;
     u64 rax;
 
-    // TODO: include cr2 and other necessary registers.
+    // TODO: include other necessary registers.
 
     u64 trapno;
-    u64 errno;
+    u64 eno;
 
     u64 rip;
     u64 cs;
@@ -83,7 +87,7 @@ typedef struct __mcontext_t {
     u64 rsp;
     u64 ss;
 #endif // #if defined (__x86_64__)
-} mcontext_t/*Machine context*/;
+} __packed mcontext_t/*Machine context*/;
 
 typedef struct __ucontext_t {
     ucontext_t *uc_link;    /* pointer to context resumed when this context returns */
