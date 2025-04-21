@@ -159,13 +159,11 @@ int embedded_enqueue(queue_t *queue, queue_node_t *qnode, queue_uniqueness_t uni
     }
 
     queue_assert_locked(queue);
-
     if (uniqueness == QUEUE_UNIQUE){
         if (embedded_queue_contains(queue, qnode) == 0) {
             return -EEXIST;
         }
     }
-
     return embedded_queue_insert(queue, qnode);
 }
 

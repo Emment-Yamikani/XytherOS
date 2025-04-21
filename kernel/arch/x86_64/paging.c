@@ -327,37 +327,30 @@ error:
 }
 
 int x86_64_mprotect(uintptr_t va, usize sz, int flags) {
-    int     err     = 0;
-    u64     mask    = 0;
-    pte_t   *pte    = NULL;
-    usize   nr      = NPAGE(sz);
+    int err = 0;
+    pte_t *pte = NULL;
+    usize nr = NPAGE(sz);
 
-    va      = PGROUND(va);
-    flags   = extract_vmflags(flags);
+    va = PGROUND(va);
+    flags = extract_vmflags(flags);
 
-    if (_isP(flags) == 0)
+    if (_isP(flags) == 0)  // Ensure the page is present
         return -EINVAL;
 
-    mask |= _isU(flags) == 0 ? PTE_U : 0;
-    mask |= _isR(flags) == 0 ? PTE_R : 0;
-    mask |= _isW(flags) == 0 ? PTE_W : 0;
-    mask |= _isX(flags) == 0 ? PTE_X : 0;
-    mask = extract_vmflags(mask);
+    // Clear all permissions first, then apply new ones
+    const int perm_mask = (PTE_U | PTE_R | PTE_W | PTE_X);
 
-    for (; nr ; nr--, va += PGSZ) {
+    for (; nr; nr--, va += PGSZ) {
         if ((err = x86_64_getmapping(va, &pte))) {
-            /// a page may have not been mapped in to begin with.
-            /// so, only catch errors for with a page was mapped.
-            if (err == -ENOENT)
-                continue;
-            else return err;
+            if (err == -ENOENT) continue;  // Skip unmapped pages???
+            return err;
         }
 
-        /// Mask out page permissions we dont want
-        /// ~mask only turns on flags that are needed.
-        pte->raw &= ~mask; // Smart huh? ;)
+        pte->raw &= ~perm_mask;  // Reset permissions
+        pte->raw |= flags;       // Apply new permissions
         x86_64_tlb_shootdown(rdcr3(), va);
     }
+
     return 0;
 }
 

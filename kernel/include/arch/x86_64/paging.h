@@ -109,7 +109,8 @@ typedef union viraddr {
 // extract flags used to map a page.
 #define extract_vmflags(flags)  ({ PGOFF(flags); })
 
-#define GETPHYS(entry)          ((uintptr_t)((entry) ? PGROUND((entry)->raw) : 0))
+#define PTE2FLAGS(pte)          ((uint)((pte) ? PGOFF((pte)->raw) : 0))
+#define PTE2PHYS(pte)           ((uintptr_t)((pte) ? PGROUND((pte)->raw) : 0))
 
 /**
  * 

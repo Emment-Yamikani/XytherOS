@@ -13,36 +13,16 @@ const char *MLFQ_PRIORITY[] = {
     [NSCHED_LEVEL]= NULL
 };
 
-static MLFQ_t MLFQ[NCPU];
-
-#define foreach_MLFQ() \
-    for (MLFQ_t *mlfq = &MLFQ[0]; mlfq < &MLFQ[ncpu()]; ++mlfq)
-
-// iterates through the MLFQ from highest to lowest priority level.
-#define foreach_level(mlfq)                                               \
-    for (MLFQ_level_t *level = (mlfq) ? &(mlfq)->level[MLFQ_HIGH] : NULL; \
-         level >= &(mlfq)->level[MLFQ_LOW]; --level)
-
-// same as foreach_level but in reverse
-#define foreach_level_reverse(mlfq)                                      \
-    for (MLFQ_level_t *level = (mlfq) ? &(mlfq)->level[MLFQ_LOW] : NULL; \
-         level <= &(mlfq)->level[MLFQ_HIGH]; ++level)
-
-static MLFQ_t *MLFQ_get(void) {
-    return &MLFQ[getcpuid()];
-}
-
-static MLFQ_level_t *MLFQ_get_level(MLFQ_t *mlfq, int i) {
-    if (!mlfq || i < MLFQ_LOW || i > MLFQ_HIGH) {
-        return NULL;
-    }
-
-    return &mlfq->level[i];
-}
+MLFQ_t MLFQ[NCPU];
 
 static void MLFQ_init(void) {
     usize   quantum = 0;
     MLFQ_t  *mlfq   = MLFQ_get();
+
+    for (int i = 0; i < ncpu(); ++i) {
+        sched_metrics_t *metrics = get_cpu_metrics(i);
+        memset(metrics, 0, sizeof *metrics);
+    }
 
     memset(mlfq, 0, sizeof *mlfq);
 
@@ -57,7 +37,7 @@ void scheduler_init(void) {
     MLFQ_init();
 }
 
-static usize MLFQ_load(MLFQ_t *mlfq) {
+usize MLFQ_load(MLFQ_t *mlfq) {
     usize load = 0;
 
     if (mlfq == NULL) {
@@ -75,13 +55,12 @@ static usize MLFQ_load(MLFQ_t *mlfq) {
 
 static int MLFQ_enqueue(thread_t *thread) {
     int          err    = 0;
-    MLFQ_t       *mlfq  = NULL;
     MLFQ_level_t *level = NULL;
-
+    
     if (thread == NULL) {
         return -EINVAL;
     }
-
+    
     /**
      * @brief FIXME: This violates the lock ordering described below.
      * thread_queue->lock before thread_queue->queue->lock before thread->t_lock.
@@ -96,27 +75,29 @@ static int MLFQ_enqueue(thread_t *thread) {
      * thread->t_lock -> thread_queue->lock -> thread_queue->queue->lock.*/
     thread_assert_locked(thread);
 
-    mlfq = MLFQ_get();
+    MLFQ_t *target = MLFQ_get();
+    cpu_affin_t *affin = &thread->t_info.ti_sched.ts_affin;
 
-    if (thread->t_info.ti_sched.ts_affin.type == HARD_AFFINITY) {
-        usize mlfq_load = MLFQ_load(MLFQ_get()); // get current cpu's load.
-        // Choose suitable MLFQ.
-        for (int i = 0; i < ncpu(); ++i) {
-            if (MLFQ_get() == &MLFQ[i]) {
-                continue; // skip self MLFQ.
-            }
-
-            // Choose a MLFQ which is the least loaded among the CPU affinity set.
-            if (thread->t_info.ti_sched.ts_affin.cpu_set & (1 << i)) {
-                if (mlfq_load >= MLFQ_load(&MLFQ[i])) {
-                    mlfq = &MLFQ[i]; // pick MLFQ with lower load.
+    if (affin->type == HARD_AFFINITY) {
+        usize least = MLFQ_load(target); // get current cpu's load.
+        // Choose suitable MLFQ among CPUs for which we have affinity.
+        foreach_MLFQ() {
+            const int core = mlfq - MLFQ;
+            if (affin->cpu_set & (1 << core)) {
+                MLFQ_t *other = &MLFQ[core];
+                const usize load = MLFQ_load(other);
+                if (load <= least) {
+                    least   = load;
+                    target  = other;
                 }
             }
         }
+    } else { // Soft affinity.
+        target = MLFQ_least_loaded();
     }
 
     // Enqueue thread according to it's current priority level.
-    level = MLFQ_get_level(mlfq, thread_get_prio(thread));
+    level = MLFQ_get_level(target, thread_get_prio(thread));
     if (level == NULL) {
         return -EINVAL;
     }
@@ -131,6 +112,17 @@ static int MLFQ_enqueue(thread_t *thread) {
     // Ensure we release level resources.
     queue_unlock(&level->run_queue);
     return 0;
+}
+
+int sched_enqueue(thread_t *thread) {
+    if (thread == NULL) {
+        return -EINVAL;
+    }
+
+    /// All thread start at the highest priority level.
+    thread_set_prio(thread, MLFQ_HIGH);
+    thread_enter_state(thread, T_READY);
+    return MLFQ_enqueue(thread);
 }
 
 static thread_t *MLFQ_get_next(void) {
@@ -173,182 +165,6 @@ static thread_t *MLFQ_get_next(void) {
     return NULL;
 }
 
-int sched_enqueue(thread_t *thread) {
-    if (thread == NULL) {
-        return -EINVAL;
-    }
-
-    /// All thread start at the highest priority level.
-    thread_set_prio(thread, MLFQ_HIGH);
-    thread_enter_state(thread, T_READY);
-    return MLFQ_enqueue(thread);
-}
-
-__unused static void MLFQ_pull(void) {
-    usize           count           = 0;
-    usize           target_load     = 0;
-    usize           count_pulled    = 0;
-    MLFQ_t          *target_mlfq    = NULL;
-    MLFQ_t          *current_mlfq   = NULL;
-
-    current_mlfq = MLFQ_get(); // get current MLFQ.
-
-    /// Find the most loaded MLFQ
-    foreach_MLFQ() {
-        usize load = 0;
-        if (mlfq == current_mlfq) {
-            continue;
-        }
-
-        if (target_load < (load = MLFQ_load(mlfq))) {
-            target_load = load;
-            target_mlfq = mlfq;
-        }
-    }
-
-    if (target_mlfq == NULL || target_load < 2) {
-        return;
-    }
-
-    /// Steal thread in reversed order of priority.
-    /// This is because the owning CPU, will always check the highest
-    /// priority level first then lower levels.
-    /// This inturn may reduce contention for run queues.
-    foreach_level_reverse(target_mlfq) {
-        MLFQ_level_t    *target_level   = NULL;
-        /// We have stolen enough threads, break out of loop.
-        if (count_pulled >= (target_load / 2)) {
-            break;
-        }
-
-        /// No coresponding thread.
-        target_level = MLFQ_get_level(current_mlfq, level - target_mlfq->level);
-        assert(target_level, "Invalid target level.\n");
-
-        // Attempt to acquire locks.
-        loop() {
-            if (queue_trylock(&target_level->run_queue)) {
-                if (queue_trylock(&level->run_queue)) {
-                    break;
-                }
-                queue_unlock(&target_level->run_queue);  // Release first lock before continuing.
-            }
-            jiffies_timed_wait(2);
-        }
-
-        // Successfully acquired both locks, proceed with migration.
-        switch (queue_length(&level->run_queue)) {
-        case 0: // Skip empty run queues.
-            queue_unlock(&level->run_queue);
-            queue_unlock(&target_level->run_queue);
-            continue;
-        case 1: /// For run queues having only 1 thread take it,
-            /// if we haven't reached total number needed.
-            if (count_pulled < (target_load / 2))
-                count =  1;
-            break;
-        default:
-            count = queue_length(&level->run_queue) / 2;
-        }
-
-        int err = embedded_queue_migrate(
-            &target_level->run_queue,
-            &level->run_queue,
-            queue_length(&level->run_queue) / 2,
-            count, QUEUE_TAIL
-        );
-
-        assert_eq(err, 0, "Error[%s]: Failed to migrate threads\n", strerror(err));
-        count_pulled += count;
- 
-        // Unlock in the reverse order of locking
-        queue_unlock(&level->run_queue);
-        queue_unlock(&target_level->run_queue);
-        // debug("load: %d, stealing: %d, stolen: %d to prio: %s\n",
-        //    load, count,  count_pulled, MLFQ_PRIORITY[target_level - MLFQ_get()->level]);
-    }
-}
-
-static void MLFQ_push(void) {
-    usize           target_load     = 0;
-    usize           count_pushed    = 0;
-    usize           count           = 0;
-    usize           my_load         = 0;
-    MLFQ_t          *target_mlfq    = NULL;
-    MLFQ_t          *current_mlfq   = NULL;
-
-    current_mlfq = MLFQ_get(); // get current MLFQ.
-
-    foreach_MLFQ() {
-        if (mlfq == current_mlfq) {
-            continue;
-        }
-
-        usize load = MLFQ_load(mlfq);
-        if (target_load >= load) {
-            target_load = load;
-            target_mlfq = mlfq;
-        }
-    }
-
-    /** Return if no suitable core is found or if target
-     * core has a load greater or equal to current core's load. */
-    if (target_mlfq == NULL || target_load >= MLFQ_load(current_mlfq)) {
-        return;
-    }
-
-    foreach_level(current_mlfq) {
-        MLFQ_level_t    *target_level   = NULL;
-
-        target_level = MLFQ_get_level(target_mlfq, level - current_mlfq->level);
-        assert(target_level, "Invalid target level.\n");
-
-        if (queue_trylock(&level->run_queue)) {
-            if (queue_trylock(&target_level->run_queue) == 0) {
-                // Locks not avalable.
-                queue_unlock(&level->run_queue);
-                /**
-                 * @brief Spinning for the locks here is not desirable.
-                 * 
-                 * Unlike in MLFQ_pull(), a processor calling to push threads
-                 * is already bomberdded with work, so waiting would significantly reduce performance.
-                 * 
-                 * So just continue, or maybe return. Which is better?
-                 * */
-                continue;
-            }
-        }
-
-        if ((count = queue_length(&level->run_queue)) >= 2) {
-            count /= 2;
-        } else if ((count == 0) || (count_pushed >= (my_load / 2))) {
-            queue_unlock(&level->run_queue);
-            queue_unlock(&target_level->run_queue);
-            continue;
-        }
-
-        int err = embedded_queue_migrate(
-            &target_level->run_queue,
-            &level->run_queue,
-            queue_length(&level->run_queue) / 2,
-            count,
-            QUEUE_HEAD
-        );
-        assert_eq(err, 0, "Error[%s]: Failed to migrate threads\n", strerror(err));
-
-        count_pushed += count;
-
-        queue_unlock(&level->run_queue);
-        queue_unlock(&target_level->run_queue);
-        // debug("load: %d, pushing: %d, pushed: %d to prio: %s\n",
-        //     my_load, count, count_pushed, MLFQ_PRIORITY[target_level - target_mlfq->level]);
-    }
-}
-
-static void MLFQ_balance(void) {
-    MLFQ_push();
-}
-
 static void sched_handle_zombie(void) {
     cond_broadcast(&current->t_event);
 }
@@ -383,46 +199,43 @@ static void hanlde_thread_state(void) {
     current_unlock();
 }
 
+// this is the per-cpu scheduler's idle thread, well, somewhat.
 __noreturn void scheduler(void) {
+    sched_metrics_t *metrics = get_metrics();
     loop() {
         cpu->ncli   = 0;
         cpu->intena = 0;
         set_current(NULL);
 
+        atomic_set(&metrics->idle, 1);
+        atomic_set(&metrics->load, MLFQ_load(MLFQ_get()));
+
         sti();
 
         loop() {
             if (set_current(MLFQ_get_next())) {
+                atomic_clear(&metrics->idle);
+                atomic_inc(&metrics->total_threads_executed);
                 break;
             }
-
+            
             hlt();
         }
-
+        
         sched_update_thread_metrics(current);
-
+        
+        atomic_set(&metrics->last_active_time, jiffies_get());
+        
         // jmp to thread.
         context_switch(&current->t_arch.t_context);
+        
+        atomic_set(&metrics->last_idle_time, jiffies_get());
+        atomic_inc(&metrics->total_context_switches);
 
         current_assert_locked();
         sched_update_thread_metrics(current);
         hanlde_thread_state();
+
+        assert(!intrena(), "Interrupts are enabled???\n");
     }
 }
-
-__noreturn void scheduler_load_balancer(void) {
-    sigset_t set;
-    sigsetfill(&set);
-    sigsetdelmask(&set, SIGMASK(SIGKILL) | SIGMASK(SIGSTOP));
-    pthread_sigmask(SIG_BLOCK, &set, NULL);
-
-    loop() {
-        if ((jiffies_get() % (SYS_Hz)) == 0) {
-            MLFQ_balance();
-        }
-
-        cpu_pause();
-        sched_yield();
-    }
-
-} BUILTIN_THREAD(scheduler_load_balancer, scheduler_load_balancer, NULL);

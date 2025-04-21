@@ -28,82 +28,41 @@ int copy_from_user(void *kdst, void * usrc, size_t size) {
 }
 
 void swapi64(i64 *a0, i64 *a1) {
-    i64 tmp = 0;
-    assert(a0 && a1, "Invalid arguments");
-
-    tmp = *a1;
-    *a1 = *a0;
-    *a0 = tmp;
+    atomic_exchange_memory(a0, a1);
 }
 
 void swapi32(i32 *a0, i32 *a1) {
-    i32 tmp = 0;
-    assert(a0 && a1, "Invalid arguments");
-
-    tmp = *a1;
-    *a1 = *a0;
-    *a0 = tmp;
+    atomic_exchange_memory(a0, a1);
 }
 
 void swapi16(i16 *a0, i16 *a1) {
-    i16 tmp = 0;
-    assert(a0 && a1, "Invalid arguments");
-
-    tmp = *a1;
-    *a1 = *a0;
-    *a0 = tmp;
+    atomic_exchange_memory(a0, a1);
 }
 
 void swapi8(i8 *a0, i8 *a1) {
-    i8 tmp = 0;
-    assert(a0 && a1, "Invalid arguments");
+    atomic_exchange_memory(a0, a1);
+}
 
-    tmp = *a1;
-    *a1 = *a0;
-    *a0 = tmp;
+void swapbool(bool *a0, bool *a1) {
+    atomic_exchange_memory(a0, a1);
 }
 
 void swapu64(u64 *a0, u64 *a1) {
-    u64 tmp = 0;
-    assert(a0 && a1, "Invalid arguments");
-
-    tmp = *a1;
-    *a1 = *a0;
-    *a0 = tmp;
+    atomic_exchange_memory(a0, a1);
 }
 
 void swapu32(u32 *a0, u32 *a1) {
-    u32 tmp = 0;
-    assert(a0 && a1, "Invalid arguments");
-
-    tmp = *a1;
-    *a1 = *a0;
-    *a0 = tmp;
+    atomic_exchange_memory(a0, a1);
 }
 
 void swapu16(u16 *a0, u16 *a1) {
-    u16 tmp = 0;
-    assert(a0 && a1, "Invalid arguments");
-
-    tmp = *a1;
-    *a1 = *a0;
-    *a0 = tmp;
+    atomic_exchange_memory(a0, a1);
 }
 
 void swapu8(u8 *a0, u8 *a1) {
-    u8 tmp = 0;
-    assert(a0 && a1, "Invalid arguments");
-
-    tmp = *a1;
-    *a1 = *a0;
-    *a0 = tmp;
+    atomic_exchange_memory(a0, a1);
 }
 
-void swapptr(void **p0, void **p1) {
-    void *tmp = NULL;
-    assert(p0 && p1, "Invalid arguments");
-
-    tmp = *p1;
-    *p1 = *p0;
-    *p0 = tmp;
+void swapptr(void **a0, void **a1) {
+    atomic_exchange_memory(a0, a1);
 }

@@ -152,19 +152,13 @@
 
 #define NELEM(x)                ((size_t)(sizeof ((x)) / sizeof ((x)[0])))
 
-extern void kend();
-extern void kstart();
+extern uintptr_t __kernel_start[];
+extern uintptr_t __kernel_readonly_end[];
+extern uintptr_t __kernel_end[];
 
-extern int copy_to_user(void *udst, void *ksrc, size_t size);
-extern int copy_from_user(void *kdst, void * usrc, size_t size);
-
-extern void    swapi8(char  *dst, char *src);
-extern void    swapi16(short *dst, short *src);
-extern void    swapi32(int  *dst, int  *src);
-extern void    swapi64(long *dst, long *src);
-extern void    swapptr(void **p0, void **p1);
-
-extern void    swapu8(uint8_t  *dst, uint8_t *src);
-extern void    swapu16(uint16_t *dst, uint16_t *src);
-extern void    swapu32(uint32_t  *dst, uint32_t  *src);
-extern void    swapu64(uint64_t *dst, uint64_t *src);
+extern uintptr_t __trampoline_section[];
+extern uintptr_t __trampoline_section_end[];
+extern uintptr_t __text_section[];
+extern uintptr_t __text_section_end[];
+extern uintptr_t __rodata_section[];
+extern uintptr_t __rodata_section_end[];

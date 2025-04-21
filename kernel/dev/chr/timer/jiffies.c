@@ -62,7 +62,7 @@ int jiffies_create_clock(jiffies_t jiffy) {
 }
 
 static void jiffies_worker(void) {
-    loop() {
+    loop_and_yield() {
         cond_wait(jiffies_condvar);
         queue_lock(jiffies_clocks);
         embedded_queue_foreach(jiffies_clocks, jiffies_clock_t, clock, node) {

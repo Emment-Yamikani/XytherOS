@@ -6,8 +6,8 @@
 #include <core/types.h>
 #include <dev/fb.h>
 
-#define NMODS   32
-#define NMMAP   32 + NCPU
+#define NMODS   64
+#define NMMAP   64 + NCPU
 
 typedef struct {
     uintptr_t   addr;   // address at which module is loaded.
@@ -21,7 +21,10 @@ typedef struct {
     int         type;   // type of memory this mmap describes.
 } boot_mmap_t;
 
+#define BOOT_ALLOC_WATERMARK    0x8932CD33DEADFAAFul
+
 typedef struct {
+    ulong       watermark;  // guardrail for the bump allocator.
     usize       total;      // total available memory.
     usize       usable;     // Size of usable physical memory.
     usize       memlo;      // Size of lower memory.

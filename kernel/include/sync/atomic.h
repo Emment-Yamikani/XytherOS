@@ -85,6 +85,11 @@ typedef atomic_u64      atomic_t;
 // Atomic exchange operations
 #define atomic_xchg(ptr, val)           __atomic_exchange_n((ptr), (val), __ATOMIC_SEQ_CST)
 
+#define atomic_exchange_memory(a0, a1) ({              \
+    typeof(*a0) t0 = atomic_xchg(a0, atomic_read(a1)); \
+    atomic_set(a1, t0);                                \
+})
+
 // Atomic compare and exchange
 // Returns 'true' if the operation was successful (i.e., the exchange was performed)
 #define atomic_cmpxchg(ptr, __exp__, __des__)  __atomic_compare_exchange_n((ptr), (__exp__), (__des__), 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)

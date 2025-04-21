@@ -2,6 +2,7 @@
 #include <arch/paging.h>
 #include <bits/errno.h>
 #include <mm/mem.h>
+#include <core/debug.h>
 
 void arch_dumptable(pte_t *table) {
     x86_64_dumptable(table);
@@ -132,8 +133,9 @@ int arch_pagealloc(usize sz, uintptr_t *addr) {
 
     if (!addr) return -EINVAL;
 
-    if (!(va = vmman.alloc(sz)))
+    if (!(va = vmman.alloc(sz))) {
         return -ENOMEM;
+    }
     
     if ((err = arch_map_n(va, sz, PTE_KRW | PTE_WT))) {
         vmman.free(va);

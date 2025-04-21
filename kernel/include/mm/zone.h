@@ -73,14 +73,28 @@ extern const char *str_zone[];
 /// get the zone struct in which page resides.
 /// on success return locked zone is ppz.
 /// else an error is returned to indicate the error.
-int getzone_bypage(page_t *page, zone_t **ppz);
+extern int getzone_bypage(page_t *page, zone_t **ppz);
 
 /// get the zone struct in which padd resides.
 /// on success return locked zone is ppz.
 /// else an error is returned to indicate the error.
-int getzone_byaddr(uintptr_t paddr, usize size, zone_t **ppz);
+extern int getzone_byaddr(uintptr_t paddr, usize size, zone_t **ppz);
 
-int getzone_byindex(int z_index, zone_t **ref);
+extern int getzone_byindex(int z_index, zone_t **ref);
+
+static inline int getzone_index(zone_t *zone) {
+    return zone - zones;
+}
+
+static inline void page_verify_watermark(page_t *page, zone_t *zone) {
+    const uintptr_t addr = page_addr(page, zone);
+    const page_watermark_t watermark = page_watermark(page);
+
+    bool has_watermark = watermark == PGWM_RESERVED || watermark == PGWM_DMA_POOL ||
+                         watermark == PGWM_NORM_POOL || watermark == PGWM_HOLE_POOL || watermark == PGWM_HIGH_POOL;
+
+    assert(watermark != PGWM_RESERVED && has_watermark, "Watermark breach [%p: watermark: %p]\n", addr, watermark);
+}
 
 /// Initialize physical memory zones.
-int zones_init(void);
+extern int zones_init(void);

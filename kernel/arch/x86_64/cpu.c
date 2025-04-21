@@ -7,12 +7,14 @@
 #include <bits/errno.h>
 #include <boot/boot.h>
 #include <core/debug.h>
+#include <core/misc.h>
 #include <cpuid.h>
 #include <mm/mem.h>
 #include <string.h>
 #include <sync/atomic.h>
 #include <sync/preempt.h>
 #include <sys/schedule.h>
+#include <dev/cga.h>
 
 static cpu_t *cpus[NCPU] = {NULL};
 static volatile atomic_t cpus_count  = 1;
@@ -56,9 +58,9 @@ void enable_interrupts(void) {
     popcli();
 }
 
-void cpu_swap_preepmpt(isize *ncli, isize *intena) {
+void cpu_swap_preepmpt(isize *ncli, bool *intena) {
     swapi64(&cpu->ncli, ncli);
-    swapi64(&cpu->intena, intena);
+    swapbool(&cpu->intena, intena);
 }
 
 int cpu_online(void) {

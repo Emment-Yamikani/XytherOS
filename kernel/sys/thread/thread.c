@@ -188,9 +188,9 @@ int thread_join_group(thread_t *peer, thread_t *thread) {
     if (thread == NULL || peer == NULL) {
         return -EINVAL;
     }
-
+    
     thread_assert_locked(thread);
-
+    
     queue_lock(peer->t_group);
     if ((err = embedded_enqueue(peer->t_group, &thread->t_group_qnode, QUEUE_UNIQUE))) {
         queue_unlock(peer->t_group);
@@ -206,7 +206,6 @@ int thread_join_group(thread_t *peer, thread_t *thread) {
     thread->t_group       = peer->t_group;
     thread->t_signals     = peer->t_signals;
     thread->t_info.ti_tgid= peer->t_info.ti_tgid;
-
     return 0;
 }
 

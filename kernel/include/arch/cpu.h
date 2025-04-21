@@ -9,7 +9,7 @@ typedef struct cpu_t {
     u64         flags;
 
     isize       ncli;
-    isize       intena;
+    bool        intena;
 
     usize       timer_ticks;
 
@@ -50,6 +50,6 @@ extern bool set_current(thread_t *thread);
 extern void disable_interrupts(void);
 extern void enable_interrupts(void);
 
-extern void cpu_swap_preepmpt(isize *ncli, isize *intena);
+extern void cpu_swap_preepmpt(isize *ncli, bool *intena);
 
 #define current (get_current())

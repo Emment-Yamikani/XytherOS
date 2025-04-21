@@ -5,7 +5,7 @@
 #include <core/assert.h>
 
 static inline bool pushcli(void) {
-    bool intena = is_intena();
+    bool intena = intrena();
     cli();
     if (intena) cpu->intena = intena;
     cpu->ncli++;
@@ -13,7 +13,7 @@ static inline bool pushcli(void) {
 }
 
 static inline void popcli(void) {
-    assert(!is_intena(), "Interrupts are enabled!\n");
+    assert(!intrena(), "Interrupts are enabled!\n");
     assert(--cpu->ncli >= 0, "!ncli: %d < 0\n", cpu->ncli);
     if (!cpu->ncli && cpu->intena) {
         cpu->intena = false;

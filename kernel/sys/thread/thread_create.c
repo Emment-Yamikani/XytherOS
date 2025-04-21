@@ -2,6 +2,7 @@
 #include <bits/errno.h>
 #include <core/debug.h>
 #include <mm/kalloc.h>
+#include <mm/mem.h>
 #include <string.h>
 #include <sys/thread.h>
 
@@ -29,6 +30,7 @@ static tid_t alloc_tid(void) {
 static int thread_alloc_kstack(usize kstack_size, void **pp) {
     int err;
     uintptr_t addr;
+
     if (pp == NULL || ((kstack_size < KSTACK_SIZE) || (kstack_size > KSTACK_MAXSIZE))) {
         return -EINVAL;
     }
@@ -55,12 +57,8 @@ static int thread_alloc_kstack(usize kstack_size, void **pp) {
  * @return 0 on success, or a negative error code on failure.
  */
 int thread_alloc(usize kstack_size, int flags, thread_t **ptp) {
-    int             err     = 0;
-    uintptr_t       stack   = 0;
-    arch_thread_t   *arch   = NULL;
-    thread_sched_t  *sched  = NULL;
-    thread_info_t   *tinfo  = NULL;
-    thread_t        *thread = NULL;
+    int         err;
+    uintptr_t   stack = 0;
 
     if (ptp == NULL) {
         return -EINVAL;
@@ -71,12 +69,13 @@ int thread_alloc(usize kstack_size, int flags, thread_t **ptp) {
     }
 
     /* Place the thread structure at the top of the allocated stack */
-    thread = (thread_t *)ALIGN16((stack + kstack_size) - sizeof(*thread));
-
+    thread_t *thread = (thread_t *)ALIGN16((stack + kstack_size) - sizeof(*thread));
+    
+    // page_check_watermark((uintptr_t)thread);
     memset(thread, 0, sizeof(*thread));
 
     /* Initialize architecture-specific thread context */
-    arch = &thread->t_arch;
+    arch_thread_t *arch = &thread->t_arch;
     arch->t_thread          = thread;
     arch->t_kstack.ss_size  = kstack_size;
     arch->t_kstack.ss_sp    = (void *)stack;
@@ -90,14 +89,14 @@ int thread_alloc(usize kstack_size, int flags, thread_t **ptp) {
     spinlock_init(&thread->t_lock);
 
     /* Initialize thread information */
-    tinfo           = &thread->t_info;
+    thread_info_t   *tinfo = &thread->t_info;
     tinfo->ti_tid   = alloc_tid();
     /* Combine flags for user and detached threads */
     tinfo->ti_flags = ((flags & THREAD_CREATE_USER) ? THREAD_USER : 0) |
                       ((flags & THREAD_CREATE_DETACHED) ? THREAD_DETACHED : 0);
 
     /* Initialize scheduling information */
-    sched = &tinfo->ti_sched;
+    thread_sched_t *sched = &tinfo->ti_sched;
     sched->ts_ctime         = epoch_get();
     sched->ts_affin.cpu_set = -1; /* -1 means all CPUs allowed */
     sched->ts_affin.type    = SOFT_AFFINITY;
@@ -117,7 +116,6 @@ int thread_alloc(usize kstack_size, int flags, thread_t **ptp) {
     thread_enter_state(thread, T_EMBRYO);
 
     thread_lock(thread);
-    
     *ptp = thread;
     return 0;
 }
@@ -241,8 +239,8 @@ int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, int cfla
     int             err;
     thread_attr_t   t_attr;
     thread_t        *thread = NULL;
-    bool            user_thread = (cflags & THREAD_CREATE_USER);
-    int             (*create_thread)() = user_thread ? &create_user_thread : &create_kernel_thread;
+    bool            user_thread = (cflags & THREAD_CREATE_USER) ? true : false;
+    int             (*create_thread)() = user_thread ? create_user_thread : create_kernel_thread;
 
     if (!entry) {
         return -EINVAL;
@@ -300,7 +298,7 @@ void thread_free(thread_t *thread) {
     if (thread == NULL) {
         return;
     }
-    
+
     thread_recursive_lock(thread);
 
     // Detach thread from all queues

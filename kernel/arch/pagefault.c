@@ -341,7 +341,7 @@ void arch_do_page_fault(mcontext_t *trapframe) {
 
     // Get the faulting address and error code
     fault.addr = rdcr2();
-    fault.err_code = trapframe->errno;
+    fault.err_code = trapframe->eno;
 #if defined(__x86_64__)
     // Determine if the fault occurred in user mode
     fault.user = x86_64_tf_isuser(trapframe);

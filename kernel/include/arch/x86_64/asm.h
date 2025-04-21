@@ -80,7 +80,7 @@ extern u64 rdrax(void);
 
 extern u64 rdrflags(void);
 
-static inline bool is_intena(void) {
+static inline bool intrena(void) {
     return (rdrflags() & 0x200) ? true : false;
 }
 
@@ -133,8 +133,14 @@ extern void outw(u16 port, u16 data);
 extern u32 ind(u16 port);
 extern void outd(u16 port, u32 data);
 
-extern void cli(void);
+static inline void cli(void) {
+    asm volatile ("cli" ::: "memory");
+};
 
-extern void sti(void);
+static inline void sti(void) {
+    asm volatile ("sti" ::: "memory");
+};
 
-extern void hlt(void);
+static inline void hlt(void) {
+    asm volatile ("hlt" ::: "memory");
+};

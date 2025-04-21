@@ -106,6 +106,8 @@ size_t fctprintf(void (*out)(char character, void* arg), void* arg, const char* 
 void panic(const char *restrict __fmt__, ...);
 size_t printk(const char *restrict __fmt__, ...);
 
+extern void console_puts(const char *);
+
 // size_t klog(int type, const char *restrict __fmt__, ...);
 
 #ifdef __cplusplus

@@ -9,7 +9,7 @@
 #include <sync/preempt.h>
 
 void dump_tf(mcontext_t *mctx, int halt) {
-    usize stack_sz = 0;
+    usize  stack_sz = 0;
     uintptr_t stack_sp = 0;
 
     if (current) {
@@ -17,28 +17,29 @@ void dump_tf(mcontext_t *mctx, int halt) {
         stack_sz = current->t_arch.t_kstack.ss_size;
     }
 
-    dumpf(halt, "\n\e[00;014mTRAP:%d\e[0m MCTX: %p CPU%d TID[%d:%d] ret[%p]\n"
-            "\e[00;015merr\e[0m=\e[00;012m%16p\e[0m rfl=\e[00;12m%16p\e[0m cs =\e[00;12m%16p\e[0m\n"
-            "\e[00;015mds\e[0m =%16p \e[00;015mfs \e[0m=%16p \e[00;015mss \e[0m=%16p\n"
-            "\e[00;015mrax\e[0m=\e[00;012m%16p\e[0m rbx=\e[00;12m%16p\e[0m rcx=\e[00;12m%16p\e[0m\n"
-            "\e[00;015mrdx\e[0m=%16p \e[00;015mrdi\e[0m=%16p \e[00;015mrsi\e[0m=%16p\n"
-            "\e[00;015mrbp\e[0m=\e[00;012m%16p\e[0m rsp=\e[00;12m%16p\e[0m r8 =\e[00;12m%16p\e[0m\n"
-            "\e[00;015mr9\e[0m =%16p \e[00;015mr10\e[0m=%16p \e[00;015mr11\e[0m=%16p\n"
-            "\e[00;015mr12\e[0m=\e[00;012m%16p\e[0m r13=\e[00;12m%16p\e[0m r14=\e[00;12m%16p\e[0m\n"
-            "\e[00;015mr15\e[0m=%16p \e[00;015mrip\e[0m=%16p \e[00;015mcr0\e[0m=%16p\n"
-            "\e[00;015mcr2\e[0m=\e[00;012m%16p\e[0m cr3=\e[00;12m%16p\e[0m cr4=\e[00;12m%16p\e[0m\n"
-            "\e[00;015mst\e[0m =%16p \e[00;015msp\e[0m =%16p \e[00;015mstz\e[0m=%16p\n",
-            mctx->trapno, mctx, getcpuid(), getpid(), gettid(), *(uintptr_t *)mctx->rsp,
-            mctx->errno,  mctx->rflags, mctx->cs,
-            mctx->ds,     mctx->fs,     mctx->ss,
-            mctx->rax,    mctx->rbx,    mctx->rcx,
-            mctx->rdx,    mctx->rdi,    mctx->rsi,
-            mctx->rbp,    mctx->rsp,    mctx->r8,
-            mctx->r9 ,    mctx->r10,    mctx->r11,
-            mctx->r12,    mctx->r13,    mctx->r14,
-            mctx->r15,    mctx->rip,    rdcr0(),
-            rdcr2(),      rdcr3(),      rdcr4(),
-            stack_sp, stack_sp + stack_sz, stack_sz
+    dumpf(halt,
+        "\e[34mTRAP\e[0m:\e[34m%d\e[0m MCTX: %p CPU%d TID[%d:%d] ret[\e[92m%p\e[0m]\n"
+        "\e[93merr\e[0m=%s%16p\e[0m \e[93mrfl\e[0m=%s%16p\e[0m \e[93mcs\e[0m =%s%16p\e[0m\n"
+        "\e[37mds\e[0m =%s%16p\e[0m \e[37mfs\e[0m =%s%16p\e[0m \e[37mss\e[0m =%s%16p\e[0m\n"
+        "\e[93mrax\e[0m=%s%16p\e[0m \e[93mrbx\e[0m=%s%16p\e[0m \e[93mrcx\e[0m=%s%16p\e[0m\n"
+        "\e[37mrdx\e[0m=%s%16p\e[0m \e[37mrdi\e[0m=%s%16p\e[0m \e[37mrsi\e[0m=%s%16p\e[0m\n"
+        "\e[93mrbp\e[0m=%s%16p\e[0m \e[93mrsp\e[0m=%s%16p\e[0m \e[93mr8\e[0m =%s%16p\e[0m\n"
+        "\e[37mr9\e[0m =%s%16p\e[0m \e[37mr10\e[0m=%s%16p\e[0m \e[37mr11\e[0m=%s%16p\e[0m\n"
+        "\e[93mr12\e[0m=%s%16p\e[0m \e[93mr13\e[0m=%s%16p\e[0m \e[93mr14\e[0m=%s%16p\e[0m\n"
+        "\e[37mr15\e[0m=%s%16p\e[0m \e[37mrip\e[0m=%s%16p\e[0m \e[37mcr0\e[0m=%s%16p\e[0m\n"
+        "\e[93mcr2\e[0m=%s%16p\e[0m \e[93mcr3\e[0m=%s%16p\e[0m \e[93mcr4\e[0m=%s%16p\e[0m\n"
+        "\e[37mstk\e[0m=%s%16p\e[0m \e[37mstp\e[0m=%s%16p\e[0m \e[37mstz\e[0m=%s%16p\e[0m\n",
+        mctx->trapno, mctx, getcpuid(), getpid(), gettid(), *(uintptr_t *)mctx->rsp,
+        "\e[33m", mctx->eno, "\e[33m", mctx->rflags, "\e[33m", mctx->cs,
+        "\e[92m", mctx->ds, "\e[92m", mctx->fs, "\e[92m", mctx->ss,
+        "\e[33m", mctx->rax, "\e[33m", mctx->rbx, "\e[33m", mctx->rcx,
+        "\e[92m", mctx->rdx, "\e[92m", mctx->rdi, "\e[92m", mctx->rsi,
+        "\e[33m", mctx->rbp, "\e[33m", mctx->rsp, "\e[33m", mctx->r8,
+        "\e[92m", mctx->r9, "\e[92m", mctx->r10, "\e[92m", mctx->r11,
+        "\e[33m", mctx->r12, "\e[33m", mctx->r13, "\e[33m", mctx->r14,
+        "\e[92m", mctx->r15, "\e[92m", mctx->rip, "\e[92m", rdcr0(),
+        "\e[96m", mctx->cr2, "\e[96m", rdcr3(), "\e[96m", rdcr4(),
+        "\e[91m", stack_sp, "\e[91m", stack_sp + stack_sz, "\e[91m", stack_sz
     );
 }
 

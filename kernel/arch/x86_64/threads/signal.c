@@ -77,7 +77,7 @@ static int x86_64_signal_bycall(arch_thread_t *arch, sigaction_t *act, siginfo_t
 
     current_unlock();
 
-    if (!(intena = is_intena())) {
+    if (!(intena = intrena())) {
         sti();
     }
 

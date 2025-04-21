@@ -7,12 +7,20 @@
 
 #define MAX_PAGE_ORDER      64
 
+typedef enum {
+    PGWM_RESERVED  = 0xFEEF5434C0DEDEEDull,
+    PGWM_DMA_POOL  = 0xBADDCAFEBEEFBABEull,
+    PGWM_NORM_POOL = 0xBADDBEEFC0DEFEEDull,
+    PGWM_HOLE_POOL = 0xBADDC0DEDEAFBED2ull,
+    PGWM_HIGH_POOL = 0xBADDBABE2000BEEFull,
+} page_watermark_t;
+
 typedef struct page {
-    u64             flags;
-    atomic_t        refcnt;
-    atomic_t        mapcnt;
-    icache_t        *icache;
-    uintptr_t       virtual; // virtual addr
+    ulong            flags;
+    atomic_ulong     refcnt;
+    atomic_ulong     mapcnt;
+    icache_t         *icache;
+    page_watermark_t watermark;
 } __packed page_t;
 
 #define PG_X            BS(0)   // page is executable.
@@ -35,9 +43,9 @@ typedef struct page {
 
 #define page_assert(page)           ({ assert(page, "Invalid page pointer.\n"); })
 
-#define page_resetflags(page)       ({ (page)->flags = 0; })
-#define page_testflags(page, f)     ({ (page)->flags & (f); })                       // get page flags.
-#define page_setflags(page, f)      ({ (page)->flags |= (f); })
+#define page_resetflags(page)       ({ (page)->flags =    0; })
+#define page_testflags(page, f)     ({ (page)->flags &   (f); })             // get page flags.
+#define page_setflags(page, f)      ({ (page)->flags |=  (f); })
 #define page_maskflags(page, f)     ({ (page)->flags &= ~(f); })
 
 #define page_isexec(page)           ({ page_testflags(page, PG_EXEC); })     // exec'able.
@@ -86,33 +94,43 @@ typedef struct page {
 #define page_addr(page, zone)       ({ (zone)->start + (page_index(page, zone) * PGSZ); })
 #define page_end(page, npage, zone) ({ page_addr(page, zone) + (npage * PGSZ); })
 
-usize get_page_order(usize size_in_bytes);
+static inline page_watermark_t page_watermark(page_t *page) {
+    return page->watermark;
+}
 
-void page_free_n(page_t *page, usize order);
-void __page_free_n(uintptr_t paddr, usize order);
+static inline void page_set_watermark(page_t *page, page_watermark_t wm) {
+    page->watermark = wm;
+}
 
-void page_free(page_t *page);
-void __page_free(uintptr_t paddr);
+int page_check_watermark(uintptr_t vaddr);
 
-int page_alloc_n(gfp_t gfp, usize order, page_t **pp);
-int __page_alloc_n(gfp_t gfp, usize order, void **pp);
+extern usize get_page_order(usize size_in_bytes);
 
-int page_alloc(gfp_t gfp, page_t **pp);
-int __page_alloc(gfp_t gfp, void **pp);
+extern void page_free_n(page_t *page, usize order);
+extern void __page_free_n(uintptr_t paddr, usize order);
 
-int page_increment(page_t *page);
-int __page_increment(uintptr_t paddr);
+extern void page_free(page_t *page);
+extern void __page_free(uintptr_t paddr);
 
-int page_get(page_t *page);
-int __page_get(uintptr_t paddr);
+extern int page_alloc_n(gfp_t gfp, usize order, page_t **pp);
+extern int __page_alloc_n(gfp_t gfp, usize order, void **pp);
 
-int page_decrement(page_t *page);
-int __page_decrement(uintptr_t paddr);
+extern int page_alloc(gfp_t gfp, page_t **pp);
+extern int __page_alloc(gfp_t gfp, void **pp);
 
-void page_put(page_t *page);
-int __page_put(uintptr_t paddr);
+extern int page_increment(page_t *page);
+extern int __page_increment(uintptr_t paddr);
 
-int page_get_address(page_t *page, void **ppa);
+extern int page_get(page_t *page);
+extern int __page_get(uintptr_t paddr);
 
-int page_getcount(page_t *page, usize *pcnt);
-int __page_getcount(uintptr_t paddr, usize *pcnt);
+extern int page_decrement(page_t *page);
+extern int __page_decrement(uintptr_t paddr);
+
+extern void page_put(page_t *page);
+extern int __page_put(uintptr_t paddr);
+
+extern int page_get_address(page_t *page, void **ppa);
+
+extern int page_getcount(page_t *page, usize *pcnt);
+extern int __page_getcount(uintptr_t paddr, usize *pcnt);
