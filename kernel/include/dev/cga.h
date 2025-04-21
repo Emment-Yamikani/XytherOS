@@ -44,7 +44,6 @@ enum cga_colors {
 #define CGA_BG_BROWN    "\e[46m"
 #define CGA_BG_LGREY    "\e[47m"
 
-extern void     cga_putC(char c);
 extern int      cga_init(void);
 extern void     cga_putc(const int);
 extern size_t   cga_puts(const char *s);

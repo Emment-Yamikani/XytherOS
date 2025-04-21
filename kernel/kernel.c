@@ -15,15 +15,18 @@
 
 void *thread(void *) {
     loop_and_yield();
+    return NULL;
 }
 
 __noreturn void kthread_main(void) {
     thread_builtin_init();
 
-    for (int i = 0; i < 300; ++i) {
+    for (int i = 0; i < 200; ++i) {
         thread_create(NULL, thread, NULL, THREAD_CREATE_SCHED, NULL);
+        if (i % 1000 == 0) printk("%d threads\n", i);
     }
 
+    debuglog();
     loop_and_yield() {
     }
 }
