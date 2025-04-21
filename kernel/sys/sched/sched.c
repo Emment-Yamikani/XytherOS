@@ -4,8 +4,8 @@
 #include <sys/thread.h>
 
 void sched(void) {
-    isize ncli   = 1; // Don't change this, must always be == 1.
-    isize intena = 0;
+    isize ncli  = 1; // Don't change this, must always be == 1.
+    bool intena = 0;
 
     current_assert_locked();
 
@@ -13,10 +13,10 @@ void sched(void) {
         current_mask(THREAD_WAKE | THREAD_PARK);
         return;
     }
-
+    
     disable_interrupts();
     cpu_swap_preepmpt(&ncli, &intena);
-
+    
     /// If not used up entire timeslice, drop one priority level.
     if (current_gettimeslice() == 0) {
         // Check to prevent underflow.

@@ -1,6 +1,16 @@
 #include "metrics.h"
 #include <core/debug.h>
 
+sched_metrics_t per_cpu_metrics[NCPU];
+
+sched_metrics_t *get_cpu_metrics(int core) {
+    return &per_cpu_metrics[core];
+}
+
+sched_metrics_t *get_metrics(void) {
+    return &per_cpu_metrics[getcpuid()];
+}
+
 void sched_update_thread_metrics(thread_t *thread) {
     thread_sched_t *sched_info = NULL;
 

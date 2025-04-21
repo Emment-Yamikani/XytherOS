@@ -16,12 +16,12 @@ typedef struct {
     uint64_t total_threads_executed;
     uint64_t last_idle_time;            // Time CPU spent idle.
     uint64_t last_active_time;
-    uint64_t total_load;
-    uint64_t successful_steals;
+    uint64_t load;
+    uint64_t idle;
 } sched_metrics_t;
 
-extern sched_metrics_t *get_metrics(int core);
-extern sched_metrics_t per_cpu_metrics[NCPU];
+extern sched_metrics_t *get_metrics(void);
+extern sched_metrics_t *get_cpu_metrics(int core);
 
 // Number of scheduling levels in the MLFQ
 #define NSCHED_LEVEL 4
