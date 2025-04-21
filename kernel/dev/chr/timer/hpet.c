@@ -168,16 +168,21 @@ int hpet_init(void) {
     return 0;
 }
 
+#include <core/debug.h>
+
+#define HPET_INT0_STATUS 0x1
+#define HPET_INT1_STATUS 0x2
+#define HPET_INT2_STATUS 0x4
+
 void hpet_intr(void) {
     u64 int_status = HPET_INT_STATUS;
-
-    if (int_status & (1 << 0)) {
-        HPET_INT_STATUS |= 1 << 0;
+    if (int_status & HPET_INT0_STATUS) {
+        HPET_INT_STATUS |= HPET_INT0_STATUS;
         jiffies_update();
-    } else if (int_status & (1 << 1)) {
-        HPET_INT_STATUS |= 1 << 1;
-    } else if (int_status & (1 << 2)) {
-        HPET_INT_STATUS |= 1 << 2;
+    } else if (int_status & HPET_INT1_STATUS) {
+        HPET_INT_STATUS |= HPET_INT1_STATUS;
+    } else if (int_status & HPET_INT2_STATUS) {
+        HPET_INT_STATUS |= HPET_INT2_STATUS;
     }
 }
 

@@ -4,6 +4,7 @@
 #include <core/debug.h>
 #include <mm/zone.h>
 #include <string.h>
+#include <sys/thread.h>
 
 zone_t zones[NZONE];
 
@@ -88,6 +89,52 @@ int getzone_byindex(int zone_i, zone_t **ref) {
     return 0;
 }
 
+static inline int zone_alloc_buffers(zone_t *zone) {
+    if (!zone_size(zone)) {
+        return 0;
+    }
+
+    usize bitmap_size = ((zone->npages + BITS_PER_USIZE - 1) / BITS_PER_USIZE) * sizeof (usize);
+    bitmap_size = PGROUNDUP(bitmap_size);
+    const u64 *bitmap = boot_alloc(bitmap_size, PGSZ);
+    if (!bitmap) return -ENOMEM;
+
+    int err = bitmap_init(&zone->bitmap, (usize *)bitmap, zone->npages);
+    if (err) return err;
+
+    size_t size = PGROUNDUP(zone->npages * sizeof(page_t));
+    const page_t *pages = (page_t *)boot_alloc(size, PGSZ);
+    if (!pages) return -ENOMEM;
+
+    zone->pages = (page_t *)pages;
+    // clear the page array.
+    memset(zone->pages, 0, size);
+
+    // mark zone as valid for use.
+    zone_flags_set(zone, ZONE_VALID);
+    return 0;
+}
+
+static inline int zone_set_address_range(zone_t *zone, uintptr_t addr, usize size) {
+    // enure that the previous zone is initialize before this one.
+    if ((getzone_index(zone) > 0) && !((zone - 1)->flags & ZONE_VALID)) {
+        return -EINVAL;
+    }
+
+    zone->start  = addr;
+    zone->size   = size;
+    zone->npages = NPAGE(size);
+    
+    int err = zone_alloc_buffers(zone);
+    if (err) {
+        zone->start = 0;
+        zone->size = 0;
+        zone->npages = 0;
+    }
+
+    return err;
+}
+
 /**
  * Initialize a memory zone based on the available memory.
  *
@@ -103,92 +150,50 @@ static int zone_enumerate(zone_t *zone, usize *memsz) {
     zone_assert_locked(zone);
 
     // debug("Initializing zone %s: remaining memory size %lu KiB.\n", str_zone[zone - zones], *memsz);
+    usize size = 0;
+    uintptr_t addr = 0;
 
     switch (zone - zones) {
     case ZONEi_DMA:
-        zone->start = 0; // DMA zone starts at 0x0
-        zone->size  = (*memsz > M2KiB(16)) ? MiB(16) : KiB(*memsz);
+        addr = 0; // DMA zone starts at 0x0
+        size = (*memsz > M2KiB(16)) ? MiB(16) : KiB(*memsz);
         break;
     case ZONEi_NORM:
-        // enure that the previous zone is initialize before this one.
-        if (!((zone - 1)->flags & ZONE_VALID)) {
-            return -EINVAL;
-        }
-
         /// manipulate the available memory size.
         /// if available memory size is large split it.
         /// else use as is.
         /// memsz is in KiB.
-        zone->size = (*memsz > M2KiB(2032)) ? MiB(2032) : KiB(*memsz);
+        size = (*memsz > M2KiB(2032)) ? MiB(2032) : KiB(*memsz);
 
         /// set this zone starts @ 16MiB.
-        zone->start = MiB(16);
+        addr = MiB(16);
 
         break;
     case ZONEi_HOLE:
-        // enure that the previous zone is initialize before this one.
-        if (!((zone - 1)->flags & ZONE_VALID)) {
-            return -EINVAL;
-        }
-
         /** We add 1 MiB because multiboot says;
          * "The value returned for upper memory is
          * maximally the address of the first
          * upper memory hole minus 1 megabyte.
          * It is not guaranteed to be this value".*/
-        zone->size = (KiB((bootinfo.memhi + M2KiB(1))) + bootinfo.hole_size) - GiB(2);
+        size = (KiB((bootinfo.memhi + M2KiB(1))) + bootinfo.hole_size) - GiB(2);
 
         /// set this zone starts @ 2GiB.
-        zone->start = GiB(2);
+        addr = GiB(2);
 
         break;
     case ZONEi_HIGH:
-        // enure that the previous zone is initialize before this one.
-        if (!((zone - 1)->flags & ZONE_VALID)) {
-            return -EINVAL;
-        }
-
         /// for HIGH memory zone, no spliting is needed.
-        zone->size  = KiB(*memsz);
+        size  = KiB(*memsz);
 
         /// set this zone starts @ 4GiB.
-        zone->start = GiB(4);
+        addr = GiB(4);
 
         break;
     default: return -EINVAL;
     }
 
-    zone->npages   = NPAGE(zone->size);
-
-    if (zone_size(zone) != 0) {
-        size_t size;
-        usize  bitmap_u64s;
-        page_t *page_array;
-        usize  *bitmap_array;
-
-        bitmap_u64s = ((zone->npages + BITS_PER_USIZE - 1) / BITS_PER_USIZE);
-
-        size         = bitmap_u64s * sizeof(usize);
-        size         += zone->npages * sizeof(page_t);
-        size         = NPAGE(size) * PGSZ;
-        bitmap_array = boot_alloc(size, PGSZ);
-        /* index into the allocated bitmap to get the address
-         of the page_array, this is because the bitmap array and 
-         page array are both allocated together in one buffer. */
-        page_array   = (page_t *)&bitmap_array[bitmap_u64s];
-
-        int err;
-        if ((err = bitmap_init(&zone->bitmap, bitmap_array, zone->npages))) {
-            return err;
-        }
-
-        zone->pages = page_array;
-
-        // mark zone as valid for use.
-        zone_flags_set(zone, ZONE_VALID);
-        // clear the page array.
-        memset(zone->pages, 0, sizeof(page_t) * zone->npages);
-    }
+    int err = zone_set_address_range(zone, addr, size);
+    if (err) return err;
 
     *memsz -= B2KiB(zone->size);
 
@@ -248,7 +253,6 @@ static int process_pages(zone_t *zone, uintptr_t addr, usize size) {
         page->refcnt += 1;
         page->mapcnt += 1;
         page_setflags(page, PG_R | PG_X); // Read and exec only.
-        page->virtual = V2HI(addr);
     }
 
     return 0;
@@ -306,10 +310,49 @@ int zones_init(void) {
         }
     }
 
+    // Set the bump allocator guardrail.
+    atomic_set(&bootinfo.watermark, BOOT_ALLOC_WATERMARK);
     // printk("Memory zones initialized.\n");
     return 0;
 }
 
+static atomic_ulong inits = -1;
+static int zones_protect_sections(void) {
+
+    assert_eq(atomic_read(&inits), (ulong)(-1), "Multiple inits detected\n");
+    atomic_set(&inits, 0);
+
+    const uintptr_t section_ranges[6][2] = {
+        {(uintptr_t)__trampoline_section, (uintptr_t)__trampoline_section_end},
+        {(uintptr_t)__kernel_start, (uintptr_t)__kernel_readonly_end},
+        {(uintptr_t)__text_section, (uintptr_t)__text_section_end},
+        {(uintptr_t)__rodata_section, (uintptr_t)__rodata_section_end},
+        {(uintptr_t)__builtin_thrds, (uintptr_t)__builtin_thrds_end},
+        {(uintptr_t)__builtin_devices, (uintptr_t)__builtin_devices_end},
+    };
+
+    for (usize i = 0; i < NELEM(section_ranges); i++) {
+        uintptr_t start = PGROUND(section_ranges[i][0]);
+        uintptr_t end   = PGROUNDUP(section_ranges[i][1]);
+        usize     size  = end - start;  // x86_64_mprotect handles PGROUND internally
+        const int prot  = i == 0 ? PTE_KRW : PTE_KR;
+
+        if (start >= end) {
+            debug("Empty section [\e[93m%p\e[0m: 0B] skipped.\n", start);
+            continue;
+        } // skip empty sections.
+        
+        if (end < start) {
+            debug("Invalid section: \e[93m%p\e[0m-\e[93m%p\e[0m\n", start, end);
+            continue;
+        }
+
+        int err = arch_mprotect(start, size, prot);
+        printk("%s: remmaped section: [\e[93m%p\e[0m: %5d KB]\n", strerror(err), start, B2KiB(size));
+    }
+
+    return 0;
+}
 
 int physical_memory_init(void) {
     int         err  = 0;
@@ -342,6 +385,8 @@ int physical_memory_init(void) {
     arch_map_i(bootinfo.fb.addr, V2LO(bootinfo.fb.addr),
         bootinfo.fb.size, PTE_KRW | PTE_WTCD
     );
+
+    zones_protect_sections();
 
     return 0;
 }

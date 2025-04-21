@@ -9,7 +9,6 @@ DECL_DEVOPS(static, zero);
 static DECL_DEVICE(zero, FS_CHR, DEV_ZERO, 5);
 
 static int zero_init(void) {
-    printk("Initializing \e[025453;011m%s\e[0m chardev...\n", zerodev.name);
     return dev_register(&zerodev);
 }
 

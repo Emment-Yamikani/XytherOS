@@ -76,7 +76,6 @@ static int ps2kbd_fini(struct devid *dd __unused) {
 }
 
 int ps2kbd_init(void) {
-    printk("Initializing \e[025453;011m%s\e[0m chardev...\n", ps2kbddev.name);
     return dev_register(&ps2kbddev);
 }
 

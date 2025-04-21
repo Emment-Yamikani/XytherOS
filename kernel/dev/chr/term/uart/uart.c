@@ -92,7 +92,14 @@ ssize_t uart_write(struct devid *dd __unused, off_t off __unused, void *buf, siz
     return size;
 }
 
+int uart_dev_init(void) {
+    uart_init();
+    use_uart = 1;
+    return 0;
+}
+
 int uart_putc(char c) {
+    if (!atomic_read(&use_uart)) uart_dev_init();
     return (int)uart_write(NULL, 0, (char *)&c, 1);
 }
 
@@ -110,12 +117,6 @@ int uart_ioctl(struct devid *dd __unused, int req __unused, void *argp __unused)
 
 int uart_close(struct devid *dd __unused) {
     return -EINVAL;
-}
-
-int uart_dev_init(void) {
-    uart_init();
-    use_uart = 1;
-    return 0;
 }
 
 int uart_probe() {

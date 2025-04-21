@@ -8,7 +8,6 @@ DECL_DEVOPS(static, random);
 static DECL_DEVICE(random, FS_CHR, DEV_RANDOM, 8);
 
 static int random_init(void) {
-    printk("Initializing \e[025453;011m%s\e[0m chardev...\n", randomdev.name);
     return dev_register(&randomdev);
 }
 

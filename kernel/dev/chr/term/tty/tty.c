@@ -25,8 +25,6 @@ static int tty_init(void) {
 
         ttys[tty].t_dev   = dev;
 
-        printk("Initializing \e[025453;011m%s\e[0m chardev...\n", dev->name);
-
         if ((err = dev_register(dev))) {
             for (int tty = 0; tty < NTTY; ++tty) {
                 int err = 0;

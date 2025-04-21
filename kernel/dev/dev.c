@@ -304,8 +304,8 @@ int dev_register(device_t *dev) {
     bitmap_set(&table->minor_map[major], minor, 1);
 
     table_unlock(table);
-    
-    // printk("Registered \e[025453;011m%s\e[0m %s...\n", dev->name, DEVICE_TYPE(dev) == CHRDEV ? "chardev" : "blkdev");
+
+    printk("Registered %s[\e[033m%s\e[0m]...\n", DEVICE_TYPE(dev) == CHRDEV ? "chardev" : "blkdev", dev->name);
 
     return 0;
 }

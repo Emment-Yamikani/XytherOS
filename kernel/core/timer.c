@@ -108,7 +108,7 @@ static void deliver_signal_or_event(thread_t *thread, sigevent_t *event) {
 }
 
 static void timer_worker(void) {
-    loop() {
+    loop_and_yield() {
         posix_timer_t *timer = get_expired_timer();
         if (!timer) {
             sched_yield();

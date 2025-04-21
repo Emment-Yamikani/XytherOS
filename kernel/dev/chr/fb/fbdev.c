@@ -69,19 +69,18 @@ int framebuffer_gfx_init(void) {
 }
 
 static int fb_init(void) {
-    printk("Initializing \e[025453;011m%s\e[0m chardev...\n", fbdev.name);
     return dev_register(&fbdev);
 }
 
-static int fb_probe(devid_t *dd __unused) {
+static int fb_probe(devid_t *) {
     return 0;
 }
 
-static int fb_fini(struct devid *dd __unused) {
+static int fb_fini(devid_t *) {
     return 0;
 }
 
-static int fb_close(struct devid *dd) {
+static int fb_close(devid_t *dd) {
     if (dd == NULL ||
         dd->major != DEV_FB ||
         dd->minor >= NFBDEV || dd->type != FS_CHR)
@@ -90,7 +89,7 @@ static int fb_close(struct devid *dd) {
     return 0;
 }
 
-static int fb_getinfo(struct devid *dd, void *info __unused) {
+static int fb_getinfo(devid_t *dd, void *info __unused) {
     if (dd == NULL ||
         dd->major != DEV_FB ||
         dd->minor >= NFBDEV || dd->type != FS_CHR)
@@ -99,14 +98,14 @@ static int fb_getinfo(struct devid *dd, void *info __unused) {
     return 0;
 }
 
-static int fb_open(struct devid *dd __unused, inode_t **pip __unused) {
+static int fb_open(devid_t *dd __unused, inode_t **pip __unused) {
     if (dd == NULL || dd->major != DEV_FB ||
         dd->minor >= NFBDEV || dd->type != FS_CHR)
         return -EINVAL;
     return 0;
 }
 
-static int fb_ioctl(struct devid *dd, int req, void *argp) {
+static int fb_ioctl(devid_t *dd, int req, void *argp) {
     int err = 0;
     framebuffer_t *fb = NULL;
 
@@ -147,7 +146,7 @@ static int fb_ioctl(struct devid *dd, int req, void *argp) {
     return err;
 }
 
-static off_t fb_lseek(struct devid *dd, off_t off __unused, int whence __unused) {
+static off_t fb_lseek(devid_t *dd, off_t off __unused, int whence __unused) {
     if (dd == NULL ||
         dd->major != DEV_FB ||
         dd->minor >= NFBDEV || dd->type != FS_CHR)
@@ -156,7 +155,7 @@ static off_t fb_lseek(struct devid *dd, off_t off __unused, int whence __unused)
     return -EINVAL;
 }
 
-static ssize_t fb_read(struct devid *dd, off_t off, void *buf, size_t sz) {
+static ssize_t fb_read(devid_t *dd, off_t off, void *buf, size_t sz) {
     ssize_t         size = 0;
     framebuffer_t   *fb  = NULL;
 
@@ -185,7 +184,7 @@ static ssize_t fb_read(struct devid *dd, off_t off, void *buf, size_t sz) {
     return size;
 }
 
-static ssize_t fb_write(struct devid *dd, off_t off, void *buf, size_t sz) {
+static ssize_t fb_write(devid_t *dd, off_t off, void *buf, size_t sz) {
     ssize_t         size = 0;
     framebuffer_t   *fb  = NULL;
 
@@ -247,7 +246,7 @@ static int fb_vmr_fault(vmr_t *region, vm_fault_t *fault) {
     return arch_map_i(fault->addr, fbaddr, PGSZ, region->vflags);
 }
 
-static int fb_mmap(struct devid *dd, vmr_t *region) {
+static int fb_mmap(devid_t *dd, vmr_t *region) {
     framebuffer_t *fb = NULL;
 
     if (dd == NULL || dd->major != DEV_FB ||

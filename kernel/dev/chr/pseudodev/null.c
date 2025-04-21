@@ -8,7 +8,6 @@ DECL_DEVOPS(static, null);
 static DECL_DEVICE(null, FS_CHR, DEV_NULL, 3);
 
 static int null_init(void) {
-    printk("Initializing \e[025453;011m%s\e[0m chardev...\n", nulldev.name);
     return dev_register(&nulldev);
 }
 
