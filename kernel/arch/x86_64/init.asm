@@ -60,8 +60,8 @@ start32:
     ; Map PDT entries to PT
     mov     edi, (PDT - VMA)
     mov     eax, (PT - VMA)
-    or      eax, 0x3        ; Set present and writable flags
-    mov     ecx, 1024       ; 1024 entries in PDT
+    or      eax, 0x3                ; Set present and writable flags
+    mov     ecx, 1024               ; 1024 entries in PDT
 .mapt:
     mov     dword [edi], eax        ; Map PDT entry to PT
     add     edi, 0x8
@@ -70,8 +70,8 @@ start32:
 
     ; Map PT entries to physical memory (2 GiB)
     mov     edi, (PT - VMA)
-    mov     eax, (0x0 | 0x3) ; Start at physical address 0, set present and writable flags
-    mov     ecx, 0x80000    ; 2 GiB worth of pages (512 * 1024 entries)
+    mov     eax, (0x0 | 0x3)        ; Start at physical address 0, set present and writable flags
+    mov     ecx, 0x80000            ; 2 GiB worth of pages (512 * 1024 entries)
 .map:
     mov     dword [edi], eax        ; Map PT entry to physical memory
     add     edi, 8
@@ -81,14 +81,14 @@ start32:
     ; Map device memory (MMIO)
     mov     edi, (PDPT - VMA)
     mov     eax, (DEVPDT - VMA)
-    or      eax, 0x1b       ; Set present, writable, and cache-disable flags
+    or      eax, 0x1b               ; Set present, writable, and cache-disable flags
     mov     dword [edi + 0x18], eax ; PDPT3 -> DEVPDT
 
     ; Map DEVPDT entries to DEVPT
     mov     edi, (DEVPDT - VMA)
     mov     eax, (DEVPT - VMA)
-    or      eax, 0x1b       ; Set present, writable, and cache-disable flags
-    mov     ecx, 16         ; 16 entries in DEVPDT
+    or      eax, 0x1b               ; Set present, writable, and cache-disable flags
+    mov     ecx, 16                 ; 16 entries in DEVPDT
 .mapdevpt:
     mov     dword [edi + 0xF80], eax ; Map DEVPDT entry to DEVPT
     add     edi, 8
@@ -97,8 +97,8 @@ start32:
 
     ; Map DEVPT entries to device memory
     mov     edi, (DEVPT - VMA)
-    mov     eax, (DEVADDR | 0x1b) ; Set present, writable, and cache-disable flags
-    mov     ecx, 8192       ; 8192 device pages
+    mov     eax, (DEVADDR | 0x1b)   ; Set present, writable, and cache-disable flags
+    mov     ecx, 8192               ; 8192 device pages
 .mapdevs:
     mov     dword [edi], eax        ; Map DEVPT entry to device memory
     add     edi, 8
@@ -137,7 +137,7 @@ start32:
     ; Load GDT and jump to 64-bit mode
     mov     eax, (gdtbase - VMA)
     lgdt    [eax]
-    jmp     0x8:(start64 - VMA)
+    jmp     0x08:(start64 - VMA)
 
 .noext:
     mov     eax, 0xDEADCAFE ; Error code for no extended features
@@ -145,7 +145,6 @@ start32:
 
 .no64:
     mov     eax, 0xDEADBEEF ; Error code for no 64-bit support
-    hlt
     jmp     $               ; Halt
 
 ; GDT for 64-bit mode

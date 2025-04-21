@@ -183,24 +183,6 @@ fninit:
     fninit
     ret
 
-global cli
-; C prototype: void cli(void);
-cli:
-    cli
-    ret
-
-global sti
-; C prototype: void sti(void);
-sti:
-    sti
-    ret
-
-global hlt
-; C prototype: void hlt(void);
-hlt:
-    hlt
-    ret
-
 global cpu_pause
 ; C prototype: void cpu_pause(void);
 cpu_pause:
