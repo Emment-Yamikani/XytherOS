@@ -106,9 +106,24 @@ static inline int zone_alloc_buffers(zone_t *zone) {
     const page_t *pages = (page_t *)boot_alloc(size, PGSZ);
     if (!pages) return -ENOMEM;
 
+    page_watermark_t watermark;
+    switch (getzone_index(zone)) {
+        case ZONEi_DMA:  watermark = PGWM_DMA_POOL; break;
+        case ZONEi_NORM: watermark = PGWM_NORM_POOL; break;
+        case ZONEi_HOLE: watermark = PGWM_HOLE_POOL; break;
+        case ZONEi_HIGH: watermark = PGWM_HIGH_POOL; break;
+    }
+
     zone->pages = (page_t *)pages;
-    // clear the page array.
-    memset(zone->pages, 0, size);
+    for (usize idx = 0; idx < zone->npages; ++idx) {
+        zone->pages[idx] = (page_t) {
+            .flags      = 0,
+            .mapcnt     = 0,
+            .refcnt     = 0,
+            .icache     = NULL,
+            .watermark  = watermark
+        };
+    }
 
     // mark zone as valid for use.
     zone_flags_set(zone, ZONE_VALID);
@@ -231,7 +246,7 @@ static int initialize_memory_zone(zone_t *zone, usize *memsz) {
 }
 
 // Helper function to process pages within a memory range
-static int process_pages(zone_t *zone, uintptr_t addr, usize size) {
+static int mark_reserved_pages(zone_t *zone, uintptr_t addr, usize size) {
     usize   np      = 0;
     page_t  *page   = NULL;
 
@@ -252,6 +267,7 @@ static int process_pages(zone_t *zone, uintptr_t addr, usize size) {
 
         page->refcnt += 1;
         page->mapcnt += 1;
+        page->watermark = PGWM_RESERVED;
         page_setflags(page, PG_R | PG_X); // Read and exec only.
     }
 
@@ -278,7 +294,7 @@ static int process_memory_map(boot_mmap_t *map) {
             __func__, __FILE__, __LINE__, addr, size, err);
     }
 
-    if ((err = process_pages(zone, addr, size))) {
+    if ((err = mark_reserved_pages(zone, addr, size))) {
         panic("PANIC: %s(): %s:%d: Couldn't process memory region[%p: %ld]. err: %d\n",
             __func__, __FILE__, __LINE__, addr, size, err);
     }
@@ -316,8 +332,8 @@ int zones_init(void) {
     return 0;
 }
 
-static atomic_ulong inits = -1;
 static int zones_protect_sections(void) {
+    static atomic_ulong inits = -1;
 
     assert_eq(atomic_read(&inits), (ulong)(-1), "Multiple inits detected\n");
     atomic_set(&inits, 0);
@@ -356,27 +372,24 @@ static int zones_protect_sections(void) {
 
 int physical_memory_init(void) {
     int         err  = 0;
-    usize       size = 0;
     uintptr_t   addr = 0;
-    boot_mmap_t *map = bootinfo.mmap;
-
+    
     if ((err = zones_init())) {
         return 0;
     }
     
-    size = GiB(2) - PGROUNDUP(zones[ZONEi_NORM].size);
-
+    usize size = GiB(2) - PGROUNDUP(zones[ZONEi_NORM].size);
     if ((long)size > 0) {
         addr = PGROUNDUP(zone_end(&zones[ZONEi_NORM]));
         arch_unmap_n(V2HI(addr), size);
     }
 
+    boot_mmap_t *map = bootinfo.mmap;
     for (usize i = 0; i < bootinfo.mmapcnt; ++i) {
         addr = PGROUND(map[i].addr);
         size = PGROUNDUP(map[i].size);
 
-        if ((V2LO(map[i].addr) < GiB(4)) &&
-                (map[i].type != MULTIBOOT_MEMORY_AVAILABLE)) {
+        if ((V2LO(map[i].addr) < GiB(4)) && (map[i].type != MULTIBOOT_MEMORY_AVAILABLE)) {
             uint32_t flags = PTE_KRW | PTE_WTCD;
             arch_map_i(addr, V2LO(addr), size, flags);
         }

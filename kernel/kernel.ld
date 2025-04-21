@@ -10,21 +10,26 @@ KERNEL_VMA = 0xFFFF800000000000;
 SECTIONS {
     . = TRAMPOLINE;
     .trampoline ALIGN (4K) : AT (ADDR (.trampoline)) {
+        __trampoline_section = .;
         KEEP(*(.trampoline))
         KEEP(*(.multiboot))
         KEEP(*(.init32))
+        __trampoline_section_end = .;
     }
 
     . = KERNEL_LMA + KERNEL_VMA;
-    kstart = .;
+
+    __kernel_start = .;
     .text ALIGN (4K) : AT (ADDR (.text) - KERNEL_VMA) {
+        __text_section = .;
         *(.text)
+        __text_section_end = .;
     }
 
-    .ksym_table ALIGN (4K) : AT(ADDR(.ksym_table) - KERNEL_VMA) {
-        ksym_table = .;
-        *(.ksym_table*)
-        ksym_table_end = .;
+    .rodata ALIGN (4K) : AT (ADDR (.rodata) - KERNEL_VMA) {
+        __rodata_section = .;
+        *(.rodata)
+        __rodata_section_end = .;
     }
 
     .__builtin_thrds ALIGN (4K) : AT(ADDR(.__builtin_thrds) - KERNEL_VMA) {
@@ -39,9 +44,7 @@ SECTIONS {
         __builtin_devices_end = .;
     }
 
-    .rodata ALIGN (4K) : AT (ADDR (.rodata) - KERNEL_VMA) {
-        *(.rodata)
-    }
+    __kernel_readonly_end = .;
 
     .data ALIGN (4K) : AT (ADDR (.data) - KERNEL_VMA) {
         *(.data)
@@ -52,12 +55,11 @@ SECTIONS {
         *(COMMON)
     }
 
-    /DISCARD/ :
-    {
+    /DISCARD/ : {
       *(.comment)
       /* Exception handling section - we do not need it*/
       *(.eh_frame)
     }
 
-    kend = .;
+    __kernel_end = .;
 }

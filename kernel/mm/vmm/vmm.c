@@ -25,7 +25,7 @@ typedef struct node_t {
 
 static SPINLOCK(lock);
 static usize    kheap_size      = 0;
-static volatile atomic_t initialized     = 0;
+static atomic_t initialized     = 0;
 static size_t   used_memsz      = 0;
 static node_t   *free_node_list = NULL;
 static node_t   *usedvmr_list   = NULL;
@@ -249,12 +249,16 @@ static int freevmr_get(size_t size, node_t **ppn) {
 }
 
 static int vmm_init(void) {
-    int err = 0;
-    node_t *node = NULL;
+    int     err = 0;
+    node_t  *node = NULL;
+    static atomic_ulong init_watermark = -1;
 
     if (atomic_read(&initialized))
         return 0;
-    
+
+    assert_eq(atomic_read(&init_watermark), (ulong)-1, "Detected multiple initializations\n");
+    atomic_set(&init_watermark, 0);
+
     vm_lock();
 
     assert_eq(err = physical_memory_init(), 0,
@@ -273,7 +277,7 @@ static int vmm_init(void) {
     assert_eq(err = pmman.get_pages(GFP_NORMAL, order, &addr), 0,
         "Error[%d]: initializing physical memory manager.\n", err
     );
-    
+
     nodes = (node_t *)V2HI(addr);
 
     memset(nodes, 0, sizeof nodes);
@@ -289,7 +293,7 @@ static int vmm_init(void) {
 
     *(node = free_node_get()) = (node_t) {
         .base = KHEAPBASE,
-        .size  = KHEAPSIZE,
+        .size = KHEAPSIZE,
     };
 
     freevmr_put(node);
@@ -304,8 +308,10 @@ static int alloc(size_t size, void **ppv) {
     node_t *node = NULL, *split = NULL;
     node_t *prev = NULL, *next = NULL;
 
-    if (!atomic_read(&initialized))
+    if (!atomic_read(&initialized)) {
+        debug("requested size: %d KB\n", B2KiB(size));
         vmm_init();
+    }
 
     vm_lock();
 

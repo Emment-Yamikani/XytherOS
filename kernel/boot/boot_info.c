@@ -1,3 +1,4 @@
+#include <arch/paging.h>
 #include <bits/errno.h>
 #include <boot/boot.h>
 #include <core/assert.h>
@@ -54,20 +55,8 @@ static void bubble_sort_mmap(boot_mmap_t *array, size_t count) {
     }
 }
 
-void multiboot_info_process(multiboot_info_t *mbi) {
-    boot_mmap_t     *mmap   = bootinfo.mmap;
-    
-    // Initialize bootinfo with zero
-    memset(&bootinfo, 0, sizeof(bootinfo_t));
-
-    // Setup kernel address and size.
-    bootinfo.kern_base  = PGROUND(kstart);
-    bootinfo.kern_size  = PGROUNDUP(kend - kstart);
-
-    // Get memory information
-    bootinfo.memlo      = (usize)mbi->mem_lower;
-    bootinfo.memhi      = (usize)mbi->mem_upper;
-    bootinfo.total      = M2KiB(1) + mbi->mem_upper;
+static void boot_process_mmaps(const multiboot_info_t *mbi) {
+    boot_mmap_t *mmap = bootinfo.mmap;
 
     // Get memory map information
     if (mbi->flags & MULTIBOOT_INFO_MEM_MAP) {
@@ -111,13 +100,9 @@ void multiboot_info_process(multiboot_info_t *mbi) {
             entry = (mmap_entry_t *)((u64)entry + entry->size + sizeof(entry->size));
         }
     }
+}
 
-    // Subtract to account for space used by kernel.
-    bootinfo.usable -= bootinfo.kern_size;
- 
-    // The first free physical address is the page frame right after the kernel.
-    bootinfo.phyaddr = V2LO(PGROUNDUP(kend));
-
+static void boot_process_modules(const multiboot_info_t *mbi) {
     // Get modules information
     if (mbi->flags & MULTIBOOT_INFO_MODS) {
         mod_entry_t *mod = (mod_entry_t *)V2HI(mbi->mods_addr);
@@ -142,16 +127,11 @@ void multiboot_info_process(multiboot_info_t *mbi) {
             bootinfo.mmap[bootinfo.mmapcnt].size = bootinfo.mods[i].size;
             bootinfo.mmap[bootinfo.mmapcnt].type = MULTIBOOT_MEMORY_RESERVED;
             bootinfo.mmapcnt++;
-
         }
     }
+}
 
-    // memory sizes must be in KiB for both usable and total memory.
-    bootinfo.usable  = PGROUND(bootinfo.usable) / KiB(1);
-
-    // Sort mmaps' array by sizeof(memory map).
-    bubble_sort_mmap(bootinfo.mmap, bootinfo.mmapcnt);
-
+static void boot_process_framebuffer(const multiboot_info_t *mbi) {
     // Get framebuffer information
     if (mbi->flags & MULTIBOOT_INFO_FRAMEBUFFER_INFO) {
         bootinfo.fb.bpp    = mbi->framebuffer_bpp;
@@ -161,10 +141,48 @@ void multiboot_info_process(multiboot_info_t *mbi) {
         bootinfo.fb.height = mbi->framebuffer_height;
         bootinfo.fb.addr   = V2HI(mbi->framebuffer_addr);
         bootinfo.fb.size   = mbi->framebuffer_height * mbi->framebuffer_pitch;
-        
+
         // TODO: provide a fallback to text mode.
         framebuffer_gfx_init();
     }
+}
+
+void multiboot_info_process(multiboot_info_t *mbi) {
+    // Initialize bootinfo with zero
+    memset(&bootinfo, 0, sizeof(bootinfo_t));
+
+    // Setup kernel address and size.
+    bootinfo.kern_base  = PGROUND(__kernel_start);
+    bootinfo.kern_size  = PGROUNDUP(__kernel_end) - PGROUND(__kernel_start);
+
+    // Get memory information
+    bootinfo.memlo      = (usize)mbi->mem_lower;
+    bootinfo.memhi      = (usize)mbi->mem_upper;
+    bootinfo.total      = M2KiB(1) + mbi->mem_upper;
+
+    boot_process_mmaps(mbi); // get multiboot memory maps.
+
+    // Subtract to account for space used by kernel.
+    bootinfo.usable -= bootinfo.kern_size;
+
+    uintptr_t *poision_region = (uintptr_t *)PGROUNDUP(__kernel_end);
+    for (usize i = 0; i < (PGSZ / sizeof *poision_region); ++i) {
+        poision_region[i] = 0xFEEB4000C0DEBABAUL;
+    }
+
+    // The first free physical address is the page frame right after the kernel.
+    bootinfo.phyaddr = V2LO(poision_region);
+    arch_mprotect(PGROUNDUP(__kernel_end), PGSZ, PTE_KR);
+
+    boot_process_modules(mbi); // get module information.
+
+    // memory sizes must be in KiB for both usable and total memory.
+    bootinfo.usable  = PGROUND(bootinfo.usable) / KiB(1);
+
+    // Sort mmaps' array by sizeof(memory map).
+    bubble_sort_mmap(bootinfo.mmap, bootinfo.mmapcnt);
+
+    boot_process_framebuffer(mbi); // Get framebuffer information
 
     // Get bootloader name
     if (mbi->flags & MULTIBOOT_INFO_BOOT_LOADER_NAME) {
@@ -181,8 +199,7 @@ void multiboot_info_process(multiboot_info_t *mbi) {
  * @panic           On invalid parameters or memory exhaustion
  */
 void *boot_alloc(usize size, usize alignment) {
-    void        *addr = NULL;
-    uintptr_t   aligned_addr;
+    assert_ne(atomic_read(&bootinfo.watermark), BOOT_ALLOC_WATERMARK, "Watermark breach detected.");
 
     // Validate input size and alignment.
     if (size == 0 || alignment == 0 || (alignment & (alignment - 1)) != 0) {
@@ -192,9 +209,9 @@ void *boot_alloc(usize size, usize alignment) {
 
     // Ensure size is rounded up to the nearest alignment size for proper allocation.
     size = (size + alignment - 1) & ~(alignment - 1);
-
+    
     // Calculate the aligned address.
-    aligned_addr = bootinfo.phyaddr;
+    uintptr_t aligned_addr = bootinfo.phyaddr;
     if (aligned_addr % alignment != 0) {
         aligned_addr = (aligned_addr + alignment - 1) & ~(alignment - 1);
     }
@@ -217,7 +234,7 @@ void *boot_alloc(usize size, usize alignment) {
         "OUT OF SPACE TO ADD ANOTHER MMAP\n"
     );
 
-    addr = (void *)V2HI(aligned_addr);
+    void *addr = (void *)V2HI(aligned_addr);
 
     // Update the bootinfo pointer to reflect the new allocation.
     bootinfo.phyaddr = (uintptr_t)(aligned_addr + size);

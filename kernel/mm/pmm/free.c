@@ -55,7 +55,6 @@ static void do_page_free_n(page_t *page, uintptr_t addr, usize order) {
 
         zone->upages    -= 1;
 
-        page->virtual   = 0;
         page->icache    = NULL;
     }
 

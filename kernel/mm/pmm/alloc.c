@@ -36,17 +36,23 @@ static int zero_fill_page(zone_t *zone, page_t *page, int whence) {
 
     paddr   = zone->start + ((page - zone->pages) * PGSZ);
 
+    // printk("%p: watermark: %p\n", page_addr(page, zone), page_watermark(page));
+    page_verify_watermark(page, zone);
+
     if ((whence == ZONEi_HOLE) || (whence == ZONEi_HIGH)) {
         // Handle high memory or hole zone
         while ((err = arch_mount(paddr, &vaddr))) {
             panic("%s:%d: Failed to mount, err: %d\n", __FILE__, __LINE__, err);
         }
+
+        assert(!is_kernel_addr((uintptr_t)vaddr), "Allocation of kernel page[%p] detected.", vaddr);
         memset(vaddr, 0, PGSZ);
         arch_unmount((uintptr_t)vaddr);
     } else {
-        /// addresses from 0->2GiB are indically mapped.
+        /// addresses from 0->2GiB are identically mapped.
         /// so just convert the paddr directly to vaddr.
         vaddr = (void *)V2HI(paddr);
+        assert(!is_kernel_addr((uintptr_t)vaddr), "Allocation of kernel page[%p] detected.", vaddr);
         memset(vaddr, 0, PGSZ);
     }
 
@@ -102,6 +108,7 @@ static int do_page_alloc_n(gfp_t gfp, usize order, page_t **ppage, void **ppaddr
             return err;
 
         if ((err = bitmap_alloc_range(&zone->bitmap, npage, &index))) {
+            panic("Failed to allocate page-frame: %s\n", strerror(err));
             zone_unlock(zone);
             return err;
         }
@@ -119,6 +126,10 @@ static int do_page_alloc_n(gfp_t gfp, usize order, page_t **ppage, void **ppaddr
             );
 
             atomic_inc(&page->refcnt);
+
+            // printk("Watermark [%p: watermark: %p]\n", page_addr(page, zone), page_watermark(page));
+
+            page_verify_watermark(page, zone);
 
             // does caller want a zero-filled page?
             if (gfp & GFP_ZERO) {

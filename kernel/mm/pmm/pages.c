@@ -1,4 +1,5 @@
 #include <bits/errno.h>
+#include <core/debug.h>
 #include <mm/mem.h>
 #include <mm/page.h>
 #include <mm/zone.h>
@@ -213,5 +214,32 @@ int __page_getcount(uintptr_t paddr, usize *pcnt) {
 
     *pcnt = atomic_read(&zone->pages[(paddr - zone->start) / PGSZ].refcnt);
     zone_unlock(zone);
+    return 0;
+}
+
+int page_check_watermark(uintptr_t vaddr) {
+    pte_t *pte;
+
+    int err = arch_getmapping(vaddr, &pte);
+    if (err) return err;
+
+    const uintptr_t paddr = PTE2PHYS(pte);
+
+    zone_t *zone = NULL;
+    err = getzone_byaddr(paddr, PGSZ, &zone);
+    if (err) return err;
+    
+    page_t *page = &zone->pages[(paddr - zone->start) / PGSZ];
+    if (!atomic_read(&page->refcnt) || !bitmap_test(&zone->bitmap, page - zone->pages, 1)) {
+        zone_unlock(zone);
+        debug("Access to page handle denied.\n");;
+        return -EACCES;
+    }
+    
+    printk("%p->%p: %p\n", vaddr, paddr, page_watermark(page));
+
+    page_verify_watermark(page, zone);
+    zone_unlock(zone);
+
     return 0;
 }
