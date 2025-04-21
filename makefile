@@ -5,7 +5,7 @@ ISO_IMAGE   := xytheros.iso
 KERNEL_DIR  := kernel
 KERNEL_LINKER_SCRIPT:= kernel.ld
 
-KERNEL_FLAGS:= -DDEBUG_BUILD -D__x86_64__
+KERNEL_FLAGS:= -DDEBUG_BUILD -D__x86_64__ -DUSE_SPINLOCK_FUNCTIONS
 
 # Toolchain Configuration
 CC          := x86_64-elf-gcc
@@ -74,14 +74,14 @@ iso: all
 	@mkdir -p $(ISO_DIR)/boot/grub
 	@echo 'set timeout=0' > $(ISO_DIR)/boot/grub/grub.cfg
 	@echo 'set default=0' >> $(ISO_DIR)/boot/grub/grub.cfg
-	@echo 'menuentry "XytherOS" {' >> $(ISO_DIR)/boot/grub/grub.cfg
+	@echo 'menuentry "xytherOS" {' >> $(ISO_DIR)/boot/grub/grub.cfg
 	@echo '	multiboot --quirk-modules-after-kernel /$(TARGET) 0x1000000' >> $(ISO_DIR)/boot/grub/grub.cfg
 	@echo '	boot' >> $(ISO_DIR)/boot/grub/grub.cfg
 	@echo '}' >> $(ISO_DIR)/boot/grub/grub.cfg
 	$(GRUBMKRESCUE) -o $(ISO_IMAGE) $(ISO_DIR)
 	@echo "ISO image created: $(ISO_IMAGE)"
 
-CPU_COUNT 	:= 2
+CPU_COUNT 	:= 8
 RAM_SIZE	:= 2048M
 QUEUE_FLAGS := -no-reboot -no-shutdown -parallel none
 
@@ -92,12 +92,23 @@ run: iso
     $(QUEUE_FLAGS) -smp $(CPU_COUNT) -m size=$(RAM_SIZE) -vga std \
     -chardev file,id=char0,path=serial.log -serial chardev:char0
 
+run_serial: iso
+	@echo "Starting QEMU..."
+	qemu-system-x86_64 -cdrom $(ISO_IMAGE) \
+    $(QUEUE_FLAGS) -smp $(CPU_COUNT) -m size=$(RAM_SIZE) -vga std \
+    -chardev stdio,id=char0,path=serial.log -serial chardev:char0
 
 # Debug in QEMU with GDB
 debug: iso
 	@echo "Starting QEMU in debug mode..."
-	qemu-system-x86_64 -cdrom $(ISO_IMAGE) -monitor stdio -s -S \
-	$(QUEUE_FLAGS) -smp $(CPU_COUNT) -m size=$(RAM_SIZE) -vga std \
+	qemu-system-x86_64 -cdrom $(ISO_IMAGE) -monitor stdio -s -S -d in_asm \
+	-D qemu_gdb.asm $(QUEUE_FLAGS) -smp $(CPU_COUNT) -m size=$(RAM_SIZE) -vga std \
+    -chardev file,id=char0,path=serial.log -serial chardev:char0
+
+debug_log: iso
+	@echo "Starting QEMU in debug mode..."
+	qemu-system-x86_64 -cdrom $(ISO_IMAGE) -monitor stdio -d in_asm \
+	-D qemu.asm $(QUEUE_FLAGS) -smp $(CPU_COUNT) -m size=$(RAM_SIZE) -vga std \
     -chardev file,id=char0,path=serial.log -serial chardev:char0
 
 dump: $(ISO_DIR)/$(TARGET)

@@ -6,20 +6,21 @@
 #include <sync/preempt.h>
 #include <sync/atomic.h>
 
-typedef struct spinlock_t_t {
+typedef struct spinlock_t_t
+{
     arch_raw_lock_t guard;
-    uint            locked;
-    void            *owner;
+    uint locked;
+    void *owner;
 
-    int             line;
-    char            *file;
+    int line;
+    char *file;
 } spinlock_t;
 
 #define SPINLOCK_INIT() ((spinlock_t){ \
-    .line       = 0,                   \
-    .file       = NULL,                \
-    .owner      = NULL,                \
-    .locked     = false,               \
+    .line = 0,                         \
+    .file = NULL,                      \
+    .owner = NULL,                     \
+    .locked = false,                   \
 })
 
 #define SPINLOCK(name) spinlock_t *name = &SPINLOCK_INIT()
@@ -33,32 +34,54 @@ extern void spinlock_dump(spinlock_t *lk);
 /* Call with lk->guard held and preemption disabled.*/
 extern bool holding(const spinlock_t *lk);
 
-#define spin_acquire(lk) ({                                                                  \
-    spin_assert(lk);                                                                         \
-    pushcli();                                                                               \
-                                                                                             \
-    arch_raw_lock_acquire(&(lk)->guard);                                                     \
-    assert_eq(holding(lk), 0, "Spinlock already held @ [%s:%d].\n", (lk)->file, (lk)->line); \
-                                                                                             \
-    loop()                                                                                   \
-    {                                                                                        \
-        if ((lk)->locked == 0)                                                               \
-            break;                                                                           \
-                                                                                             \
-        arch_raw_lock_release(&(lk)->guard);                                                 \
-        popcli();                                                                            \
-        cpu_pause();                                                                         \
-        pushcli();                                                                           \
-        arch_raw_lock_acquire(&(lk)->guard);                                                 \
-    }                                                                                        \
-                                                                                             \
-    (lk)->locked = 1;                                                                        \
-    (lk)->file = __FILE__;                                                                   \
-    (lk)->line = __LINE__;                                                                   \
-    (lk)->owner = current ? (void *)current : (void *)cpu;                                   \
-                                                                                             \
-    arch_raw_lock_release(&(lk)->guard);                                                     \
-    memory_barrier();                                                                        \
+#if defined (USE_SPINLOCK_FUNCTIONS)
+extern void spin_acquire(spinlock_t *lk);
+
+extern void spin_lock(spinlock_t *lk);
+
+extern void spin_release(spinlock_t *lk);
+
+extern void spin_unlock(spinlock_t *lk);
+
+extern bool spin_islocked(spinlock_t *lk);
+
+extern bool spin_recursive_lock(spinlock_t *lk);
+
+extern void spin_assert_locked(spinlock_t *lk);
+
+extern bool spin_trylock(spinlock_t *lk);
+
+#endif // USE_SPINLOCK_FUNCTIONS
+
+#if !defined (USE_SPINLOCK_FUNCTIONS)
+#define spin_acquire(lk) ({                                 \
+    spin_assert(lk);                                        \
+    pushcli();                                              \
+                                                            \
+    arch_raw_lock_acquire(&(lk)->guard);                    \
+    assert_eq(holding(lk), false,                           \
+              "Spinlock already held by [%p] @ [%s:%d].\n", \
+              (lk)->owner, (lk)->file, (lk)->line);         \
+                                                            \
+    loop()                                                  \
+    {                                                       \
+        if ((lk)->locked == 0)                              \
+            break;                                          \
+                                                            \
+        arch_raw_lock_release(&(lk)->guard);                \
+        popcli();                                           \
+        cpu_pause();                                        \
+        pushcli();                                          \
+        arch_raw_lock_acquire(&(lk)->guard);                \
+    }                                                       \
+                                                            \
+    (lk)->locked = 1;                                       \
+    (lk)->file = __FILE__;                                  \
+    (lk)->line = __LINE__;                                  \
+    (lk)->owner = current ? (void *)current : (void *)cpu;  \
+                                                            \
+    arch_raw_lock_release(&(lk)->guard);                    \
+    memory_barrier();                                       \
 })
 
 #define spin_lock(lk) ({ \
@@ -66,21 +89,21 @@ extern bool holding(const spinlock_t *lk);
     spin_acquire(lk);    \
 })
 
-#define spin_release(lk) ({                                \
-    spin_assert(lk);                                       \
-    pushcli();                                             \
-    memory_barrier();                                      \
-                                                           \
-    arch_raw_lock_acquire(&(lk)->guard);                   \
-    assert_eq(holding(lk), 1, "Spinlock must be held.\n"); \
-                                                           \
-    (lk)->line = 0;                                        \
-    (lk)->file = NULL;                                     \
-    (lk)->owner = NULL;                                    \
-    (lk)->locked = 0;                                      \
-    arch_raw_lock_release(&(lk)->guard);                   \
-    popcli();                                              \
-    popcli();                                              \
+#define spin_release(lk) ({                                   \
+    spin_assert(lk);                                          \
+    pushcli();                                                \
+    memory_barrier();                                         \
+                                                              \
+    arch_raw_lock_acquire(&(lk)->guard);                      \
+    assert_eq(holding(lk), true, "Spinlock must be held.\n"); \
+                                                              \
+    (lk)->line = 0;                                           \
+    (lk)->file = NULL;                                        \
+    (lk)->owner = NULL;                                       \
+    (lk)->locked = 0;                                         \
+    arch_raw_lock_release(&(lk)->guard);                      \
+    popcli();                                                 \
+    popcli();                                                 \
 })
 
 #define spin_unlock(lk) ({ \
@@ -139,3 +162,4 @@ extern bool holding(const spinlock_t *lk);
     memory_barrier();                                                                        \
     success;                                                                                 \
 })
+#endif // USE_SPINLOCK_FUNCTIONS
