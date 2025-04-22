@@ -81,7 +81,7 @@ iso: all
 	$(GRUBMKRESCUE) -o $(ISO_IMAGE) $(ISO_DIR)
 	@echo "ISO image created: $(ISO_IMAGE)"
 
-CPU_COUNT 	:= 8
+CPU_COUNT 	:= 2
 RAM_SIZE	:= 2048M
 QUEUE_FLAGS := -no-reboot -no-shutdown -parallel none
 
@@ -102,13 +102,13 @@ run_serial: iso
 debug: iso
 	@echo "Starting QEMU in debug mode..."
 	qemu-system-x86_64 -cdrom $(ISO_IMAGE) -monitor stdio -s -S -d in_asm \
-	-D qemu_gdb.asm $(QUEUE_FLAGS) -smp $(CPU_COUNT) -m size=$(RAM_SIZE) -vga std \
+	-D qemu_gdb.log $(QUEUE_FLAGS) -smp $(CPU_COUNT) -m size=$(RAM_SIZE) -vga std \
     -chardev file,id=char0,path=serial.log -serial chardev:char0
 
 debug_log: iso
 	@echo "Starting QEMU in debug mode..."
 	qemu-system-x86_64 -cdrom $(ISO_IMAGE) -monitor stdio -d in_asm \
-	-D qemu.asm $(QUEUE_FLAGS) -smp $(CPU_COUNT) -m size=$(RAM_SIZE) -vga std \
+	-D qemu.log $(QUEUE_FLAGS) -smp $(CPU_COUNT) -m size=$(RAM_SIZE) -vga std \
     -chardev file,id=char0,path=serial.log -serial chardev:char0
 
 dump: $(ISO_DIR)/$(TARGET)

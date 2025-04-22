@@ -47,9 +47,19 @@ extern int isbsp(void);
 extern thread_t *get_current(void);
 extern bool set_current(thread_t *thread);
 
-extern void disable_interrupts(void);
-extern void enable_interrupts(void);
+extern bool disable_interrupts(void);
+extern void enable_interrupts(bool old_int_status);
+
+extern void cpu_set_ncli(isize ncli);
+
+extern void cpu_set_intena(bool intena);
+
+extern void cpu_set_preepmpt(isize ncli, bool intena);
 
 extern void cpu_swap_preepmpt(isize *ncli, bool *intena);
+
+extern void cpu_swap_ncli(isize *ncli);
+
+extern void cpu_swap_intena(bool *intena);
 
 #define current (get_current())

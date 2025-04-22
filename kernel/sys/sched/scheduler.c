@@ -69,7 +69,7 @@ static int MLFQ_enqueue(thread_t *thread) {
      * then re-acquire it after acquisition of:
      * thread_queue->lock before thread_queue->queue->lock.
      *
-     * @brief SEE: Lock ordering used in MLFQ_get_next().
+     * @brief SEE: Lock ordering used in MLFQ_get_next_thread().
      * @brief THOUGHT: But then again, thread isn't in queue yet,
      * so I suppose it is still safe to acquire locks in this order:
      * thread->t_lock -> thread_queue->lock -> thread_queue->queue->lock.*/
@@ -125,7 +125,7 @@ int sched_enqueue(thread_t *thread) {
     return MLFQ_enqueue(thread);
 }
 
-static thread_t *MLFQ_get_next(void) {
+static thread_t *MLFQ_get_next_thread(void) {
     int     err   = 0;
     MLFQ_t  *mlfq = MLFQ_get();
 
@@ -148,7 +148,7 @@ static thread_t *MLFQ_get_next(void) {
             queue_unlock(&level->run_queue);
 
             /* Update scheduling metadata for the chosen thread. */
-            thread->t_info.ti_sched.ts_proc      = cpu; // set the current processor for chosen thread.
+            thread->t_info.ti_sched.ts_proc = cpu; // set the current processor for chosen thread.
 
             /// Enter running state.
             thread_enter_state(thread, T_RUNNING);
@@ -203,39 +203,44 @@ static void hanlde_thread_state(void) {
 __noreturn void scheduler(void) {
     sched_metrics_t *metrics = get_metrics();
     loop() {
-        cpu->ncli   = 0;
-        cpu->intena = 0;
+        cpu_set_preepmpt(0, 0);
         set_current(NULL);
 
-        atomic_set(&metrics->idle, 1);
         atomic_set(&metrics->load, MLFQ_load(MLFQ_get()));
-
-        sti();
+        
+        enable_interrupts(true);
 
         loop() {
-            if (set_current(MLFQ_get_next())) {
+            thread_t *thread = MLFQ_get_next_thread();
+            if (thread && set_current(thread)) {
+                /// set cpu->intena == false,
+                /// might need a better way of preventing undefined behavior
+                /// caused by current_unlock() in arch_thread_start()
+                /// when exec-ing a thread for the first time.
+                cpu_set_intena(false);
                 atomic_clear(&metrics->idle);
                 atomic_inc(&metrics->total_threads_executed);
                 break;
             }
             
+            atomic_set(&metrics->last_idle_time, jiffies_get());
+            atomic_set(&metrics->idle, 1);
             hlt();
         }
-        
+
         sched_update_thread_metrics(current);
-        
+
         atomic_set(&metrics->last_active_time, jiffies_get());
-        
+
         // jmp to thread.
         context_switch(&current->t_arch.t_context);
-        
-        atomic_set(&metrics->last_idle_time, jiffies_get());
-        atomic_inc(&metrics->total_context_switches);
 
+        atomic_inc(&metrics->total_context_switches);
+        
         current_assert_locked();
         sched_update_thread_metrics(current);
         hanlde_thread_state();
-
+        
         assert(!intrena(), "Interrupts are enabled???\n");
     }
 }
