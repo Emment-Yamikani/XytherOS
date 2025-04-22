@@ -354,7 +354,7 @@ static int zones_protect_sections(void) {
         const int prot  = i == 0 ? PTE_KRW : PTE_KR;
 
         if (start >= end) {
-            debug("Empty section [\e[93m%p\e[0m: 0B] skipped.\n", start);
+            // debug("Empty section [\e[93m%p\e[0m: 0B] skipped.\n", start);
             continue;
         } // skip empty sections.
         
@@ -363,8 +363,8 @@ static int zones_protect_sections(void) {
             continue;
         }
 
-        int err = arch_mprotect(start, size, prot);
-        printk("%s: remmaped section: [\e[93m%p\e[0m: %5d KB]\n", strerror(err), start, B2KiB(size));
+        arch_mprotect(start, size, prot);
+        // printk("%s: remmaped section: [\e[93m%p\e[0m: %5d KB]\n", strerror(err), start, B2KiB(size));
     }
 
     return 0;

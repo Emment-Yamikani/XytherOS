@@ -71,8 +71,6 @@ extern void irq31(void);
 extern void irq32(void);
 extern void irq33(void);
 
-extern void cpu_pause(void);
-
 extern u64 rdtsc(void);
 extern u64 rdtscp(int *aux);
 
@@ -80,9 +78,15 @@ extern u64 rdrax(void);
 
 extern u64 rdrflags(void);
 
-static inline bool intrena(void) {
-    return (rdrflags() & 0x200) ? true : false;
-}
+static inline void hlt(void) { asm volatile("hlt"); }
+
+static inline void cpu_pause(void) { asm volatile ("pause"); }
+
+static inline void cli(void) { asm volatile("cli" ::: "memory"); }
+
+static inline void sti(void) { asm volatile("sti" ::: "memory"); }
+
+static inline bool intrena(void) { return (rdrflags() & 0x200) ? true : false; }
 
 extern void wrrflags(u64);
 
@@ -132,15 +136,3 @@ extern void outw(u16 port, u16 data);
 
 extern u32 ind(u16 port);
 extern void outd(u16 port, u32 data);
-
-static inline void cli(void) {
-    asm volatile ("cli" ::: "memory");
-};
-
-static inline void sti(void) {
-    asm volatile ("sti" ::: "memory");
-};
-
-static inline void hlt(void) {
-    asm volatile ("hlt" ::: "memory");
-};

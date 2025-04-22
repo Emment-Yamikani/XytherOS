@@ -183,12 +183,6 @@ fninit:
     fninit
     ret
 
-global cpu_pause
-; C prototype: void cpu_pause(void);
-cpu_pause:
-    pause
-    ret
-
 global outb
 ; C prototype: void outb(uint16_t port, uint8_t data);
 outb:

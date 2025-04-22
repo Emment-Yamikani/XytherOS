@@ -31,16 +31,16 @@ void setcls(cpu_t *c) {
 }
 
 thread_t *get_current(void) {
-    disable_interrupts();
+    bool intena = disable_interrupts();
     thread_t *thread = cpu ? cpu->thread : NULL;
-    enable_interrupts();
+    enable_interrupts(intena);
     return thread;
 }
 
 bool set_current(thread_t *thread) {
-    disable_interrupts();
+    bool intena = disable_interrupts();
     cpu->thread = thread;
-    enable_interrupts();
+    enable_interrupts(intena);
     return current ? true : false;
 }
 
@@ -50,17 +50,52 @@ int getcpuid(void) {
     return ((b >> 24) & 0xFF);
 }
 
-void disable_interrupts(void) {
-    pushcli();
+bool disable_interrupts(void) {
+    bool intena = intrena();
+    cli();
+    return intena;
 }
 
-void enable_interrupts(void) {
-    popcli();
+void enable_interrupts(bool intena) {
+    if (intena) sti();
+}
+
+void cpu_set_ncli(isize ncli) {
+    bool intr_st = disable_interrupts();
+    swapi64(&cpu->ncli, &ncli);
+    enable_interrupts(intr_st);
+}
+
+void cpu_set_intena(bool intena) {
+    bool intr_st = disable_interrupts();
+    swapbool(&cpu->intena, &intena);
+    enable_interrupts(intr_st);
+}
+
+void cpu_set_preepmpt(isize ncli, bool intena) {
+    bool intr_st = disable_interrupts();
+    cpu->ncli    = ncli;
+    cpu->intena  = intena;
+    enable_interrupts(intr_st);
+}
+
+void cpu_swap_ncli(isize *ncli) {
+    bool intr_st = disable_interrupts();
+    swapi64(&cpu->ncli, ncli);
+    enable_interrupts(intr_st);
+}
+
+void cpu_swap_intena(bool *intena) {
+    bool intr_st = disable_interrupts();
+    swapbool(&cpu->intena, intena);
+    enable_interrupts(intr_st);
 }
 
 void cpu_swap_preepmpt(isize *ncli, bool *intena) {
+    bool intr_st = disable_interrupts();
     swapi64(&cpu->ncli, ncli);
     swapbool(&cpu->intena, intena);
+    enable_interrupts(intr_st);
 }
 
 int cpu_online(void) {
@@ -158,15 +193,14 @@ void bootothers(void) {
            !(cpus[i]->flags & CPU_ENABLED)) continue;
 
         /* Allocate AP boot stack */
-        uintptr_t stack;
-        assert((stack = (uintptr_t)boot_alloc(AP_STACK_SIZE, PGSZ)),
-            "Failed to allocate AP stack\n");
+        const uintptr_t stack = (uintptr_t)boot_alloc(AP_STACK_SIZE, PGSZ);
+        assert_ne(stack, NULL, "Failed to allocate AP stack\n");
 
         /* Configure trampoline data */
         enum TrampolineFields {
             TRAMPOLINE_PGTBL  = 4024 / sizeof(uintptr_t),  /* CR3 register  */
             TRAMPOLINE_STACK  = 4032 / sizeof(uintptr_t),  /* Stack pointer */
-            TRAMPOLINE_ENTRY  = 4040 / sizeof(uintptr_t)   /* Entry point   */
+            TRAMPOLINE_ENTRY  = 4040 / sizeof(uintptr_t),  /* Entry point   */
         };
 
         trampoline[TRAMPOLINE_PGTBL] = rdcr3();               /* Page table  */

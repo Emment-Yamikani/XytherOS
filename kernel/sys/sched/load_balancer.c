@@ -295,10 +295,9 @@ __noreturn void scheduler_load_balancer(void) {
 
     // Disable both preemption and migration to other CPUs.
     current_set(THREAD_NO_MIGRATE | THREAD_NO_PREEMPT);
-    
+
     last_balance = last_aging = hpet_now();
-    debuglog();
-    
+
     sigset_t set;
     sigsetfill(&set); // Block all signals except fatal ones
     sigsetdelmask(&set, SIGMASK(SIGKILL) | SIGMASK(SIGSTOP));
@@ -312,9 +311,9 @@ __noreturn void scheduler_load_balancer(void) {
 
         // Aging: Run exactly every 100ms with drift compensation
         if (time_after(now, last_aging + config.aging_interval)) {
-            disable_interrupts();
+            bool intena = disable_interrupts();
             MLFQ_aging();
-            enable_interrupts();
+            enable_interrupts(intena);
             last_aging = now;
         }
 

@@ -10,7 +10,7 @@ extern __noreturn void kthread_main(void);
 
 void early_init(void) {
     int err = 0;
-    printk("\e[0JInitializing kernel...\n");
+    printk("\e[2JInitializing kernel...\n");
 
     assert_eq(err = vmman.init(), 0,
         "Error[%s]: Initializing virtual memory manager.\n", strerror(err));

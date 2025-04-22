@@ -30,8 +30,8 @@ void print_bar(const char *label, int x, int y, int percent, int load) {
             case 2 ... 3: color = COLOR_GREEN; break;
             case 4 ... 5: color = COLOR_YELLOW; break;
             case 6 ... 7: color = COLOR_DYELLOW; break;
-            case 8 ... 9: color = COLOR_RED; break;
-            case 10: color = COLOR_DRED; break;
+            case 8 ... 9: color = COLOR_DRED; break;
+            case /*.*/10: color = COLOR_RED; break;
         }
         
         // Copy color code (5 bytes)
@@ -47,7 +47,7 @@ void print_bar(const char *label, int x, int y, int percent, int load) {
     }
     bars[pos] = '\0';
 
-    printk("\e[s\e[%d;%dH\e[0K%s [%s] Aprox: %3d%% Load: %3d threads\e[u",
+    printk("\e[s\e[%d;%dH\e[0K%s [%s] %3d%% Load: %3d threads\e[u",
            y, x, label, bars, percent, load);
 }
 
@@ -102,7 +102,7 @@ __noreturn void utilization_monitor() {
     }
 
     loop_and_yield() {
-        hpet_milliwait(500);
+        hpet_milliwait(1000);
         update_utilization(prev_stats);
     }
 } BUILTIN_THREAD(utilization_monitor, utilization_monitor, NULL);

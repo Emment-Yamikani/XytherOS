@@ -100,6 +100,15 @@ static void boot_process_mmaps(const multiboot_info_t *mbi) {
             entry = (mmap_entry_t *)((u64)entry + entry->size + sizeof(entry->size));
         }
     }
+
+    // Subtract to account for space used by kernel.
+    bootinfo.usable -= bootinfo.kern_size;
+
+    /**
+     * The first free physical address is the page frame right after the kernel.
+     * i.e if there are no loaded modules for the kernel by the bootloader/
+     * */ 
+    bootinfo.phyaddr = V2LO(bootinfo.kern_base) + bootinfo.kern_size;
 }
 
 static void boot_process_modules(const multiboot_info_t *mbi) {
@@ -161,18 +170,6 @@ void multiboot_info_process(multiboot_info_t *mbi) {
     bootinfo.total      = M2KiB(1) + mbi->mem_upper;
 
     boot_process_mmaps(mbi); // get multiboot memory maps.
-
-    // Subtract to account for space used by kernel.
-    bootinfo.usable -= bootinfo.kern_size;
-
-    uintptr_t *poision_region = (uintptr_t *)PGROUNDUP(__kernel_end);
-    for (usize i = 0; i < (PGSZ / sizeof *poision_region); ++i) {
-        poision_region[i] = 0xFEEB4000C0DEBABAUL;
-    }
-
-    // The first free physical address is the page frame right after the kernel.
-    bootinfo.phyaddr = V2LO(poision_region);
-    arch_mprotect(PGROUNDUP(__kernel_end), PGSZ, PTE_KR);
 
     boot_process_modules(mbi); // get module information.
 

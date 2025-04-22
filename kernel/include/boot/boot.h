@@ -49,10 +49,10 @@ typedef struct {
 
     uintptr_t       phyaddr;    // first free physical address. 
     boot_mmap_t     mmap[NMMAP];// array of memory maps.
-    u32             mmapcnt;    // # of memory maps
+    usize           mmapcnt;    // # of memory maps
     
     mod_t           mods[NMODS];// array of available modules.
-    u32             modcnt;     // # of modules
+    usize           modcnt;     // # of modules
     
     uintptr_t       kern_base;
     usize           kern_size;

@@ -11,9 +11,9 @@ global arch_raw_lock_acquire
 arch_raw_lock_acquire:
     mov     rax, 1
 .acquire:
+    pause
     xchg    dword [rdi], eax
     test    eax, eax
-    nop
     jnz     .acquire
     ret
 ;
@@ -35,5 +35,5 @@ arch_raw_lock_trylock:
     ret     ; return 0 to indicate failure.
     .successful:
         mov     rax, 1
-        ret ; return 1 to indicate success.
+    ret ; return 1 to indicate success.
 ;

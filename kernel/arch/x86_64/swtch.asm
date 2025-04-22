@@ -1,5 +1,5 @@
 global context_switch
-;context_switch(&&context_t, ...);
+;void context_switch(&&context_t, ...);
 context_switch:
     push    rbp
     push    rbx
