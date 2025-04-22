@@ -52,11 +52,14 @@ extern void context_switch(context_t **pcontext, ...);
 typedef struct __mcontext_t {
     // general purpose registers.
 #if defined (__x86_64__)
-    u64 _[7];
-    
+    u64 _[7]; // TODO: include other necessary registers.
+
     u64 fs;
+
     u64 ds;
-    
+
+    u64 cr2;
+
     u64 r15;
     u64 r14;
     u64 r13;
@@ -66,8 +69,6 @@ typedef struct __mcontext_t {
     u64 r9;
     u64 r8;
 
-    u64 cr2;
-
     u64 rbp;
     u64 rsi;
     u64 rdi;
@@ -75,8 +76,6 @@ typedef struct __mcontext_t {
     u64 rcx;
     u64 rbx;
     u64 rax;
-
-    // TODO: include other necessary registers.
 
     u64 trapno;
     u64 eno;

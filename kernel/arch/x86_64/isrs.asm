@@ -113,9 +113,6 @@ extern trap
     push    rsi
     push    rbp
 
-    mov     rax, cr2
-    push    rax
-
     push    r8
     push    r9
     push    r10
@@ -125,18 +122,27 @@ extern trap
     push    r14
     push    r15
 
+    mov     rax, cr2
+    push    rax
+
     mov     rax, ds
     push    rax
-    push    fs
-    sub     rsp, 56
+
+    push    qword fs
+
+    sub     rsp, 56 ; Account for reserved space in mcontext_t
 %endmacro
 
 ; Restore CPU context
 %macro rstor_mctx 0
-    add     rsp, 56
-    pop     fs
+    add     rsp, 56 ; Account for reserved space in mcontext_t
+
+    pop     qword fs
+
     pop     rax
     mov     ds, ax
+
+    add     rsp, 8 ; pop cr2
 
     pop     r15
     pop     r14
@@ -146,9 +152,6 @@ extern trap
     pop     r10
     pop     r9
     pop     r8
-
-    pop     rax
-    mov     cr2, rax
 
     pop     rbp
     pop     rsi
