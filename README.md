@@ -9,7 +9,7 @@
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/5ff3601b45194f9fbe54b2f8b3f380b0)](https://app.codacy.com/gh/emment-Yamikani/xytherOS/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 
 <center>
-   <img width="400" height="400" src="images/xyther logo.svg">
+   <img width="300" height="200" src="images/xyther logo.svg">
 </center>
 
 Welcome to xytherOS, a cutting-edge operating system designed for developers, hobbyists, and OS enthusiasts who seek a balance between creativity and technical excellence. xytherOS is built with flexibility, performance, and innovation in mind, providing a robust platform for experimentation and execution.
