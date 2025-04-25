@@ -1,4 +1,4 @@
-# XytherOS: Where Imagination Meets Execution
+# xytherOS: Where Imagination Meets Execution
 
 ![POSIX Badge](https://img.shields.io/badge/POSIX-Compliant-brightgreen?style=flat&label=POSIX)
 ![Issues Tracking Badge](https://img.shields.io/badge/issue_track-github-blue?style=flat&label=Issue%20Tracking)
@@ -6,9 +6,13 @@
 ![Commit activity](https://img.shields.io/github/commit-activity/m/emment-yamikani/xytheros)
 ![GitHub top language](https://img.shields.io/github/languages/top/emment-yamikani/xytheros?logo=c&label=)
 [![GitHub license](https://img.shields.io/github/license/emment-yamikani/xytheros)](https://github.com/emment-yamikani/xytheros/blob/LICENSE)
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/5ff3601b45194f9fbe54b2f8b3f380b0)](https://app.codacy.com/gh/emment-Yamikani/XytherOS/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/5ff3601b45194f9fbe54b2f8b3f380b0)](https://app.codacy.com/gh/emment-Yamikani/xytherOS/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 
-Welcome to XytherOS, a cutting-edge operating system designed for developers, hobbyists, and OS enthusiasts who seek a balance between creativity and technical excellence. XytherOS is built with flexibility, performance, and innovation in mind, providing a robust platform for experimentation and execution.
+<center>
+   <img width="400" height="400" src="images/xyther logo.svg">
+</center>
+
+Welcome to xytherOS, a cutting-edge operating system designed for developers, hobbyists, and OS enthusiasts who seek a balance between creativity and technical excellence. xytherOS is built with flexibility, performance, and innovation in mind, providing a robust platform for experimentation and execution.
 
 ## Features
 
@@ -20,7 +24,7 @@ Welcome to XytherOS, a cutting-edge operating system designed for developers, ho
 
 ## Getting Started
 
-To get started with XytherOS, follow these steps:
+To get started with xytherOS, follow these steps:
 
 1. Clone the repository:
 
@@ -46,7 +50,7 @@ To get started with XytherOS, follow these steps:
       make all
       ```
 
-3. Run XytherOS in an emulator (such as QEMU):
+3. Run xytherOS in an emulator (such as QEMU):
 
    ```sh
    make run
@@ -54,7 +58,7 @@ To get started with XytherOS, follow these steps:
 
 ## Contribution
 
-We welcome contributions! If you're interested in improving XytherOS, please follow these guidelines:
+We welcome contributions! If you're interested in improving xytherOS, please follow these guidelines:
 
 - Fork the repository and create a feature branch.
 - Submit a pull request with a detailed description of your changes.
@@ -62,11 +66,11 @@ We welcome contributions! If you're interested in improving XytherOS, please fol
 
 ## License
 
-XytherOS is released under the MIT license. See `LICENSE` for more details.
+xytherOS is released under the MIT license. See `LICENSE` for more details.
 
 ## Contact
 
 For discussions, issues, and feature requests, feel free to open an issue or reach out to the community.
 
 ---
-XytherOS: Where Imagination Meets Execution.
+xytherOS: Where Imagination Meets Execution.
