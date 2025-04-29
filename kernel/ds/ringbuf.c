@@ -45,6 +45,18 @@ error:
     return err;
 }
 
+void ringbuf_free_buffer(ringbuf_t *r) {
+    ringbuf_assert(r);
+    if (r->buf) {
+        kfree(r->buf);
+        r->head = 0;
+        r->size = 0;
+        r->tail = 0;
+        r->count= 0;
+        r->buf  = NULL;
+    }
+}
+
 void ringbuf_free(ringbuf_t *r) {
     assert(r, "no ringbuff");
     kfree(r->buf);

@@ -3,6 +3,9 @@
 #include <sys/schedule.h>
 #include <sys/thread.h>
 
+// global sleep queue.
+static QUEUE(global_sleep_queue);
+
 void sched(void) {
     isize ncli  = 1; // Don't change this, must always be == 1.
     bool intena = 0;
@@ -87,6 +90,10 @@ static inline void sched_block(spinlock_t *lock) {
  */
 int sched_wait(queue_t *wait_queue, tstate_t state, queue_relloc_t whence, spinlock_t *lock) {
     int err;
+
+    if (wait_queue == NULL) {
+        wait_queue = global_sleep_queue;
+    }
 
     if ((err = sched_wait_validate_input(wait_queue, state))) {
         return err;

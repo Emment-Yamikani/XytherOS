@@ -1,5 +1,6 @@
 #include <arch/paging.h>
 #include <bits/errno.h>
+#include <core/debug.h>
 #include <mm/zone.h>
 #include <string.h>
 #include <sys/thread.h>
@@ -36,7 +37,7 @@ static int zero_fill_page(zone_t *zone, page_t *page, int whence) {
 
     paddr   = zone->start + ((page - zone->pages) * PGSZ);
 
-    // printk("%p: watermark: %p\n", page_addr(page, zone), page_watermark(page));
+    printk("%p: watermark: %p\n", page_addr(page, zone), page_watermark(page));
     page_verify_watermark(page, zone);
 
     if ((whence == ZONEi_HOLE) || (whence == ZONEi_HIGH)) {
@@ -108,7 +109,8 @@ static int do_page_alloc_n(gfp_t gfp, usize order, page_t **ppage, void **ppaddr
             return err;
 
         if ((err = bitmap_alloc_range(&zone->bitmap, npage, &index))) {
-            panic("Failed to allocate page-frame: %s\n", strerror(err));
+            err = err == -ENOSPC ? -ENOMEM : err;
+            debug("Failed to allocate page-frame: %s\n", strerror(err));
             zone_unlock(zone);
             return err;
         }

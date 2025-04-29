@@ -276,17 +276,16 @@ static int try_dequeue_signal(thread_t *thread, bool proc_level, sigaction_t *oa
  * @return 0 on success, or an error code (e.g., -ENOENT if no signal is found).
  */
 int signal_dequeue(thread_t *thread, sigaction_t *oact, siginfo_t **psiginfo) {
-    int         err = 0;
     siginfo_t   *siginfo = NULL;
-
+    
     if (thread == NULL || psiginfo == NULL)
-        return -EINVAL;
-
+    return -EINVAL;
+    
     thread_assert_locked(thread);
-
+    
     signal_lock(thread->t_signals);
-
-    err = try_dequeue_signal(thread, false, oact, &siginfo);
+    
+    int err = try_dequeue_signal(thread, false, oact, &siginfo);
     if (err != -ENOENT) {
         *psiginfo = siginfo;
         signal_unlock(thread->t_signals);

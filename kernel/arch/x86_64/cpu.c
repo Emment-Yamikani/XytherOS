@@ -30,14 +30,14 @@ void setcls(cpu_t *c) {
     wrmsr(IA32_KERNEL_GS_BASE, (uintptr_t)c);
 }
 
-thread_t *get_current(void) {
+thread_t *cpu_get_thread(void) {
     bool intena = disable_interrupts();
     thread_t *thread = cpu ? cpu->thread : NULL;
     enable_interrupts(intena);
     return thread;
 }
 
-bool set_current(thread_t *thread) {
+bool cpu_set_thread(thread_t *thread) {
     bool intena = disable_interrupts();
     cpu->thread = thread;
     enable_interrupts(intena);
@@ -98,6 +98,20 @@ void cpu_swap_preepmpt(isize *ncli, bool *intena) {
     enable_interrupts(intr_st);
 }
 
+isize cpu_get_ncli(void) {
+    bool intena = disable_interrupts();
+    isize value = cpu->ncli;
+    enable_interrupts(intena);
+    return value;
+}
+
+bool cpu_get_intena(void) {
+    bool intena = disable_interrupts();
+    bool value  = cpu->intena;
+    enable_interrupts(intena);
+    return value;
+}
+
 int cpu_online(void) {
     return atomic_read(&cpus_online);
 }
@@ -106,8 +120,11 @@ int ncpu(void) {
     return (int)atomic_read(&cpus_count);
 }
 
-int isbsp(void) {
-    return atomic_read(&cpu->flags) & CPU_BSP;
+bool isbsp(void) {
+    bool intena = disable_interrupts();
+    bool bsp = (atomic_read(&cpu->flags) & CPU_BSP) ? true : false;
+    enable_interrupts(intena);
+    return bsp;
 }
 
 static void cpu_init(void) {
@@ -134,10 +151,10 @@ static void ap_start(void) {
     setcls(cpus[getcpuid()]);
     cpu_init();
     while (!atomic_read(&ap_continue)) {
-        asm volatile ("pause");
+        cpu_pause();
     }
     scheduler();
-    loop() asm volatile ("pause");
+    loop() cpu_pause();
 }
 
 void ap_signal(void) {
@@ -213,7 +230,7 @@ void bootothers(void) {
         /* Start processor and wait for bringup */
         lapic_startup(cpus[i]->apicID, vector);
         while (!(atomic_read(&cpus[i]->flags) & CPU_ONLINE)) {
-            asm volatile("pause");  /* Reduce bus contention */
+            cpu_pause();  /* Reduce bus contention */
         }
     }
 }

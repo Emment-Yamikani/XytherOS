@@ -15,7 +15,6 @@
 #define DEV_TTY     4   // minor=[0..n-1]
 #define DEV_CONSOLE 5   // minor=1
 #define DEV_PTMX    5   // minor=2
-#define DEV_CGA     5   // minor=3
 #define DEV_UART    6   // minor=0
 #define DEV_PSAUX   10  // minor=1
 #define DEV_HPET    10  // minor=228

@@ -39,13 +39,16 @@ extern int cpu_rsel(void);
 extern int ncpu(void);
 extern void ap_signal(void);
 
-extern int isbsp(void);
+extern bool isbsp(void);
 
-// access with interrupts disabled.
+// Callers **MUST** access with interrupts disabled.
 #define cpu     (getcls())
 
-extern thread_t *get_current(void);
-extern bool set_current(thread_t *thread);
+extern isize cpu_get_ncli(void);
+extern bool cpu_get_intena(void);
+
+extern thread_t *cpu_get_thread(void);
+extern bool cpu_set_thread(thread_t *thread);
 
 extern bool disable_interrupts(void);
 extern void enable_interrupts(bool old_int_status);
@@ -62,4 +65,4 @@ extern void cpu_swap_ncli(isize *ncli);
 
 extern void cpu_swap_intena(bool *intena);
 
-#define current (get_current())
+#define current (cpu_get_thread())

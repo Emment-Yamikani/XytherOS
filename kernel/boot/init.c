@@ -30,5 +30,5 @@ void early_init(void) {
 
     scheduler(); // being executing threads.
 
-    loop() asm volatile ("pause" ::: "memory");
+    loop() cpu_pause();
 }

@@ -2,14 +2,14 @@
 #include <bits/errno.h>
 #include <boot/boot.h>
 #include <core/assert.h>
+#include <core/debug.h>
 #include <string.h>
 
 bootinfo_t bootinfo = {0};
 
 void boot_mmap_dump(void) {
     for (u32 i = 0; i < bootinfo.mmapcnt; ++i) {
-        printk("mmap[%2d]: addr: %p, type: %d, size: %10lX(Hex) Bytes\n",
-            i,
+        printk("mmap[%2d]: addr: %p, type: %d, size: %10lX(Hex) Bytes\n", i,
             bootinfo.mmap[i].addr,
             bootinfo.mmap[i].type,
             bootinfo.mmap[i].size
@@ -55,6 +55,14 @@ static void bubble_sort_mmap(boot_mmap_t *array, size_t count) {
     }
 }
 
+static void bootinfo_add_mmap(int type, uintptr_t addr, usize size) {
+    assert(bootinfo.mmapcnt < NMMAP, "Too many mmap entries, no space to add new mmap\n");
+    boot_mmap_t *mmap = &bootinfo.mmap[bootinfo.mmapcnt++];
+    mmap->addr = addr;
+    mmap->size = size;
+    mmap->type = type;
+}
+
 static void boot_process_mmaps(const multiboot_info_t *mbi) {
     boot_mmap_t *mmap = bootinfo.mmap;
 
@@ -91,8 +99,9 @@ static void boot_process_mmaps(const multiboot_info_t *mbi) {
                     bootinfo.total += B2KiB(mmap->size);
                 }
 
-                if (entry->type == MULTIBOOT_MEMORY_AVAILABLE)
+                if (entry->type == MULTIBOOT_MEMORY_AVAILABLE) {
                     bootinfo.usable += (usize)entry->len;
+                }
 
                 bootinfo.mmapcnt++;
                 mmap++; // goto the next mmap.
@@ -132,10 +141,7 @@ static void boot_process_modules(const multiboot_info_t *mbi) {
                 panic("Too many mmap entries for modules");
             }
 
-            bootinfo.mmap[bootinfo.mmapcnt].addr = bootinfo.mods[i].addr;
-            bootinfo.mmap[bootinfo.mmapcnt].size = bootinfo.mods[i].size;
-            bootinfo.mmap[bootinfo.mmapcnt].type = MULTIBOOT_MEMORY_RESERVED;
-            bootinfo.mmapcnt++;
+            bootinfo_add_mmap(MULTIBOOT_MEMORY_RESERVED, bootinfo.mods[i].addr, bootinfo.mods[i].size);
         }
     }
 }
@@ -153,6 +159,7 @@ static void boot_process_framebuffer(const multiboot_info_t *mbi) {
 
         // TODO: provide a fallback to text mode.
         framebuffer_gfx_init();
+        bootinfo_add_mmap(MULTIBOOT_MEMORY_RESERVED, bootinfo.fb.addr, bootinfo.fb.size);
     }
 }
 
@@ -175,16 +182,16 @@ void multiboot_info_process(multiboot_info_t *mbi) {
 
     // memory sizes must be in KiB for both usable and total memory.
     bootinfo.usable  = PGROUND(bootinfo.usable) / KiB(1);
-
-    // Sort mmaps' array by sizeof(memory map).
-    bubble_sort_mmap(bootinfo.mmap, bootinfo.mmapcnt);
-
+    
     boot_process_framebuffer(mbi); // Get framebuffer information
-
+    
     // Get bootloader name
     if (mbi->flags & MULTIBOOT_INFO_BOOT_LOADER_NAME) {
         // Store or process the bootloader name if needed
     }
+    
+    // Sort mmaps' array by sizeof(memory map).
+    bubble_sort_mmap(bootinfo.mmap, bootinfo.mmapcnt);
 }
 
 /**
@@ -206,7 +213,7 @@ void *boot_alloc(usize size, usize alignment) {
 
     // Ensure size is rounded up to the nearest alignment size for proper allocation.
     size = (size + alignment - 1) & ~(alignment - 1);
-    
+
     // Calculate the aligned address.
     uintptr_t aligned_addr = bootinfo.phyaddr;
     if (aligned_addr % alignment != 0) {
@@ -236,12 +243,10 @@ void *boot_alloc(usize size, usize alignment) {
     // Update the bootinfo pointer to reflect the new allocation.
     bootinfo.phyaddr = (uintptr_t)(aligned_addr + size);
 
-    bootinfo.usable -= B2KiB(size); // acount for this used space.
+    bootinfo.usable -= B2KiB(size); // account for this used space.
 
     /** Mark this region as a reserved region. */
-    bootinfo.mmap[bootinfo.mmapcnt].size   = size;
-    bootinfo.mmap[bootinfo.mmapcnt].addr   = (uintptr_t)addr;
-    bootinfo.mmap[bootinfo.mmapcnt++].type = MULTIBOOT_MEMORY_RESERVED;
+    bootinfo_add_mmap(MULTIBOOT_MEMORY_RESERVED, (uintptr_t)addr, size);
 
     return addr;
 }

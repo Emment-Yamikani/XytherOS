@@ -204,7 +204,7 @@ __noreturn void scheduler(void) {
     sched_metrics_t *metrics = get_metrics();
     loop() {
         cpu_set_preepmpt(0, 0);
-        set_current(NULL);
+        cpu_set_thread(NULL);
 
         atomic_set(&metrics->load, MLFQ_load(MLFQ_get()));
         
@@ -212,7 +212,7 @@ __noreturn void scheduler(void) {
 
         loop() {
             thread_t *thread = MLFQ_get_next_thread();
-            if (thread && set_current(thread)) {
+            if (thread && cpu_set_thread(thread)) {
                 /// set cpu->intena == false,
                 /// might need a better way of preventing undefined behavior
                 /// caused by current_unlock() in arch_thread_start()

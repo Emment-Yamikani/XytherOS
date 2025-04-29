@@ -29,23 +29,24 @@ typedef union {
 static int          stack_top     = 0;
 static uint16_t     cursor_pos    = 0;
 static uint16_t     saved_cursor_pos = 0;
-static color_state  color_scheme  = { .fg = CGA_LGREY, .bg = CGA_BLACK }; // Light grey on black (default)
+static color_state  color_scheme  = { .fg = CGA_LGREY, .bg = CGA_BLACK };
 
 #define COLOR_STACK_SIZE 1024
 static color_state  color_stack[COLOR_STACK_SIZE];
+// Light grey on black (default)
 static const color_state default_color = { .fg = CGA_LGREY, .bg = CGA_BLACK };
 
 #define CGA_BLANK_SPACE (color_scheme.attrib | ' ')
 
 // Push color_scheme color state to stack
-void push_color() {
+static inline void push_color() {
     if (stack_top < COLOR_STACK_SIZE) {
         color_stack[++stack_top] = color_scheme;
     }
 }
 
 // Pop color state from stack
-void pop_color() {
+static inline void pop_color() {
     if (stack_top >= 0) {
         color_scheme = color_stack[stack_top--];
     } else {
@@ -54,7 +55,7 @@ void pop_color() {
     }
 }
 
-void cga_setcursor(int __pos) {
+static inline void cga_setcursor(int __pos) {
     if (__pos < 0) __pos = 0;
     if (__pos >= CGA_SCREEN_SIZE) __pos = CGA_SCREEN_SIZE - 1;
 
@@ -69,7 +70,7 @@ void cga_reset_cursor(void) {
     cga_setcursor(0);
 }
 
-void cga_scroll(void) {
+static inline void cga_scroll_up(void) {
     // Scroll up
     memmove((void *)cga_mem,
             (void *)V2HI(CGA_ADDRESS + CGA_WIDTH * 2),
@@ -108,7 +109,7 @@ static inline Point cga_linear2point(int pos) {
 }
 
 // set graphics rendition
-void cga_handle_sgr(const int code) {
+static inline void cga_handle_sgr(const int code) {
     // Save previous color state before any changes
     if (code != 0) push_color();
 
@@ -145,7 +146,7 @@ void cga_handle_sgr(const int code) {
     }
 }
 
-void cga_handle_cursor_movement(int cmd, int param) {
+static inline void cga_handle_cursor_movement(int cmd, int param) {
     // Default to 1 if param is 0 (ANSI behavior)
     if (param <= 0) param = 1;
     
@@ -180,7 +181,7 @@ void cga_handle_cursor_movement(int cmd, int param) {
 }
 
 // Set cursor position with bounds checking
-void cga_set_cursor_position(int x, int y) {
+static inline void cga_set_cursor_position(int x, int y) {
     // Apply bounds checking
     x = (x < 0) ? 0 : (x >= CGA_WIDTH) ? CGA_WIDTH - 1 : x;
     y = (y < 0) ? 0 : (y >= CGA_HEIGHT) ? CGA_HEIGHT - 1 : y;
@@ -189,7 +190,7 @@ void cga_set_cursor_position(int x, int y) {
 }
 
 // Handle erase operations
-void cga_handle_erase(int code) {
+static inline void cga_handle_erase(int code) {
     Point position = cga_linear2point(cursor_pos);
 
     switch (code) {
@@ -208,7 +209,7 @@ void cga_handle_erase(int code) {
     }
 }
 
-void cga_handle_erase_line(int code) {
+static inline void cga_handle_erase_line(int code) {
     Point position = cga_linear2point(cursor_pos);
 
     switch (code) {
@@ -227,6 +228,36 @@ void cga_handle_erase_line(int code) {
             memsetw(&cga_mem[cursor_pos], CGA_BLANK_SPACE, length);
             break;
     }
+}
+
+static inline void cga_handle_normal(int c) {
+    switch (c) {
+        case '\n':
+            // Newline - move to start of next line
+            cursor_pos = ((cursor_pos / CGA_WIDTH) + 1) * CGA_WIDTH;
+            break;
+        case '\r':
+            // Carriage return - move to start of line
+            cursor_pos = (cursor_pos / CGA_WIDTH) * CGA_WIDTH;
+            break;
+        case '\t':
+            // Tab - advance to next tab stop (every 8 chars)
+            cursor_pos = (cursor_pos + 8) & ~7;
+            break;
+        case '\b':
+            // Backspace - move cursor back one position
+            if (cursor_pos > 0) cursor_pos--;
+            break;
+        case ' ' ... (u8)'\xff':
+            // Printable character
+            cga_mem[cursor_pos++] = color_scheme.attrib | c;
+    }
+    // Handle screen scrolling
+    if (cursor_pos >= CGA_WIDTH * CGA_HEIGHT) {
+        cga_scroll_up();
+    }
+
+    cga_setcursor(cursor_pos);
 }
 
 // Write a character to CGA memory
@@ -354,33 +385,7 @@ void cga_putc(const int c) {
 
     // Handle normal characters
     if (esc_state == 0) {
-        switch (c) {
-            case '\n':
-                // Newline - move to start of next line
-                cursor_pos = ((cursor_pos / CGA_WIDTH) + 1) * CGA_WIDTH;
-                break;
-            case '\r':
-                // Carriage return - move to start of line
-                cursor_pos = (cursor_pos / CGA_WIDTH) * CGA_WIDTH;
-                break;
-            case '\t':
-                // Tab - advance to next tab stop (every 8 chars)
-                cursor_pos = (cursor_pos + 8) & ~7;
-                break;
-            case '\b':
-                // Backspace - move cursor back one position
-                if (cursor_pos > 0) cursor_pos--;
-                break;
-            case ' ' ... (u8)'\xff':
-                // Printable character
-                cga_mem[cursor_pos++] = color_scheme.attrib | c;
-        }
-        // Handle screen scrolling
-        if (cursor_pos >= CGA_WIDTH * CGA_HEIGHT) {
-            cga_scroll();
-        }
-
-        cga_setcursor(cursor_pos);
+        cga_handle_normal(c);
     }
 }
 
@@ -389,8 +394,7 @@ size_t cga_puts(const char *s) {
     static spinlock_t lock = SPINLOCK_INIT();
 
     spin_lock(&lock);
-    while (S && *S)
-        cga_putc(*S++);
+    while (S && *S) cga_putc(*S++);
     spin_unlock(&lock);
     return (size_t)(S - s);
 }

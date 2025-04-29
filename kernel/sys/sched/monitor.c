@@ -1,5 +1,7 @@
 #include "metrics.h"
+#include <boot/boot.h>
 #include <dev/cga.h>
+#include <mm/mem.h>
 
 typedef struct {
     uint64_t prev_active;
@@ -10,30 +12,33 @@ const int BAR_LENGTH    = 10;
 
 #define COLOR_DGREEN    "\e[32m"
 #define COLOR_GREEN     "\e[92m"
-#define COLOR_YELLOW    "\e[96m"
-#define COLOR_DYELLOW   "\e[36m"
+#define COLOR_BLUE      "\e[91m"
+#define COLOR_CYAN      "\e[93m"
+#define COLOR_DMAGENTA  "\e[35m"
+#define COLOR_MAGENTA   "\e[95m"
 #define COLOR_RED       "\e[94m"
 #define COLOR_DRED      "\e[34m"
 
 #define COLOR_RESET     "\e[0m"
 
-void print_bar(const char *label, int x, int y, int percent, int load) {
-    char bars[101] = {0};
-    int  pos = 0, nbars = (percent * BAR_LENGTH) / 100;
-    
+
+static inline int process_usage_meter(char *bars, int pos, int percent) {
     percent = percent >= 100 ? 100 : percent;
+    int nbars = (percent * BAR_LENGTH) / 100;
 
     for (int i = 0; i < BAR_LENGTH; i++) {
         const char *color;
         switch (i) {
             case 0 ... 1: color = COLOR_DGREEN; break;
-            case 2 ... 3: color = COLOR_GREEN; break;
-            case 4 ... 5: color = COLOR_YELLOW; break;
-            case 6 ... 7: color = COLOR_DYELLOW; break;
-            case 8 ... 9: color = COLOR_DRED; break;
-            case /*.*/10: color = COLOR_RED; break;
+            case 2 ... 3: color = COLOR_GREEN;  break;
+            case /*..*/4: color = COLOR_CYAN;   break;
+            case /*..*/5: color = COLOR_BLUE;   break;
+            case /*..*/6: color = COLOR_DMAGENTA; break;
+            case /*..*/7: color = COLOR_MAGENTA; break;
+            case /*..*/8: color = COLOR_RED;    break;
+            case 9 ... 10: color = COLOR_DRED;   break;
         }
-        
+
         // Copy color code (5 bytes)
         memcpy(bars + pos, color, 5);
         pos += 5;
@@ -45,10 +50,21 @@ void print_bar(const char *label, int x, int y, int percent, int load) {
         memcpy(bars + pos, COLOR_RESET, 4);
         pos += 4;
     }
-    bars[pos] = '\0';
 
-    printk("\e[s\e[%d;%dH\e[0K%s [%s] %3d%% Load: %3d threads\e[u",
-           y, x, label, bars, percent, load);
+    bars[pos] = '\0';
+    return pos;
+}
+
+static inline void memory_bar(char *bars) {
+    float mm_used_sz = (float)pmman.mem_used() / 1024.;
+    float mm_total   = (float)bootinfo.total / 1024.;
+    float percent    = (mm_used_sz * 100) / mm_total;
+
+    memcpy(bars, "| MEM [", 8);
+    int pos = process_usage_meter(bars, 7, percent);
+
+    pos += sprintf(bars + pos, "%d%%] %2.1f/%2.0fMiB", (int)percent, mm_used_sz, mm_total);
+    bars[pos] = '\0';
 }
 
 static usize avg_percent = 0;
@@ -56,12 +72,12 @@ static usize total_load = 0;
 
 void update_utilization(util_prev_t *prev_stats) {
     for (int core = 0; core < ncpu(); core++) {
-        sched_metrics_t *m = get_cpu_metrics(core);
+        sched_metrics_t *metrics = get_cpu_metrics(core);
 
         // Get current values
-        const usize curr_active = atomic_read(&m->last_active_time);
-        const usize curr_idle = atomic_read(&m->last_idle_time);
-        const usize load = atomic_read(&m->load) + (atomic_read(&m->idle) ? 0 : 1);
+        const usize curr_active = atomic_read(&metrics->last_active_time);
+        const usize curr_idle = atomic_read(&metrics->last_idle_time);
+        const usize load = atomic_read(&metrics->load) + (atomic_read(&metrics->idle) ? 0 : 1);
 
         // Calculate deltas
         uint64_t delta_active = curr_active - prev_stats[core].prev_active;
@@ -78,15 +94,23 @@ void update_utilization(util_prev_t *prev_stats) {
         avg_percent += percent;
         total_load  += load;
 
-        char label[8] = {0};
-        snprintf(label, sizeof label, "CPU%d", core);
-
+        
         // Print utilization bar
-        print_bar(label, 0, 25 - ncpu() + core, percent, load); 
+        char bars[101];
+        process_usage_meter(bars, 0, percent);
+        printk("\e[s\e[%d;%dHCPU%d [%s %3d%%] Load: %3d thr\e[u",
+                25 - ncpu() + core, 0, core, bars, percent, load);
     }
 
+    char mem_meter[150];
+    memory_bar(mem_meter);
+
     avg_percent /= ncpu();
-    print_bar("AVRG", 0, 25, avg_percent, total_load);
+
+    char cpu_meter[150];
+    process_usage_meter(cpu_meter, 0, avg_percent);
+    printk("\e[s\e[%d;%dHCPU  [%s %3d%%] Load: %3d thr %s\e[u",
+            25, 0, cpu_meter, avg_percent, total_load, mem_meter);
     avg_percent = total_load = 0;
 }
 
@@ -102,7 +126,7 @@ __noreturn void utilization_monitor() {
     }
 
     loop_and_yield() {
-        hpet_milliwait(1000);
+        hpet_milliwait(700);
         update_utilization(prev_stats);
     }
 } BUILTIN_THREAD(utilization_monitor, utilization_monitor, NULL);

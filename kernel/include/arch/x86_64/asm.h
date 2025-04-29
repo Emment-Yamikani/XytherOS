@@ -78,9 +78,9 @@ extern u64 rdrax(void);
 
 extern u64 rdrflags(void);
 
-static inline void hlt(void) { asm volatile("hlt"); }
+static inline void hlt(void) { asm volatile("hlt" ::: "memory"); }
 
-static inline void cpu_pause(void) { asm volatile ("pause"); }
+static inline void cpu_pause(void) { asm volatile ("pause" ::: "memory"); }
 
 static inline void cli(void) { asm volatile("cli" ::: "memory"); }
 

@@ -128,7 +128,7 @@ extern trap
     mov     rax, ds
     push    rax
 
-    push    qword fs
+    push    fs
 
     sub     rsp, 56 ; Account for reserved space in mcontext_t
 %endmacro
@@ -137,7 +137,7 @@ extern trap
 %macro rstor_mctx 0
     add     rsp, 56 ; Account for reserved space in mcontext_t
 
-    pop     qword fs
+    pop     fs
 
     pop     rax
     mov     ds, ax

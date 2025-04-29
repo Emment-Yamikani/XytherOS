@@ -44,7 +44,7 @@ typedef struct __signal_t {
     spinlock_t  sig_lock;           /**< spinlock to protect this struct. */
 } signal_t;
 
-#define signal_assert(desc)            ({ assert(desc, "No signal description."); })
+#define signal_assert(desc)            ({ assert(desc, "No signal description.\n"); })
 #define signal_lock(desc)              ({ signal_assert(desc); spin_lock(&(desc)->sig_lock); })
 #define signal_unlock(desc)            ({ signal_assert(desc); spin_unlock(&(desc)->sig_lock); })
 #define signal_islocked(desc)          ({ signal_assert(desc); spin_islocked(&(desc)->sig_lock); })

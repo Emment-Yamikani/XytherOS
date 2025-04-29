@@ -148,7 +148,12 @@ static inline device_t *get_cdev(devno_t major, devno_t minor) {
     return device_get(CHRDEV, major, minor);
 }
 
-static int mux_init(void) {
+/**
+ * @brief Initialize device multiplexer
+ * 
+ * @return int 
+ */
+int device_mux_init(void) {
     for (usize major = 0; major < MAX_MAJOR; ++major) {
         for (usize minor = 0; minor < MAX_MINOR; ++minor) {
             bdev->devices[major][minor] = NULL;
@@ -174,22 +179,6 @@ static int mux_init(void) {
     return 0;
 }
 
-int dev_init(void) {
-    int err = mux_init();
-
-    if (err != 0) {
-        return err;
-    }
-
-    foreach_builtin_device() {
-        if ((err = (dev->init)(dev->arg))) {
-            return err;
-        }
-    }
-
-    return 0;
-} BUILTIN_THREAD(device_subsys, dev_init, NULL);
-
 int find_bdev_by_name(const char *name, struct devid *dd) {
     return get_device_by_name(name, BLKDEV, dd);
 }
@@ -212,6 +201,8 @@ int kdev_create(const char *dev_name, int type, dev_t devid, const devops_t *dev
     if (dev == NULL) {
         return -ENOMEM;
     }
+
+    memset(dev, 0, sizeof *dev);
 
     int err = device_already_registered(type, devid);
     if (err != -ENODEV) {
