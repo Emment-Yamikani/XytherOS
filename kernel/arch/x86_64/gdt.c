@@ -13,30 +13,25 @@ void tss_set(uintptr_t kstack, u16 desc __unused) {
 }
 
 void gdt_init(void) {
+    cpu->gdt.null    = SEG(0, 0, 0, 0);
+    cpu->gdt.kcode64 = SEG(0, -1, SEG_CODE, KCODE_SEG);
+    cpu->gdt.kdata64 = SEG(0, -1, SEG_DATA, KDATA_SEG);
+    cpu->gdt.ucode64 = SEG(0, -1, SEG_CODE, UCODE_SEG64);
+    cpu->gdt.udata64 = SEG(0, -1, SEG_DATA, UDATA_SEG);
+    cpu->gdt.tss     = TSS(((uintptr_t)&cpu->tss), (sizeof (cpu->tss) - 1), TSS_SEG, 0x8E);
+    cpu->gdtptr      = (descptr_t){sizeof(gdt_t) - 1, &cpu->gdt};
 
-    cpu->gdt.null       = SEG(0, 0, 0, 0);
-    cpu->gdt.kcode64    = SEG(0, -1, SEG_CODE, KCODE_SEG);
-    cpu->gdt.kdata64    = SEG(0, -1, SEG_DATA, KDATA_SEG);
-    cpu->gdt.ucode64    = SEG(0, -1, SEG_CODE, UCODE_SEG64);
-    cpu->gdt.udata64    = SEG(0, -1, SEG_DATA, UDATA_SEG);
-    cpu->gdt.tss        = TSS(((uintptr_t)&cpu->tss), (sizeof (cpu->tss) - 1), TSS_SEG, 0x8E);
-
-    descptr_t ptr = (descptr_t) {
-        .base   = (uintptr_t)&cpu->gdt,
-        .limit  = sizeof cpu->gdt - 1,
-    };
-
-    ptr.base    = (uintptr_t)&cpu->gdt;
-    ptr.limit   = sizeof(gdt_t) - 1;
-    asm volatile("lgdt (%%rax)" :: "a"(&ptr) : "memory");
+    asm volatile("lgdt (%%rax)" :: "a"(&cpu->gdtptr) : "memory");
     asm volatile("ltr %%ax"     :: "a"(SEG_TSS64 << 3));
+
     asm volatile("\
         mov $0x10, %%ax;\
         mov %%ax, %%ds;\
         mov %%ax, %%ss;\
         mov $0x0, %%ax;\
         mov %%ax, %%fs;\
-        " ::: "ax");
+        " ::: "ax"
+    );
 }
 
 void setgate(int gate, int istrap, void (*base)(void) , u16 sel, uint8_t dpl, uint8_t ist) {
@@ -46,11 +41,11 @@ void setgate(int gate, int istrap, void (*base)(void) , u16 sel, uint8_t dpl, ui
 }
 
 void idt_init(void) {
-    descptr_t ptr = (descptr_t){
-        .base   = (uintptr_t)&idt,
-        .limit  = sizeof idt - 1,
+    cpu->idtptr = (descptr_t) {
+        sizeof idt - 1, &idt
     };
-    loadidt(&ptr);
+
+    loadidt(&cpu->idtptr);
 }
 
 void tvinit(void) {

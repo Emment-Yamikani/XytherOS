@@ -207,7 +207,9 @@ void bootothers(void) {
     /* Startup Application Processors */
     for (int i = 0; i < ncpu(); ++i) {
         if (!cpus[i] || cpus[i] == cpu || 
-           !(cpus[i]->flags & CPU_ENABLED)) continue;
+           !(cpus[i]->flags & CPU_ENABLED)) {
+            continue;
+        }
 
         /* Allocate AP boot stack */
         const uintptr_t stack = (uintptr_t)boot_alloc(AP_STACK_SIZE, PGSZ);

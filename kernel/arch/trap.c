@@ -18,7 +18,7 @@ void dump_tf(mcontext_t *mctx, int halt) {
     }
 
     dumpf(halt,
-        "\e[34mTRAP\e[0m:\e[34m%d\e[0m MCTX: %p CPU%d TID[%d:%d] ret[\e[92m%p\e[0m]\n"
+        "\e[34mTRAP\e[0m:\e[34m%d\e[0m CPU%d TID[%d:%d] ret[\e[92m%p\e[0m]\n"
         "\e[93merr\e[0m=%s%16p\e[0m \e[93mrfl\e[0m=%s%16p\e[0m \e[93mcs\e[0m =%s%16p\e[0m\n"
         "\e[37mds\e[0m =%s%16p\e[0m \e[37mfs\e[0m =%s%16p\e[0m \e[37mss\e[0m =%s%16p\e[0m\n"
         "\e[93mrax\e[0m=%s%16p\e[0m \e[93mrbx\e[0m=%s%16p\e[0m \e[93mrcx\e[0m=%s%16p\e[0m\n"
@@ -29,7 +29,7 @@ void dump_tf(mcontext_t *mctx, int halt) {
         "\e[37mr15\e[0m=%s%16p\e[0m \e[37mrip\e[0m=%s%16p\e[0m \e[37mcr0\e[0m=%s%16p\e[0m\n"
         "\e[93mcr2\e[0m=%s%16p\e[0m \e[93mcr3\e[0m=%s%16p\e[0m \e[93mcr4\e[0m=%s%16p\e[0m\n"
         "\e[37mstk\e[0m=%s%16p\e[0m \e[37mstp\e[0m=%s%16p\e[0m \e[37mstz\e[0m=%s%16p\e[0m\n",
-        mctx->trapno, mctx, getcpuid(), getpid(), gettid(), *(uintptr_t *)mctx->rsp,
+        mctx->trapno, getcpuid(), getpid(), gettid(), *(uintptr_t *)mctx->rsp,
         "\e[33m", mctx->eno, "\e[33m", mctx->rflags, "\e[33m", mctx->cs,
         "\e[92m", mctx->ds, "\e[92m", mctx->fs, "\e[92m", mctx->ss,
         "\e[33m", mctx->rax, "\e[33m", mctx->rbx, "\e[33m", mctx->rcx,

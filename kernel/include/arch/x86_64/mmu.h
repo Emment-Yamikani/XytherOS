@@ -89,12 +89,14 @@ typedef struct {
     .rsvd = 0,                                        \
 })
 
-typedef struct {
-    u16 limit;
-    uintptr_t base;
-} __packed descptr_t;
+typedef struct gdt gdt_t;
 
 typedef struct {
+    uint16_t  limit;
+    void      *base;
+} __packed descptr_t;
+
+typedef struct gdt {
     segdesc_t null;
     segdesc_t kcode64;
     segdesc_t kdata64;
@@ -105,13 +107,13 @@ typedef struct {
 
 #define SEG(base, limit, access, flags) ((segdesc_t){ \
     .limit0 = AND((limit), 0xFFFF),                   \
-    .base0 = AND((base), 0xFFFF),                     \
-    .base1 = AND(SHR((base), 16), 0xFF),              \
-    .accel = AND((access), 0xF),                      \
+    .base0  = AND((base), 0xFFFF),                    \
+    .base1  = AND(SHR((base), 16), 0xFF),             \
+    .accel  = AND((access), 0xF),                     \
     .flags0 = AND((flags), 0xF),                      \
     .limit1 = AND(SHR((limit), 16), 0xF),             \
     .flags1 = AND(SHR((flags), 4), 0xF),              \
-    .base2 = AND(SHR((base), 24), 0xFF),              \
+    .base2  = AND(SHR((base), 24), 0xFF),             \
 })
 
 typedef struct {

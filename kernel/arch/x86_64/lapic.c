@@ -153,9 +153,7 @@ void lapic_startup(int dst, uint16_t addr) {
 }
 
 void lapic_timerintr(void) {
-    bool intena = disable_interrupts();
-    atomic_inc(&cpu->timer_ticks);
-    enable_interrupts(intena);
+    cpu_upticks();
 
     current_timeslice_drop();
 }

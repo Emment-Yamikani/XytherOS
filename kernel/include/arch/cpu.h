@@ -3,10 +3,12 @@
 #include <arch/x86_64/mmu.h>
 #include <core/types.h>
 
+typedef u64 cpu_flags_t;
+
 typedef struct cpu_t {
     int         apicID;
 
-    u64         flags;
+    cpu_flags_t flags;
 
     isize       ncli;
     bool        intena;
@@ -16,7 +18,9 @@ typedef struct cpu_t {
     thread_t    *thread;
 
     gdt_t       gdt;
+    descptr_t   gdtptr;
     tss_t       tss;
+    descptr_t   idtptr;
 } cpu_t;
 
 #define NCPU    8
@@ -66,3 +70,11 @@ extern void cpu_swap_ncli(isize *ncli);
 extern void cpu_swap_intena(bool *intena);
 
 #define current (cpu_get_thread())
+
+extern usize cpu_getticks(void);
+extern void  cpu_upticks(void);
+
+extern cpu_flags_t cpu_getflags(void);
+extern cpu_flags_t cpu_setflags(cpu_flags_t flags);
+extern cpu_flags_t cpu_testflags(cpu_flags_t flags);
+extern cpu_flags_t cpu_maskflags(cpu_flags_t flags);

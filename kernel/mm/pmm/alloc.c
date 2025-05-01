@@ -37,7 +37,7 @@ static int zero_fill_page(zone_t *zone, page_t *page, int whence) {
 
     paddr   = zone->start + ((page - zone->pages) * PGSZ);
 
-    printk("%p: watermark: %p\n", page_addr(page, zone), page_watermark(page));
+    // printk("%p: watermark: %p\n", page_addr(page, zone), page_watermark(page));
     page_verify_watermark(page, zone);
 
     if ((whence == ZONEi_HOLE) || (whence == ZONEi_HIGH)) {
