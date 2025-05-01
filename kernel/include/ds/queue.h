@@ -61,18 +61,6 @@ typedef struct queue {
 #define queue_node_get_container(node, type, member) \
     (type *)(node ? container_of(node, type, member) : NULL)
 
-#define embedded_queue_foreach(queue, type, item, member)                                                        \
-    queue_assert_locked(queue);                                                                                  \
-    for (queue_node_t *item##_node = (queue)->head, *next_item##_node = item##_node ? item##_node->next : NULL;  \
-         item##_node; item##_node = next_item##_node, next_item##_node = item##_node ? item##_node->next : NULL) \
-        for (type *item = container_of(item##_node, type, member); item##_node; item##_node = NULL)
-
-#define embedded_queue_foreach_reverse(queue, type, item, member)                                                \
-    queue_assert_locked(queue);                                                                                  \
-    for (queue_node_t *item##_node = (queue)->tail, *prev_item##_node = item##_node ? item##_node->prev : NULL;  \
-         item##_node; item##_node = prev_item##_node, prev_item##_node = item##_node ? item##_node->prev : NULL) \
-        for (type *item = container_of(item##_node, type, member); item##_node; item##_node = NULL)
-
 #define queue_foreach_entry(queue, item, member)                                                                \
     queue_assert_locked(queue);                                                                                 \
     for (queue_node_t *item##_node = (queue)->head, *next_item##_node = item##_node ? item##_node->next : NULL; \

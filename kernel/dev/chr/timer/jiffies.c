@@ -65,7 +65,8 @@ static void jiffies_worker(void) {
     loop_and_yield() {
         cond_wait(jiffies_condvar);
         queue_lock(jiffies_clocks);
-        embedded_queue_foreach(jiffies_clocks, jiffies_clock_t, clock, node) {
+        jiffies_clock_t *clock;
+        queue_foreach_entry(jiffies_clocks, clock, node) {
             if (time_after(jiffies_get(), clock->jiffies)) {
                 embedded_queue_detach(jiffies_clocks, clock_node);
                 sched_wakeup_specific(jiffies_waiters, WAKEUP_NORMAL, clock->tid);

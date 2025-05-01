@@ -60,8 +60,10 @@ static void remove_timer_from_process(thread_t *thread, posix_timer_t *timer) {
 }
 
 static posix_timer_t *find_timer_by_id(timer_t timerid) {
+    posix_timer_t *timer;
+
     queue_lock(current->t_timers);
-    embedded_queue_foreach(current->t_timers, posix_timer_t, timer, node) {
+    queue_foreach_entry(current->t_timers, timer, node) {
         spin_lock(&timer->lock);
         if (timer->id == timerid) {
             queue_unlock(current->t_timers);
@@ -74,8 +76,10 @@ static posix_timer_t *find_timer_by_id(timer_t timerid) {
 }
 
 static posix_timer_t *get_expired_timer(void) {
+    posix_timer_t *timer;
+
     queue_lock(ktimer_queue);
-    embedded_queue_foreach(ktimer_queue, posix_timer_t, timer, knode) {
+    queue_foreach_entry(ktimer_queue, timer, knode) {
         spin_lock(&timer->lock);
         if (timer->expiry_time <= jiffies_get()) {
             embedded_queue_detach(ktimer_queue, timer_node);
