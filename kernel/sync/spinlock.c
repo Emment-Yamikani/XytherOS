@@ -29,10 +29,10 @@ void spinlock_init(spinlock_t *lk) {
 
 bool holding(const spinlock_t *lk) {
     spin_assert(lk);
-    // pushcli();
+    bool intena = disable_interrupts();
     bool locked = lk->locked ? true : false;
     locked = locked && (lk->owner == current || (lk)->owner == cpu);
-    // popcli();
+    enable_interrupts(intena);
     return locked;
 }
 

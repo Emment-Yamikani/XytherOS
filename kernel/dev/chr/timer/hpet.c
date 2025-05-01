@@ -164,7 +164,9 @@ int hpet_init(void) {
     hpet_enable();
 
     // Enable the timer to fire interrupts via I/O (x) APIC.
+    pushcli();
     interrupt_controller_enable(IRQ_HPET, getcpuid());
+    popcli();
     return 0;
 }
 
@@ -196,7 +198,7 @@ void hpet_nanosleep(ulong ns) {
         if (current) {
             sched_yield(); // Avoid busy-waiting.
         } else {
-            asm volatile ("pause" ::: "memory");
+            cpu_pause();
         }
     }
 }

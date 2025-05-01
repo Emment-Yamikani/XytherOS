@@ -51,7 +51,7 @@ extern bool isbsp(void);
 extern isize cpu_get_ncli(void);
 extern bool cpu_get_intena(void);
 
-extern thread_t *cpu_get_thread(void);
+extern thread_t *cpu_getthread(void);
 extern bool cpu_set_thread(thread_t *thread);
 
 extern bool disable_interrupts(void);
@@ -69,7 +69,7 @@ extern void cpu_swap_ncli(isize *ncli);
 
 extern void cpu_swap_intena(bool *intena);
 
-#define current (cpu_get_thread())
+#define current (cpu_getthread())
 
 extern usize cpu_getticks(void);
 extern void  cpu_upticks(void);

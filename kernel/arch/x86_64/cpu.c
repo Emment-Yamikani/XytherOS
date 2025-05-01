@@ -30,7 +30,7 @@ void setcls(cpu_t *c) {
     wrmsr(IA32_KERNEL_GS_BASE, (uintptr_t)c);
 }
 
-thread_t *cpu_get_thread(void) {
+thread_t *cpu_getthread(void) {
     bool intena = disable_interrupts();
     thread_t *thread = cpu ? cpu->thread : NULL;
     enable_interrupts(intena);

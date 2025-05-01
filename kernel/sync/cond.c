@@ -1,5 +1,6 @@
 #include <lib/printk.h>
 #include <bits/errno.h>
+#include <core/debug.h>
 #include <sync/cond.h>
 #include <mm/kalloc.h>
 #include <string.h>

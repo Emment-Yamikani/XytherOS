@@ -20,8 +20,8 @@ static int do_sigaction(int signo, sigaction_t *act, sigaction_t *oact) {
 
         if (sig_handler_ignored(sig_handler(current, signo), signo)) {
             sigqueue_flush(&current->t_signals->sig_queue[signo - 1]);
-
-            foreach_thread(current->t_group, t_group_qnode) {
+            thread_t *thread;
+            foreach_thread(current->t_group, thread, t_group_qnode) {
                 thread_lock(thread);
                 if (sigismember(&thread->t_sigpending, signo)) {
                     sigqueue_flush(&thread->t_sigqueue[signo - 1]);

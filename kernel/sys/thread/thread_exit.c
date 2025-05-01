@@ -39,14 +39,15 @@ int thread_reap(thread_t *thread, thread_info_t *info, void **retval) {
 }
 
 int thread_cancel(tid_t tid) {
-    int         err     = 0;
+    int err = 0;
 
     if (tid <= 0)
         return -EINVAL;
 
+    thread_t *thread;
 try:
     queue_lock(current->t_group);
-    embedded_queue_foreach(current->t_group, thread_t, thread, t_group_qnode) {
+    foreach_thread(current->t_group, thread, t_group_qnode) {
         thread_lock(thread);
 
         if (thread_gettid(thread) == tid) {

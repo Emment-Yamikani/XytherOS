@@ -127,12 +127,13 @@ int sched_enqueue(thread_t *thread) {
 
 static thread_t *MLFQ_get_next_thread(void) {
     int     err   = 0;
+    thread_t *thread;
     MLFQ_t  *mlfq = MLFQ_get();
 
     foreach_level(mlfq) {
         /// Acquire level resources.
         queue_lock(&level->run_queue);
-        embedded_queue_foreach(&level->run_queue, thread_t, thread, t_run_qnode) {
+        foreach_thread(&level->run_queue, thread, t_run_qnode) {
             thread_lock(thread);
 
             /// Remove thread from run queue.
@@ -165,14 +166,14 @@ static thread_t *MLFQ_get_next_thread(void) {
     return NULL;
 }
 
-static void sched_handle_zombie(void) {
-    cond_broadcast(&current->t_event);
+static void sched_handle_zombie(thread_t *thread) {
+    cond_broadcast(&thread->t_event);
 }
 
-static void hanlde_thread_state(void) {
+static void hanlde_thread_state(thread_t *thread) {
     int err = 0;
 
-    switch (current_get_state()) {
+    switch (thread_get_state(thread)) {
         case T_EMBRYO:
             assert(0, "T_EMBRYO thread returned?\n");
             break;
@@ -180,28 +181,29 @@ static void hanlde_thread_state(void) {
             assert(0, "T_RUNNING thread returned?\n");
             break;
         case T_READY:
-            assert_eq(err = MLFQ_enqueue(current), 0,
+            assert_eq(err = MLFQ_enqueue(thread), 0,
                 "Failed to enqueue current thread. error: %s\n", strerror(err));
             break;
-        case T_SLEEP:
-        case T_STOPPED:
-            break;
+        case T_SLEEP: case T_STOPPED: break;
         case T_ZOMBIE:
-            sched_handle_zombie();
+            sched_handle_zombie(thread);
             break;
         case T_TERMINATED:
             todo("Please Handle: %s\n", get_tstate());
             break;
         default:
-        todo("Undefined state: %s\n", get_tstate());
+            todo("Undefined state: %s\n", get_tstate());
     }
 
-    current_unlock();
+    thread_unlock(thread);
 }
 
 // this is the per-cpu scheduler's idle thread, well, somewhat.
 __noreturn void scheduler(void) {
+    thread_t *thread;
+    pushcli();
     sched_metrics_t *metrics = get_metrics();
+    popcli();
     loop() {
         cpu_set_preepmpt(0, 0);
         cpu_set_thread(NULL);
@@ -211,7 +213,7 @@ __noreturn void scheduler(void) {
         enable_interrupts(true);
 
         loop() {
-            thread_t *thread = MLFQ_get_next_thread();
+            thread = MLFQ_get_next_thread();
             if (thread && cpu_set_thread(thread)) {
                 /// set cpu->intena == false,
                 /// might need a better way of preventing undefined behavior
@@ -237,9 +239,9 @@ __noreturn void scheduler(void) {
 
         atomic_inc(&metrics->total_context_switches);
         
-        current_assert_locked();
-        sched_update_thread_metrics(current);
-        hanlde_thread_state();
+        thread_assert_locked(thread);
+        sched_update_thread_metrics(thread);
+        hanlde_thread_state(thread);
         
         assert(!intrena(), "Interrupts are enabled???\n");
     }

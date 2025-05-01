@@ -129,4 +129,4 @@ __noreturn void utilization_monitor() {
         hpet_milliwait(1000);
         update_utilization(prev_stats);
     }
-} BUILTIN_THREAD(utilization_monitor, utilization_monitor, NULL);
+} // BUILTIN_THREAD(utilization_monitor, utilization_monitor, NULL);

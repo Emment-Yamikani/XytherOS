@@ -179,6 +179,7 @@ int sched_detach_and_wakeup(queue_t *wait_queue, thread_t *thread, wakeup_t reas
 
 int sched_wakeup(queue_t *wait_queue, wakeup_t reason, queue_relloc_t whence) {
     int err;
+    thread_t *thread;
 
     if (wait_queue == NULL) {
         return -EINVAL;
@@ -189,7 +190,7 @@ int sched_wakeup(queue_t *wait_queue, wakeup_t reason, queue_relloc_t whence) {
     switch (whence) {
         case QUEUE_TAIL: // retrieve a thread from the back of the queue.
             // wakeup a thread at the back of the queue.
-            embedded_queue_foreach_reverse(wait_queue, thread_t, thread, t_wait_qnode) {
+            foreach_thread_reverse(wait_queue, thread, t_wait_qnode) {
                 thread_lock(thread);
 
                 err = sched_detach_and_wakeup(wait_queue, thread, reason);
@@ -201,7 +202,7 @@ int sched_wakeup(queue_t *wait_queue, wakeup_t reason, queue_relloc_t whence) {
             break;
 
         case QUEUE_HEAD: // retrieve a thread from the front of the queue.
-            embedded_queue_foreach(wait_queue, thread_t, thread, t_wait_qnode) {
+            foreach_thread(wait_queue, thread, t_wait_qnode) {
                 thread_lock(thread);
 
                 err = sched_detach_and_wakeup(wait_queue, thread, reason);
@@ -228,8 +229,9 @@ int sched_wakeup_specific(queue_t *wait_queue, wakeup_t reason, tid_t tid) {
 
     queue_lock(wait_queue);
 
+    thread_t *thread;
     // retrieve a thread from the front of the queue.
-    embedded_queue_foreach(wait_queue, thread_t, thread, t_wait_qnode) {
+    foreach_thread(wait_queue, thread, t_wait_qnode) {
         thread_lock(thread);
 
         if (thread_gettid(thread) == tid) {
@@ -256,9 +258,10 @@ int sched_wakeup_all(queue_t *wait_queue, wakeup_t reason, size_t *pnt) {
 
     queue_lock(wait_queue);
 
-    embedded_queue_foreach(wait_queue, thread_t, thread, t_wait_qnode) {
+    thread_t *thread;
+    debuglog();
+    queue_foreach_entry(wait_queue, thread, t_wait_qnode) {
         thread_lock(thread);
-
         if ((err = sched_detach_and_wakeup(wait_queue, thread, reason))) {
             thread_unlock(thread);
             queue_unlock(wait_queue);
@@ -269,6 +272,7 @@ int sched_wakeup_all(queue_t *wait_queue, wakeup_t reason, size_t *pnt) {
         thread_unlock(thread);
         count += 1;
     }
+    debuglog();
 
     queue_unlock(wait_queue);
 

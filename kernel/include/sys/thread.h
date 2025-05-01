@@ -253,8 +253,11 @@ typedef struct thread_t {
  * @brief Assert that a thread is locked. */
 #define thread_assert_locked(t)     ({ thread_assert(t); spin_assert_locked(&(t)->t_lock); })
 
-#define foreach_thread(q, member) \
-    embedded_queue_foreach(q, thread_t, thread, member)
+#define foreach_thread(q, thread, member) \
+    queue_foreach_entry(q, thread, member)
+
+#define foreach_thread_reverse(q, thread, member) \
+    queue_foreach_entry_reverse(q, thread, member)
 
 /* Macros for the current thread (global variable `current` assumed */
 #define current_assert()            thread_assert(current)

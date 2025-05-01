@@ -14,9 +14,11 @@ static inline bool pushcli(void) {
 static inline void popcli(void) {
     assert(!intrena(), "Interrupts are enabled!\n");
     assert(--cpu->ncli >= 0, "!ncli: %d < 0\n", cpu->ncli);
-    if (!cpu->ncli && cpu->intena) {
-        enable_interrupts(cpu->intena);
+
+    bool intena = cpu->intena;
+    if (!cpu->ncli && intena) {
         cpu->intena = false;
+        enable_interrupts(intena);
     }
 }
 

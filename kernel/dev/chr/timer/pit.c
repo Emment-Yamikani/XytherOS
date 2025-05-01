@@ -30,9 +30,12 @@ void pit_init(void) {
     outb(COUNTER(0), (uint8_t)counter);
     inb(0x60);
     outb(COUNTER(0), (uint8_t)(counter >> 8));
-
+    
     pic_enable(IRQ_PIT0);
+
+    pushcli();
     interrupt_controller_enable(IRQ_PIT2, getcpuid());
+    popcli();
 }
 
 void pit_intr(void) {
