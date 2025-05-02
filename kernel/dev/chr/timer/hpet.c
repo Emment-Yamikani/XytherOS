@@ -43,7 +43,7 @@ static atomic_u64 hpet_period_ns = 0;
 #define HPET_INT_STATUS         HPET[(0x020) / 8]
 
 /*Main Counter Value register.*/
-#define HPET_MAIN_COUNTER_VAL   HPET[(0x0F0) / 8]
+#define HPET_COUNTER   HPET[(0x0F0) / 8]
 
 /*----------------------------------------------------*/
 /*------------------Timer locations-------------------*/
@@ -139,7 +139,7 @@ int hpet_init(void) {
     if ((err = hpet_tmr_init(0)))
         return err;
 
-    HPET_MAIN_COUNTER_VAL = 0;          // Reset the main counter.
+    HPET_COUNTER = 0;          // Reset the main counter.
 
     // Set timer 0 to generate IRQ 2.
     HPET_TMR_SET_INT_RT_CNF(0, IRQ_HPET);
@@ -189,7 +189,7 @@ void hpet_intr(void) {
 }
 
 ulong hpet_now(void) {
-    return HPET_MAIN_COUNTER_VAL * hpet_period_ns;
+    return HPET_COUNTER * hpet_period_ns;
 }
 
 void hpet_nanosleep(ulong ns) {

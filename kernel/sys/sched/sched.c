@@ -259,7 +259,6 @@ int sched_wakeup_all(queue_t *wait_queue, wakeup_t reason, size_t *pnt) {
     queue_lock(wait_queue);
 
     thread_t *thread;
-    debuglog();
     queue_foreach_entry(wait_queue, thread, t_wait_qnode) {
         thread_lock(thread);
         if ((err = sched_detach_and_wakeup(wait_queue, thread, reason))) {
@@ -272,7 +271,6 @@ int sched_wakeup_all(queue_t *wait_queue, wakeup_t reason, size_t *pnt) {
         thread_unlock(thread);
         count += 1;
     }
-    debuglog();
 
     queue_unlock(wait_queue);
 

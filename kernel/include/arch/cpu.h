@@ -78,3 +78,7 @@ extern cpu_flags_t cpu_getflags(void);
 extern cpu_flags_t cpu_setflags(cpu_flags_t flags);
 extern cpu_flags_t cpu_testflags(cpu_flags_t flags);
 extern cpu_flags_t cpu_maskflags(cpu_flags_t flags);
+
+extern void nm_except(void);
+extern void mf_except(void);
+extern void smid_except(void);

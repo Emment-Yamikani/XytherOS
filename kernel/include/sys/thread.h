@@ -23,7 +23,7 @@ extern queue_t *global_thread_queue;
 
 /**
  * @brief Kernel stack size for threads. */
-#define KSTACK_SIZE     KiB(16)
+#define KSTACK_SIZE     KiB(32)
 #define KSTACK_MAXSIZE  KiB(256)
 
 /**

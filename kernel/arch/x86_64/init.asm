@@ -14,6 +14,7 @@ PGSZ     equ 0x1000
 DEVADDR  equ 0xFE000000
 VMA      equ 0xFFFF800000000000
 CGA_BASE equ 0xFFFF8000000B8000
+KSTACKSZ equ 0x8000
 
 [bits 32]
 start32:
@@ -344,5 +345,5 @@ DEVPT:  resb PGSZ * 16
 ; Per-CPU Local storage for the Bootstrap Processor
 bspcls:    resb PGSZ
 
-stack:  resb 0x4000
+stack:  resb KSTACKSZ
 .top:

@@ -231,7 +231,7 @@ int thread_queue_find_by_tid(queue_t *thread_queue, tid_t tid, thread_t **ptp) {
     if (thread_queue == NULL) {
         return -EINVAL;
     }
-    
+
     queue_foreach(thread_queue, thread_t *, thread) {
         thread_lock(thread);
         if (thread_gettid(thread) == tid) {

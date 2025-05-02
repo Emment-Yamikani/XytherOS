@@ -131,3 +131,9 @@ extern int  xytherOS_strncmp(const char *s1, const char *s2, size_t n);
 extern int  xytherOS_strcasecmp(const char *s1, const char *s2);
 extern int  xytherOS_strncasecmp(const char *s1, const char *s2, size_t n);
 extern char *xytherOS_strdup(const char *s);
+
+extern bool xytherOS_string_eq(const char *s0, const char *s1);
+extern int xytherOS_tokenize(char *s, int delim, size_t *ntoks, char ***ptokenized, char **plast_tok);
+extern void xytherOS_tokens_free(char **tokens);
+extern int xytherOS_canonicalize_path(const char *path, size_t *ntoks, char ***ptokenized, char **plast);
+extern char *xytherOS_combine_strings(const char *s0, const char *s1);

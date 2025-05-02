@@ -201,15 +201,14 @@ static void hanlde_thread_state(thread_t *thread) {
 // this is the per-cpu scheduler's idle thread, well, somewhat.
 __noreturn void scheduler(void) {
     thread_t *thread;
-    pushcli();
     sched_metrics_t *metrics = get_metrics();
-    popcli();
+
     loop() {
         cpu_set_preepmpt(0, 0);
         cpu_set_thread(NULL);
 
         atomic_set(&metrics->load, MLFQ_load(MLFQ_get()));
-        
+
         enable_interrupts(true);
 
         loop() {
@@ -224,7 +223,7 @@ __noreturn void scheduler(void) {
                 atomic_inc(&metrics->total_threads_executed);
                 break;
             }
-            
+
             atomic_set(&metrics->last_idle_time, jiffies_get());
             atomic_set(&metrics->idle, 1);
             hlt();
@@ -238,11 +237,11 @@ __noreturn void scheduler(void) {
         context_switch(&current->t_arch.t_context);
 
         atomic_inc(&metrics->total_context_switches);
-        
+
         thread_assert_locked(thread);
         sched_update_thread_metrics(thread);
         hanlde_thread_state(thread);
-        
+
         assert(!intrena(), "Interrupts are enabled???\n");
     }
 }

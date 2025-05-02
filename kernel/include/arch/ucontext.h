@@ -20,39 +20,43 @@ struct __context_t {
     u64 rip;
 };
 
-// No. of registers in caller-callee context.
-#define NREGCTX ((sizeof (context_t)) / sizeof (uintptr_t))
-
-enum {
-    CXT_LINK,
-#define CTX_LINK CTX_LINK
-    CTX_R15, 
-#define CTX_R15 CTX_R15
-    CTX_R14, 
-#define CTX_R14 CTX_R14
-    CTX_R13, 
-#define CTX_R13 CTX_R13
-    CTX_R12, 
-#define CTX_R12 CTX_R12
-    CTX_R11, 
-#define CTX_R11 CTX_R11
-    CTX_RBX, 
-#define CTX_RBX CTX_RBX
-    CTX_RBP, 
-#define CTX_RBP CTX_RBP
-    CTX_RIP, 
-#define CTX_RIP CTX_RIP
-};
-
 extern void trapret(void);
 extern void dump_ctx(context_t *ctx, int halt);
 extern void context_switch(context_t **pcontext, ...);
+
+typedef struct __fpxreg {
+    ushort  significand[4];
+    ushort  exponent;
+    ushort  __reserved1[3];
+} __fpxreg_t;
+
+typedef struct __xmmreg {
+    uint    element[4];
+} __xmmreg_t;
+
+/* Structure to describe FPU registers.  */
+typedef struct __fpstate {
+    /* 64-bit FXSAVE format.  */
+    ushort      cwd;
+    ushort      swd;
+    ushort      ftw;
+    ushort      fop;
+    ulong       rip;
+    ulong       rdp;
+    uint        mxcsr;
+    uint        mxcr_mask;
+    __fpxreg_t  _st[8];
+    __xmmreg_t  _xmm[16];
+    uint        __reserved1[24];
+} __fpstate_t;
 
 /*machine context*/
 typedef struct __mcontext_t {
     // general purpose registers.
 #if defined (__x86_64__)
-    u64 _[7]; // TODO: include other necessary registers.
+    __fpstate_t *fpstate;
+
+    u64 _[6]; // TODO: include other necessary registers.
 
     u64 fs;
 
@@ -82,7 +86,7 @@ typedef struct __mcontext_t {
 
     u64 rip;
     u64 cs;
-    u64 rflags;
+    u64 rfl;
     u64 rsp;
     u64 ss;
 #endif // #if defined (__x86_64__)
@@ -94,6 +98,8 @@ typedef struct __ucontext_t {
     uc_stack_t  uc_stack;   /* stack used by this context */
     i32         uc_padding;
     i64         uc_flags;   /* flags*/
+    __fpstate_t uc_fpstate; /* FPU state */
     mcontext_t  uc_mcontext;/* machine-specific representation of saved context */
 } ucontext_t;
+
 #define uctx_isuser(ctx)    ({ ((ctx)->uc_mcontext.cs == (((SEG_UCODE64 << 3) | DPL_USR))) ? 1 : 0; })

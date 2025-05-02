@@ -23,7 +23,7 @@ void early_init(void) {
 
     ap_signal(); // Inform APs that early initialization is done.
 
-    // TODO: Add anything else to kthread_main().
+    // TODO: Add everything else to kthread_main().
 
     err = thread_create(NULL, (thread_entry_t)kthread_main, NULL, THREAD_CREATE_SCHED, NULL);
     assert_eq(err, 0, "Failed to create main kernel thread: err: %s\n", strerror(err));

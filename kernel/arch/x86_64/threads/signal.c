@@ -126,7 +126,7 @@ static int x86_64_dispatch_onstack(arch_thread_t *arch, sigaction_t *act, siginf
     mcontext->ss    = SEG_KDATA64 << 3;
     mcontext->rsp   = (u64)kstack;
     mcontext->rbp   = (u64)kstack;
-    mcontext->rflags= LF_IF;
+    mcontext->rfl= LF_IF;
     mcontext->cs    = SEG_KCODE64 << 3;
     mcontext->rip   = (u64)act->sa_handler;
     mcontext->rdi   = siginfo->si_signo;

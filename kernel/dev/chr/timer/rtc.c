@@ -55,6 +55,7 @@ static int rtc_retrieve_time(rtc_time_t *tm) {
         return -EINVAL;
 
     while (rtc_updating());
+
     outb(RTC_CMD, RTC_SEC);
     tm->rtc_sec = inb(RTC_IO);
     outb(RTC_CMD, RTC_MIN);
@@ -159,10 +160,6 @@ static int rtc_probe(struct devid *dd __unused) {
     inb(RTC_IO);
 
     rtc_retrieve_time(&rtc_tm);
-
-    printk("Time: \e[025453;02m%d:%d:%d\e[0m Date: \e[025453;03m%d/%d/%d\e[0m\n",
-           rtc_tm.rtc_hrs, rtc_tm.rtc_min, rtc_tm.rtc_sec,
-           rtc_tm.rtc_day, rtc_tm.rtc_mon, rtc_tm.rtc_year);
     return 0;
 }
 
@@ -312,7 +309,6 @@ void rtc_intr(void) {
 }
 
 int rtc_init(void) {
-    printk("Initializing Real Time Clock (RTC)...\n");
     return dev_register(&rtcdev);
 }
 

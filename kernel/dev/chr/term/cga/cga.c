@@ -9,19 +9,15 @@
 
 #define CGA_WIDTH        80
 #define CGA_HEIGHT       25
-#define CGA_SCREEN_SIZE  (CGA_WIDTH * CGA_HEIGHT)
 #define CGA_ADDRESS      0xB8000
+#define CGA_SCREEN_SIZE  (CGA_WIDTH * CGA_HEIGHT)
 
 static volatile bool    cga_active  = 0;
 static uint16_t         *cga_mem    = (uint16_t *)V2HI(CGA_ADDRESS);
 
 // Color state structure
 typedef union {
-    struct {
-        uint8_t _;
-        uint8_t fg : 4;
-        uint8_t bg : 4;
-    };
+    struct { u8 _, fg : 4, bg : 4; };
     uint16_t attrib;
 } color_state;
 

@@ -165,7 +165,12 @@ extern trap
 ; Common stub for ISRs and IRQs
 stub:
     ; swapgs                      ; Swap GS base (if needed for user-space handling)
-    save_mctx                   ; Save CPU registers
+    save_mctx                     ; Save CPU registers
+
+    sub     rsp, 512;
+    mov     rax, rsp;
+    mov     qword [rsp + 512], rax
+    fxsave  [rax]
 
     ; Reserve space for ucontext_t struct (uc_link, uc_sigmask, uc_stack)
     sub     rsp, 48
@@ -176,6 +181,9 @@ stub:
 
     ; Clean up the stack
     add     rsp, 48             ; Remove reserved space for ucontext_t
+
+    fxrstor [rsp]
+    add     rsp, 512
 
 trapret:
     rstor_mctx                  ; Restore CPU ritrs

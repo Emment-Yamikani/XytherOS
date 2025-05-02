@@ -29,8 +29,8 @@ void dump_tf(mcontext_t *mctx, int halt) {
         "\e[37mr15\e[0m=%s%16p\e[0m \e[37mrip\e[0m=%s%16p\e[0m \e[37mcr0\e[0m=%s%16p\e[0m\n"
         "\e[93mcr2\e[0m=%s%16p\e[0m \e[93mcr3\e[0m=%s%16p\e[0m \e[93mcr4\e[0m=%s%16p\e[0m\n"
         "\e[37mstk\e[0m=%s%16p\e[0m \e[37mstp\e[0m=%s%16p\e[0m \e[37mstz\e[0m=%s%16p\e[0m\n",
-        mctx->trapno, getcpuid(), getpid(), gettid(), *(uintptr_t *)mctx->rsp,
-        "\e[33m", mctx->eno, "\e[33m", mctx->rflags, "\e[33m", mctx->cs,
+        mctx->trapno, getcpuid(), getpid(), gettid(), *(uintptr_t *)mctx->rbp,
+        "\e[33m", mctx->eno, "\e[33m", mctx->rfl, "\e[33m", mctx->cs,
         "\e[92m", mctx->ds, "\e[92m", mctx->fs, "\e[92m", mctx->ss,
         "\e[33m", mctx->rax, "\e[33m", mctx->rbx, "\e[33m", mctx->rcx,
         "\e[92m", mctx->rdx, "\e[92m", mctx->rdi, "\e[92m", mctx->rsi,
@@ -70,6 +70,19 @@ void thread_handle_event(void) {
     current->t_arch.t_uctx = current->t_arch.t_uctx->uc_link;
 }
 
+// End of interrupt.
+static inline void eointr(mcontext_t *mctx) {
+    if (mctx->trapno < IRQ_OFFSET) {
+        return;
+    }
+
+    if (mctx->trapno >= T_LEG_SYSCALL) {
+        return;
+    }
+
+    lapic_eoi();
+}
+
 void trap(ucontext_t *uctx) {
     mcontext_t *mctx = &uctx->uc_mcontext;
 
@@ -82,47 +95,45 @@ void trap(ucontext_t *uctx) {
     }
 
     switch (mctx->trapno) {
-    case T_LEG_SYSCALL:
-        break;
-    case T_PF:
-        dump_tf(mctx, 1);
-    case T_PIT:
-        break;
-    case T_GP:
-        dump_tf(mctx, 1);
-        break;
-    case T_PS2_KBD:
-        ps2kbd_intr();
-        break;
-    case T_HPET:
-        timer_intr();
-        break;
-    case T_RTC:
-        break;
-    case T_LAPIC_ERROR:
-        break;
-    case T_SPURIOUS:
-    case T_LAPIC_SPURIOUS:
-        break;
-    case T_LAPIC_TIMER:
-        lapic_timerintr();
-        break;
-    case T_TLBSHTDWN:
-        break;
-    case T_PANIC:
-        isr_ne(mctx->trapno);
-        break;
-    case T_SIMTRAP:
-        break;
-    case T_LAPIC_IPI:
-        printk("IPI: cpu:%d, tid: %d\n", getcpuid(), gettid());
-        break;
-    default:
-        isr_ne(mctx->trapno);
+        case T_LEG_SYSCALL: break;
+
+        case T_PF: dump_tf(mctx, 1); break;
+
+        case T_PIT: break;
+
+        case T_GP: dump_tf(mctx, 1); break;
+
+        case T_PS2_KBD: ps2kbd_intr(); break;
+
+        case T_HPET: timer_intr(); break;
+
+        case T_RTC: break;
+
+        case T_NM: nm_except(); break;
+
+        case T_MF: mf_except(); break;
+
+        case T_XM: smid_except(); break;
+
+        case T_LAPIC_ERROR: break;
+
+        case T_SPURIOUS: case T_LAPIC_SPURIOUS: break; // spurious interrupt.
+
+        case T_LAPIC_TIMER: lapic_timerintr(); break;
+
+        case T_TLBSHTDWN: break;
+
+        case T_PANIC: isr_ne(mctx->trapno); break;
+
+        case T_SIMTRAP: break;
+
+        case T_LAPIC_IPI:
+            printk("IPI: cpu:%d, tid: %d\n", getcpuid(), gettid());
+            break;
+        default: isr_ne(mctx->trapno);
     }
 
-    if ((mctx->trapno >= IRQ_OFFSET) && (mctx->trapno < T_LEG_SYSCALL))
-        lapic_eoi();
-    
+    eointr(mctx);
+
     thread_handle_event();
 }

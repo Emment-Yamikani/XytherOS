@@ -98,7 +98,7 @@ void update_utilization(util_prev_t *prev_stats) {
         // Print utilization bar
         char bars[101];
         process_usage_meter(bars, 0, percent);
-        printk("\e[s\e[%d;%dHCPU%d [%s %3d%%] %3d thr\e[u",
+        printk("\e[s\e[%d;%dHCPU%d [%s %3d%%] %3d thr\e[0K\e[u",
                 25 - ncpu() + core, 0, core, bars, percent, load);
     }
 
@@ -109,7 +109,7 @@ void update_utilization(util_prev_t *prev_stats) {
 
     char cpu_meter[150];
     process_usage_meter(cpu_meter, 0, avg_percent);
-    printk("\e[s\e[%d;%dHCPU  [%s %3d%%] %3d thr %s\e[u",
+    printk("\e[s\e[%d;%dHCPU  [%s %3d%%] %3d thr %s\e[0K\e[u",
             25, 0, cpu_meter, avg_percent, total_load, mem_meter);
     avg_percent = total_load = 0;
 }
@@ -129,4 +129,4 @@ __noreturn void utilization_monitor() {
         hpet_milliwait(1000);
         update_utilization(prev_stats);
     }
-} // BUILTIN_THREAD(utilization_monitor, utilization_monitor, NULL);
+} BUILTIN_THREAD(utilization_monitor, utilization_monitor, NULL);

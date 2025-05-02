@@ -364,7 +364,7 @@ char* xytherOS_strchr(const char* str, int c) {
     }
 }
 
-bool string_eq(const char *s0, const char *s1) {
+bool xytherOS_string_eq(const char *s0, const char *s1) {
     if (xytherOS_strlen(s0) != xytherOS_strlen(s1))
         return false;
     return !xytherOS_strcmp(s0, s1);
@@ -818,21 +818,26 @@ char *xytherOS_strdup(const char *s) {
     return dup;
 }
 
-int tokenize(char *s, int delim, size_t *ntoks, char ***ptokenized, char **plast_tok) {
-    if (!s || !delim || ptokenized == NULL)
+int xytherOS_tokenize(char *s, int delim, size_t *ntoks, char ***ptokenized, char **plast_tok) {
+    if (!s || !delim || ptokenized == NULL) {
         return -EINVAL;
+    }
 
     /* Duplicate the input string */
     size_t len = strlen(s);
     char *buf = kmalloc(len + 1);
-    if (!buf)
+
+    if (!buf) {
         return -ENOMEM;
+    }
+
     memcpy(buf, s, len + 1);
 
     /* Trim leading delimiters */
     char *p = buf;
-    while (*p == delim)
+    while (*p == delim) {
         p++;
+    }
 
     if (p != buf) {
         memmove(buf, p, strlen(p) + 1);
@@ -841,14 +846,17 @@ int tokenize(char *s, int delim, size_t *ntoks, char ***ptokenized, char **plast
 
     /* Trim trailing delimiters */
     char *end = buf + len - 1;
-    while (end >= p && *end == delim)
+    while (end >= p && *end == delim) {
         *end-- = '\0';
+    }
 
     /* Estimate the number of tokens */
     size_t count = 0;
-    for (char *scan = p; *scan; scan++)
-        if (*scan == delim && *(scan + 1) && *(scan + 1) != delim)
+    for (char *scan = p; *scan; scan++) {
+        if (*scan == delim && *(scan + 1) && *(scan + 1) != delim) {
             count++;
+        }
+    }
 
     /* Allocate tokens array (worst-case count + 1) */
     char **tokens = kmalloc((count + 2) * sizeof(char *));
@@ -861,48 +869,60 @@ int tokenize(char *s, int delim, size_t *ntoks, char ***ptokenized, char **plast
     size_t token_index = 0;
     while (*p) {
         tokens[token_index++] = p;
-        while (*p && *p != delim)
+        while (*p && *p != delim) {
             p++;
+        }
+
         if (*p) {
             *p = '\0';
             p++;
-            while (*p == delim)
+            while (*p == delim) {
                 p++;
+            }
         }
     }
     tokens[token_index] = NULL;
 
-    if (ntoks)
+    if (ntoks) {
         *ntoks = token_index;
-    if (plast_tok)
+    }
+
+    if (plast_tok) {
         *plast_tok = token_index ? tokens[token_index - 1] : NULL;
+    }
+
     *ptokenized = tokens;
 
     return 0;
 }
 
-void tokens_free(char **tokens) {
-    if (!tokens)
+void xytherOS_tokens_free(char **tokens) {
+    if (!tokens) {
         return;
+    }
+
     kfree(tokens[0]);
     kfree(tokens);
 }
 
-int canonicalize_path(const char *path, size_t *ntoks, char ***ptokenized, char **plast) {
+int xytherOS_canonicalize_path(const char *path, size_t *ntoks, char ***ptokenized, char **plast) {
     return tokenize((char *)path, '/', ntoks, ptokenized, plast);
 }
 
-char *combine_strings(const char *s0, const char *s1) {
-    if (!s0 || !s1)
+char *xytherOS_combine_strings(const char *s0, const char *s1) {
+    if (!s0 || !s1) {
         return NULL;
+    }
 
     size_t len0 = strlen(s0);
     size_t len1 = strlen(s1);
     size_t total_len = len0 + len1 + 1;
 
     char *result = kmalloc(total_len);
-    if (!result)
+    if (!result) {
         return NULL;
+    }
+
     memcpy(result, s0, len0);
     memcpy(result + len0, s1, len1 + 1);  /* include the null terminator */
     return result;
