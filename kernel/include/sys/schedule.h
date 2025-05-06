@@ -57,6 +57,8 @@ extern __noreturn void scheduler(void);
  */
 extern void sched_yield(void);
 
+extern void toggle_sched_monitor(void);
+
 extern int sched_wait(queue_t *wait_queue, tstate_t state, queue_relloc_t whence, spinlock_t *lock);
 
 typedef enum {
@@ -77,3 +79,24 @@ extern int sched_wakeup_all(queue_t *wait_queue, wakeup_t reason, size_t *pnt);
 extern int sched_wakeup_specific(queue_t *wait_queue, wakeup_t reason, tid_t tid);
 extern int sched_wakeup(queue_t *wait_queue, wakeup_t reason, queue_relloc_t whence);
 extern int sched_detach_and_wakeup(queue_t *wait_queue, thread_t *thread, wakeup_t reason);
+
+/**
+ * wait_event_interruptible - sleep until a condition gets true
+ * @wq: the waitqueue to wait on
+ * @condition: a C expression for the event to wait for
+ * @lock: optional spinlock to release while sleeping
+ *
+ * The process is put to sleep (T_SLEEP) until the
+ * @condition evaluates to true. The @condition is checked each time
+ * the waitqueue @wq is woken up.
+ *
+ * Return: 0 if the @condition evaluated to true after sleep, -ERESTART
+ * if it was interrupted by a signal.
+ */
+#define wait_event_interruptible(wq, condition, lock) ({    \
+    int __ret = 0;                                          \
+    if (!(condition)) {                                     \
+        __ret = sched_wait(wq, T_SLEEP, QUEUE_TAIL, lock);  \
+    }                                                       \
+    __ret;                                                  \
+})

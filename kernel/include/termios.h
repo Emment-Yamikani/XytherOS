@@ -10,4 +10,11 @@
    `cc_t', `speed_t', and all the macros specifying the flag bits.  */
 #include <bits/termios.h>
 
+
+/* Terminal ioctls */
+#define TCGETS      0x5401  /* Get terminal attributes */
+#define TCSETS      0x5402  /* Set terminal attributes */
+#define TIOCINQ     0x541B  /* Get # bytes in input buffer */
+#define TIOCOUTQ    0x5411  /* Get # bytes in output buffer */
+
 #endif // termios.h

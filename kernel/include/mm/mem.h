@@ -46,3 +46,41 @@ typedef struct meminfo_t {
     usize      free;
     usize      used;
 } meminfo_t;
+
+
+#include <bits/errno.h>
+
+/**
+ * put_user - Write a simple value into user space.
+ * @x: Value to copy to user space.
+ * @ptr: Destination address, in user space.
+ *
+ * Context: User context only.
+ *
+ * Returns zero on success, or -EFAULT on error.
+ */
+#define put_user(x, ptr) ({                    \
+    int __ret = 0;                            \
+    if (!access_ok(ptr, sizeof(*ptr))) {     \
+        __ret = -EFAULT;                     \
+    } else {                                 \
+        user_access_begin();                 \
+        *(ptr) = (x);                        \
+        user_access_end();                   \
+    }                                        \
+    __ret;                                   \
+})
+
+/* Helper functions */
+static inline bool access_ok(const void */*addr __unused*/, size_t /*size __unused*/) {
+    // Check if the user space address is valid
+    return true; //vmm_check_user_range((vaddr_t)addr, size, PROT_WRITE);
+}
+
+static inline void user_access_begin(void) {
+    // On some architectures, might need to disable SMAP or similar
+}
+
+static inline void user_access_end(void) {
+    // Re-enable protection if needed
+}

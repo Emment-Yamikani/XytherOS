@@ -32,14 +32,14 @@ global rdrax
 rdrax:
     ret
 
-global rdrflags
-rdrflags:
+global rdrfl
+rdrfl:
     pushfq
     pop     qword rax
     ret
 
-global wrrflags
-wrrflags:
+global wrrfl
+wrrfl:
     push    qword rdi
     popfq
     ret

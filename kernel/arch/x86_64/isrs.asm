@@ -167,10 +167,11 @@ stub:
     ; swapgs                      ; Swap GS base (if needed for user-space handling)
     save_mctx                     ; Save CPU registers
 
+    ; TODO: implement Lazy FPU context saving.
     sub     rsp, 512;
     mov     rax, rsp;
     mov     qword [rsp + 512], rax
-    fxsave  [rax]
+    fxsave  [rax]                ; save FPU state
 
     ; Reserve space for ucontext_t struct (uc_link, uc_sigmask, uc_stack)
     sub     rsp, 48
@@ -187,7 +188,7 @@ stub:
 
 trapret:
     rstor_mctx                  ; Restore CPU ritrs
-    ; swapgs                      ; Restore GS base (if needed)
+    ; swapgs                    ; Restore GS base (if needed)
     add     rsp, 16             ; Remove interrupt number and error code
     iretq                       ; Return from interrupt
 

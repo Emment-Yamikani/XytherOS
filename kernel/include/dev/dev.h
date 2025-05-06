@@ -12,13 +12,14 @@
 #define DEV_ZERO    1   // minor=5
 #define DEV_FULL    1   // minor=7
 #define DEV_RANDOM  1   // minor=8
+#define DEV_KBD0    2   // minor=[0..n-1]
 #define DEV_TTY     4   // minor=[0..n-1]
 #define DEV_CONSOLE 5   // minor=1
 #define DEV_PTMX    5   // minor=2
 #define DEV_UART    6   // minor=0
 #define DEV_PSAUX   10  // minor=1
 #define DEV_HPET    10  // minor=228
-#define DEV_KBD0    13  // minor=0
+#define DEV_KBDEV   13  // minor=0
 #define DEV_MOUSE0  13  // minor=1
 #define DEV_FB      29  // minor=0
 #define DEV_PTS     136 // minor=[0..n-1]
@@ -32,11 +33,11 @@
 #define DEV_SDA     8   // minor=[0..n-1]
 #define DEV_CDROM   11  // minor=[0..n-1]
 
-#define DEV_TO_MAJOR(dev)      ((devno_t)((dev) & 0xffu))
-#define MAJOR_TO_DEV(major)    ((dev_t)((devno_t)(major) & 0xffu))
+#define DEV_TO_MAJOR(dev)       ((devno_t)((dev) & 0xffu))
+#define MAJOR_TO_DEV(major)     ((dev_t)((devno_t)(major) & 0xffu))
 
-#define DEV_TO_MINOR(dev)      ((devno_t)(((dev) >> 8) & 0xffu))
-#define MINOR_TO_DEV(minor)    ((dev_t)(((devno_t)(minor) << 8) & 0xff00u))
+#define DEV_TO_MINOR(dev)       ((devno_t)(((dev) >> 8) & 0xffu))
+#define MINOR_TO_DEV(minor)     ((dev_t)(((devno_t)(minor) << 8) & 0xff00u))
 
 #define DEV_T(major, minor)     (MINOR_TO_DEV(minor) | MAJOR_TO_DEV(major))
 
@@ -141,14 +142,14 @@ typedef struct device {
 
 #define DEVICE_TYPE(dev)    ((dev)->devid.type)
 
-#define DECL_DEVICE(__name, __type, __major, __minor)      \
-device_t __name##dev = {                                   \
-    .refcnt = 0,                                           \
-    .private = NULL,                                       \
-    .name = #__name,                                       \
-    .devops = DEVOPS(__name),                              \
-    .spinlock = SPINLOCK_INIT(),                           \
-    .devid = DEVID(NULL, __type, DEV_T(__major, __minor)), \
+#define DECL_DEVICE(__name, __type, __major, __minor)       \
+device_t __name##dev = {                                    \
+    .refcnt  = 0,                                           \
+    .private = NULL,                                        \
+    .name    = #__name,                                     \
+    .devops  = DEVOPS(__name),                              \
+    .spinlock= SPINLOCK_INIT(),                             \
+    .devid   = DEVID(NULL, __type, DEV_T(__major, __minor)),\
 }
 
 #define dev_assert(dev)         assert(dev, "Invalid device.")
@@ -198,17 +199,17 @@ extern int  find_cdev_by_name(const char *name, struct devid *dd);
 extern int  dev_register(device_t *dev);
 extern int  dev_unregister(struct devid *dd);
 
-extern void dev_destroy(device_t *dev);
-extern int  kdev_create(const char *dev_name, int type, dev_t devid, const devops_t *devops, device_t **pdp);
-extern int  dev_create(const char *name, int type, devno_t major, const devops_t *devops, device_t **pdp);
+extern void device_destroy(device_t *dev);
+extern int  kdevice_create(const char *dev_name, int type, dev_t devid, const devops_t *devops, device_t **pdp);
+extern int  device_create(const char *name, int type, devno_t major, const devops_t *devops, device_t **pdp);
 
-extern int  dev_probe(struct devid *dd);
-extern int  dev_fini(struct devid *dd);
-extern int  dev_close(struct devid *dd);
-extern int  dev_open(struct devid *dd, inode_t **pip);
-extern int  dev_getinfo(struct devid *dd, void *info);
-extern int  dev_mmap(struct devid *dd, vmr_t *vmregion);
-extern int  dev_ioctl(struct devid *dd, int request, void *arg);
-extern off_t dev_lseek(struct devid *dd, off_t offset, int whence);
-extern isize dev_read(struct devid *dd, off_t off, void *buf, usize size);
-extern isize dev_write(struct devid *dd, off_t off, void *buf, usize size);
+extern int      device_probe(struct devid *dd);
+extern int      device_fini(struct devid *dd);
+extern int      device_close(struct devid *dd);
+extern int      device_open(struct devid *dd, inode_t **pip);
+extern int      device_getinfo(struct devid *dd, void *info);
+extern int      device_mmap(struct devid *dd, vmr_t *vmregion);
+extern int      device_ioctl(struct devid *dd, int request, void *arg);
+extern off_t    device_lseek(struct devid *dd, off_t offset, int whence);
+extern isize    device_read(struct devid *dd, off_t off, void *buf, usize size);
+extern isize    device_write(struct devid *dd, off_t off, void *buf, usize size);

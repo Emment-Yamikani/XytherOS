@@ -114,7 +114,7 @@ int getsb_bdev(filesystem_t *fs, const char *bdev_name, const char *target,
             return err;
     }
 
-    dev_getinfo(&devid, &bdevinfo);
+    device_getinfo(&devid, &bdevinfo);
 
     sb->sb_flags        |= flags;
     sb->sb_size         = bdevinfo.bi_size;
@@ -151,7 +151,7 @@ int getsb_nodev(filesystem_t *fs, const char *target,
     if ((name = combine_strings("virtdev", minors[minor])) == NULL)
         return -ENOMEM;
 
-    if ((err = dev_create(name, FS_BLK, 0, NULL, &dev)))
+    if ((err = device_create(name, FS_BLK, 0, NULL, &dev)))
         return err;
 
     if ((err = getsb(fs, &dev->devid, &sb))) {

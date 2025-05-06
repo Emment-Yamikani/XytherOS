@@ -13,9 +13,7 @@ typedef struct ringbuf {
     spinlock_t lock;
 }ringbuf_t;
 
-#define RINGBUF_NEW(nam, sz) (&(ringbuf_t){.buf = (char[sz]){0}, .size = sz, .head = 0, .tail = 0, .lock = SPINLOCK_INIT()})
-
-#define ringbuf_assert(r)           ({ assert(r, "no ringbuf"); })
+#define ringbuf_assert(r)           ({ assert(r, "Invalid ringbuf."); })
 #define ringbuf_lock(r)             ({ ringbuf_assert(r); spin_lock(&(r)->lock); })
 #define ringbuf_unlock(r)           ({ ringbuf_assert(r); spin_unlock(&(r)->lock); })
 #define ringbuf_try_lock(r)         ({ ringbuf_assert(r); spin_try_lock(&(r)->lock); })

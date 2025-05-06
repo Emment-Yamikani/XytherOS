@@ -187,7 +187,7 @@ int find_cdev_by_name(const char *name, struct devid *dd) {
     return get_device_by_name(name, CHRDEV, dd);
 }
 
-int kdev_create(const char *dev_name, int type, dev_t devid, const devops_t *devops, device_t **pdp) {
+int kdevice_create(const char *dev_name, int type, dev_t devid, const devops_t *devops, device_t **pdp) {
     if (!dev_name) {
         return -EINVAL;
     }
@@ -229,7 +229,7 @@ int kdev_create(const char *dev_name, int type, dev_t devid, const devops_t *dev
     return 0;
 }
 
-int dev_create(const char *name, int type, devno_t major, const devops_t *devops, device_t **pdp) {
+int device_create(const char *name, int type, devno_t major, const devops_t *devops, device_t **pdp) {
     devno_t minor = 0;
     
     int err = dev_alloc_minor(type, major, &minor);
@@ -237,7 +237,7 @@ int dev_create(const char *name, int type, devno_t major, const devops_t *devops
         return err;
     }
     
-    err = kdev_create(name, type, DEV_T(major, minor), devops, pdp);
+    err = kdevice_create(name, type, DEV_T(major, minor), devops, pdp);
     if (err != 0) {
         device_table_t *table = get_device_table(type);
         bitmap_unset(&table->minor_map[major], minor, 1);
@@ -248,7 +248,7 @@ int dev_create(const char *name, int type, devno_t major, const devops_t *devops
     return err;
 }
 
-void dev_destroy(device_t *dev) {
+void device_destroy(device_t *dev) {
     if (dev == NULL) {
         return;
     }
@@ -274,7 +274,7 @@ int dev_register(device_t *dev) {
 
     major = dev->devid.major;
     minor = dev->devid.minor;
-    
+
     if (dev->devops.probe) {
         int err = dev->devops.probe(&dev->devid);
         if (err != 0) {
@@ -283,12 +283,12 @@ int dev_register(device_t *dev) {
     }
 
     device_table_t *table = get_device_table(dev->devid.type);
-    
+
     if (table_peek_device(table, major, minor)) {
         table_unlock(table);
         return -EEXIST;
     }
-    
+
     table->devices[major][minor] = dev;
     atomic_inc(&dev->refcnt);
 
@@ -329,7 +329,7 @@ int dev_unregister(struct devid *dd) {
     return 0;
 }
 
-int dev_probe(struct devid *dd) {
+int device_probe(struct devid *dd) {
     device_t *dev = get_device_by_devid(dd);
     if (dev == NULL) {
         return -ENXIO;
@@ -342,7 +342,7 @@ int dev_probe(struct devid *dd) {
     return dev->devops.probe(dd);
 }
 
-int dev_fini(struct devid *dd) {
+int device_fini(struct devid *dd) {
     device_t *dev = get_device_by_devid(dd);
     if (dev == NULL) {
         return -ENXIO;
@@ -355,7 +355,7 @@ int dev_fini(struct devid *dd) {
     return dev->devops.fini(dd);
 }
 
-int dev_close(struct devid *dd) {
+int device_close(struct devid *dd) {
     device_t *dev = get_device_by_devid(dd);
     if (dev == NULL) {
         return -ENXIO;
@@ -368,7 +368,7 @@ int dev_close(struct devid *dd) {
     return dev->devops.close(dd);
 }
 
-int dev_open(struct devid *dd, inode_t **pip) {
+int device_open(struct devid *dd, inode_t **pip) {
     device_t *dev = get_device_by_devid(dd);
     if (dev == NULL) {
         return -ENXIO;
@@ -381,7 +381,7 @@ int dev_open(struct devid *dd, inode_t **pip) {
     return dev->devops.open(dd, pip);
 }
 
-int dev_getinfo(struct devid *dd, void *info) {
+int device_getinfo(struct devid *dd, void *info) {
     device_t *dev = get_device_by_devid(dd);
     if (dev == NULL) {
         return -ENXIO;
@@ -398,7 +398,7 @@ int dev_getinfo(struct devid *dd, void *info) {
     return dev->devops.getinfo(dd, info);
 }
 
-int dev_mmap(struct devid *dd, vmr_t *vmregion) {
+int device_mmap(struct devid *dd, vmr_t *vmregion) {
     device_t *dev = get_device_by_devid(dd);
     if (dev == NULL) {
         return -ENXIO;
@@ -415,7 +415,7 @@ int dev_mmap(struct devid *dd, vmr_t *vmregion) {
     return dev->devops.mmap(dd, vmregion);
 }
 
-int dev_ioctl(struct devid *dd, int request, void *arg) {
+int device_ioctl(struct devid *dd, int request, void *arg) {
     device_t *dev = get_device_by_devid(dd);
     if (dev == NULL) {
         return -ENXIO;
@@ -428,7 +428,7 @@ int dev_ioctl(struct devid *dd, int request, void *arg) {
     return dev->devops.ioctl(dd, request, arg);
 }
 
-off_t dev_lseek(struct devid *dd, off_t offset, int whence) {
+off_t device_lseek(struct devid *dd, off_t offset, int whence) {
     device_t *dev = get_device_by_devid(dd);
     if (dev == NULL) {
         return -ENXIO;
@@ -441,7 +441,7 @@ off_t dev_lseek(struct devid *dd, off_t offset, int whence) {
     return dev->devops.lseek(dd, offset, whence);
 }
 
-isize dev_read(struct devid *dd, off_t off, void *buf, usize size) {
+isize device_read(struct devid *dd, off_t off, void *buf, usize size) {
     device_t *dev = get_device_by_devid(dd);
     if (dev == NULL) {
         return -ENXIO;
@@ -454,7 +454,7 @@ isize dev_read(struct devid *dd, off_t off, void *buf, usize size) {
     return dev->devops.read(dd, off, buf, size);
 }
 
-isize dev_write(struct devid *dd, off_t off, void *buf, usize size) {
+isize device_write(struct devid *dd, off_t off, void *buf, usize size) {
     device_t *dev = get_device_by_devid(dd);
     if (dev == NULL) {
         return -ENXIO;

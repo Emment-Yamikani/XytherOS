@@ -25,4 +25,4 @@ context_switch:
     pop     rbx
     pop     rbp
 
-    retq
+    retq    ; pop and jmp to rip

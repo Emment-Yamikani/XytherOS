@@ -243,6 +243,7 @@ static inline void cga_handle_normal(int c) {
         case '\b':
             // Backspace - move cursor back one position
             if (cursor_pos > 0) cursor_pos--;
+            cga_mem[cursor_pos] = color_scheme.attrib | ' ';
             break;
         case ' ' ... (u8)'\xff':
             // Printable character

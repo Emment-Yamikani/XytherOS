@@ -791,7 +791,7 @@ int fmmap(file_t *file, vmr_t *region) {
     region->file = inode;
 
     if (IISDEV(inode)) {
-        if ((err = dev_mmap(IDEVID(inode), region))) {
+        if ((err = device_mmap(IDEVID(inode), region))) {
             irelease(inode);
             return err;
         }

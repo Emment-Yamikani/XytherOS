@@ -76,19 +76,19 @@ extern u64 rdtscp(int *aux);
 
 extern u64 rdrax(void);
 
-extern u64 rdrflags(void);
+extern u64 rdrfl(void);
 
-static inline void hlt(void) { asm volatile("hlt" ::: "memory"); }
+static inline void hlt(void) { asm volatile ("hlt" ::: "memory"); }
 
 static inline void cpu_pause(void) { asm volatile ("pause" ::: "memory"); }
 
-static inline void cli(void) { asm volatile("cli" ::: "memory"); }
+static inline void cli(void) { asm volatile ("cli" ::: "memory"); }
 
-static inline void sti(void) { asm volatile("sti" ::: "memory"); }
+static inline void sti(void) { asm volatile ("sti" ::: "memory"); }
 
-static inline bool intrena(void) { return (rdrflags() & 0x200) ? true : false; }
+static inline bool intrena(void) { return (rdrfl() & 0x200) ? true : false; }
 
-extern void wrrflags(u64);
+extern void wrrfl(u64);
 
 extern u64 rdcr0(void);
 

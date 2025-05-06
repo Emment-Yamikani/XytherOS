@@ -28,7 +28,7 @@ start32:
     ; Save multiboot info (EAX = magic, EBX = multiboot info pointer)
     push    dword 0x0       ; Push a dummy value for alignment
     push    eax             ; Save multiboot magic number
-    push    dword 0xFFFF8000; Push a dummy value for alignment
+    push    dword 0xFFFF8000; Push upper half of address, this is a higher-half kernel
     push    ebx             ; Save multiboot info pointer
 
     ; Initialize page tables
@@ -295,7 +295,7 @@ enable_sse:
     and rax, ~(1 << 2)       ; Clear EM
     or  rax, (1 << 1)        ; Set MP
     mov cr0, rax
-    
+
     mov rax, cr4
     or  rax, (3 << 9)        ; OSFXSR | OSXMMEXCPT
     mov cr4, rax

@@ -18,7 +18,7 @@ int pts_mkslave(PTY pty) {
     if (pty == NULL)
         return -EINVAL;
 
-    if ((err = dev_create(name, FS_CHR, DEV_PTS, pts_devops, &dev)))
+    if ((err = device_create(name, FS_CHR, DEV_PTS, pts_devops, &dev)))
         return err;
 
     if ((err = dev_register(dev))) {
