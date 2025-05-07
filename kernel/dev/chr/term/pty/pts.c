@@ -21,7 +21,7 @@ int pts_mkslave(PTY pty) {
     if ((err = device_create(name, FS_CHR, DEV_PTS, pts_devops, &dev)))
         return err;
 
-    if ((err = dev_register(dev))) {
+    if ((err = device_register(dev))) {
         dev_unlock(dev);
         kfree(dev);
         return err;

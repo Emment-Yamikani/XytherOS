@@ -2,6 +2,9 @@
 #include <boot/boot.h>
 #include <dev/cga.h>
 #include <mm/mem.h>
+#include <sync/atomic.h>
+
+static atomic_u8 monitor_active = false;
 
 typedef struct {
     uint64_t prev_active;
@@ -114,6 +117,10 @@ void update_utilization(util_prev_t *prev_stats) {
     avg_percent = total_load = 0;
 }
 
+void toggle_sched_monitor(void) {
+    atomic_xor(&monitor_active, true);
+}
+
 // Utilization monitor thread
 __noreturn void utilization_monitor() {
     util_prev_t prev_stats[ncpu()];
@@ -126,6 +133,11 @@ __noreturn void utilization_monitor() {
     }
 
     loop_and_yield() {
+        if (!monitor_active) {
+            sched_yield();
+            continue;
+        }
+
         hpet_milliwait(1000);
         update_utilization(prev_stats);
     }

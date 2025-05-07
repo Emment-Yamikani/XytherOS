@@ -94,13 +94,13 @@ static int ramdisk_init(void) {
 
         snprintf(name, sizeof name, "ramdisk%d", i);
 
-        if ((err = dev_create(name, BLKDEV, DEV_RAMDISK, DEVOPS_PTR(ramdisk), &dev))) {
+        if ((err = device_create(name, BLKDEV, DEV_RAMDISK, DEVOPS_PTR(ramdisk), &dev))) {
             disk_free(disk);
             return err;
         }
 
-        if ((err = dev_register(dev))) {
-            dev_destroy(dev);
+        if ((err = device_register(dev))) {
+            device_destroy(dev);
             disk_free(disk);
             return err;
         }

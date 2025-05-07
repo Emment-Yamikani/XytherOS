@@ -1,6 +1,6 @@
 #pragma once
 
-#include <xyther_string.h>
+#include <xytherOs_string.h>
 
 extern int memcmp(const void *vl, const void *vr, size_t n);
 extern void *memchr(const void *src, int c, size_t n);

@@ -69,7 +69,7 @@ int framebuffer_gfx_init(void) {
 }
 
 static int fb_init(void) {
-    return dev_register(&fbdev);
+    return device_register(&fbdev);
 }
 
 static int fb_probe(devid_t *) {

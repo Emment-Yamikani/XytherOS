@@ -16,7 +16,7 @@ const char *MLFQ_PRIORITY[] = {
 MLFQ_t MLFQ[NCPU];
 
 static void MLFQ_init(void) {
-    usize   quantum = 0;
+    usize   t = 0;
     MLFQ_t  *mlfq   = MLFQ_get();
 
     for (int i = 0; i < ncpu(); ++i) {
@@ -26,10 +26,13 @@ static void MLFQ_init(void) {
 
     memset(mlfq, 0, sizeof *mlfq);
 
-    quantum = jiffies_from_ms(30);
+    t = jiffies_from_ms(10);
+    int l = 0; // implicit level: 0 is highest
+
     foreach_level(mlfq) {
-        level->quantum = quantum;
-        quantum -= jiffies_from_ms(5);
+        // Q = t * 2^n, Q is the allocated quantum,
+        // t is the base quantum where n is the level index.
+        level->quantum = t * (1 < l++);
     }
 }
 
@@ -201,13 +204,14 @@ static void hanlde_thread_state(thread_t *thread) {
 // this is the per-cpu scheduler's idle thread, well, somewhat.
 __noreturn void scheduler(void) {
     thread_t *thread;
+    MLFQ_t   *my_mlfq = MLFQ_get();
     sched_metrics_t *metrics = get_metrics();
 
     loop() {
         cpu_set_preepmpt(0, 0);
         cpu_set_thread(NULL);
 
-        atomic_set(&metrics->load, MLFQ_load(MLFQ_get()));
+        atomic_set(&metrics->load, MLFQ_load(my_mlfq));
 
         enable_interrupts(true);
 
@@ -224,8 +228,9 @@ __noreturn void scheduler(void) {
                 break;
             }
 
-            atomic_set(&metrics->last_idle_time, jiffies_get());
             atomic_set(&metrics->idle, 1);
+            atomic_set(&metrics->last_idle_time, jiffies_get());
+
             hlt();
         }
 

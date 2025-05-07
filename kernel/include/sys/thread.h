@@ -104,6 +104,11 @@ typedef struct thread_sched_t {
 
     usize       ts_sched_count; /**< Scheduling count. */
 
+    #define TH_SHORTHOLD_THRESHOLD(level) (usize)((level) + 4)
+    usize       ts_short_holds;  /**< Holding patterns. */
+    #define TH_LONGHOLD_THRESHOLD  8
+    usize       ts_long_holds;   /**< Holding patterns. */
+
     int         ts_prio;        /**< Scheduling priority (can be static or dynamic) */
     cpu_t       *ts_proc;       /**< Pointer to the current processor */
     cpu_affin_t ts_affin;       /**< CPU affinity information */

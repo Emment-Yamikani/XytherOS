@@ -1,6 +1,9 @@
 #include "metrics.h"
 #include <core/debug.h>
 
+void MLFQ_adjust_timeslice(MLFQ_t *) {
+}
+
 MLFQ_t *MLFQ_most_loaded(void) {
     MLFQ_t *most_loaded = MLFQ_get();
     usize highest = MLFQ_load(most_loaded);

@@ -9,7 +9,7 @@ DECL_DEVOPS(static, full);
 static DECL_DEVICE(full, FS_CHR, DEV_FULL, 7);
 
 static int full_init(void) {
-    return dev_register(&fulldev);
+    return device_register(&fulldev);
 }
 
 static int full_probe(struct devid *dd __unused) {

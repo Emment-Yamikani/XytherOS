@@ -8,7 +8,7 @@ DECL_DEVOPS(static, random);
 static DECL_DEVICE(random, FS_CHR, DEV_RANDOM, 8);
 
 static int random_init(void) {
-    return dev_register(&randomdev);
+    return device_register(&randomdev);
 }
 
 static int random_probe(struct devid *dd __unused) {

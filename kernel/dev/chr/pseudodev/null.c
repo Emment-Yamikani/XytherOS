@@ -8,7 +8,7 @@ DECL_DEVOPS(static, null);
 static DECL_DEVICE(null, FS_CHR, DEV_NULL, 3);
 
 static int null_init(void) {
-    return dev_register(&nulldev);
+    return device_register(&nulldev);
 }
 
 static int null_probe(struct devid *dd __unused) {

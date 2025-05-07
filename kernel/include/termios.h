@@ -17,4 +17,6 @@
 #define TIOCINQ     0x541B  /* Get # bytes in input buffer */
 #define TIOCOUTQ    0x5411  /* Get # bytes in output buffer */
 
+#define _POSIX_VDISABLE '\0'
+
 #endif // termios.h

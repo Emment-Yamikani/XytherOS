@@ -9,7 +9,7 @@ DECL_DEVOPS(static, zero);
 static DECL_DEVICE(zero, FS_CHR, DEV_ZERO, 5);
 
 static int zero_init(void) {
-    return dev_register(&zerodev);
+    return device_register(&zerodev);
 }
 
 static int zero_probe(struct devid *dd __unused) {

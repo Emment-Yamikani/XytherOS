@@ -265,7 +265,7 @@ void device_destroy(device_t *dev) {
     kfree(dev);
 }
 
-int dev_register(device_t *dev) {
+int device_register(device_t *dev) {
     devno_t major, minor;
 
     if (!valid_device(dev)) {

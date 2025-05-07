@@ -66,11 +66,11 @@
 #define MAX_MINOR   256
 
 static inline bool valid_devno(devno_t num, devno_t limit) {
-    return (num >= 0 && num < limit) ? true : false;
+    return ((num >= 0) && (num < limit));
 }
 
 static inline bool valid_major(devno_t major) {
-    return valid_devno(major, MAX_MINOR);
+    return valid_devno(major, MAX_MAJOR);
 }
 
 static inline bool valid_minor(devno_t minor) {
@@ -84,11 +84,11 @@ static inline bool valid_device_numbers(devno_t major, devno_t minor) {
 enum {CHRDEV = FS_CHR, BLKDEV = FS_BLK};
 
 static inline bool valid_device_type(int type) {
-    return (type == CHRDEV || type == BLKDEV) ? true : false;
+    return (type == CHRDEV || type == BLKDEV);
 }
 
 static inline bool valid_devid(struct devid *dd) {
-    return (dd && (valid_device_type(dd->type) && valid_device_numbers(dd->major, dd->minor))) ? true : false;
+    return (dd && (valid_device_type(dd->type) && valid_device_numbers(dd->major, dd->minor)));
 }
 
 typedef struct devops {
@@ -196,7 +196,7 @@ typedef struct {
 extern int  find_bdev_by_name(const char *name, struct devid *dd);
 extern int  find_cdev_by_name(const char *name, struct devid *dd);
 
-extern int  dev_register(device_t *dev);
+extern int  device_register(device_t *dev);
 extern int  dev_unregister(struct devid *dd);
 
 extern void device_destroy(device_t *dev);

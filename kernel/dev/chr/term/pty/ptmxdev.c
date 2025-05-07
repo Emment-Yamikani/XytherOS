@@ -14,7 +14,7 @@ static int ptmx_init(void) {
 
     if ((err = pseudo_init()))
         return err;
-    return dev_register(&ptmxdev);
+    return device_register(&ptmxdev);
 }
 
 static int ptmx_probe(struct devid *dd __unused) {

@@ -6,8 +6,8 @@
 #include <mm/kalloc.h>
 #include <string.h>
 
-// xytherOS_memset: Fill memory with a specific value
-void* xytherOS_memset(void* dest, int value, size_t count) {
+// xytherOs_memset: Fill memory with a specific value
+void* xytherOs_memset(void* dest, int value, size_t count) {
     uint8_t* p = (uint8_t*)dest;
     uint8_t v = (uint8_t)value;
 
@@ -33,7 +33,7 @@ void* xytherOS_memset(void* dest, int value, size_t count) {
     return dest;
 }
 
-void* xytherOS_memsetw(void* dest, uint16_t value, size_t count) {
+void* xytherOs_memsetw(void* dest, uint16_t value, size_t count) {
     uint16_t* p = (uint16_t*)dest;
 
     // Align to 16-byte boundary
@@ -58,8 +58,8 @@ void* xytherOS_memsetw(void* dest, uint16_t value, size_t count) {
     return dest;
 }
 
-// xytherOS_memcpy: Copy memory from source to destination
-void* xytherOS_memcpy(void* dest, const void* src, size_t count) {
+// xytherOs_memcpy: Copy memory from source to destination
+void* xytherOs_memcpy(void* dest, const void* src, size_t count) {
     uint8_t* d = (uint8_t*)dest;
     const uint8_t* s = (const uint8_t*)src;
 
@@ -86,14 +86,14 @@ void* xytherOS_memcpy(void* dest, const void* src, size_t count) {
     return dest;
 }
 
-// xytherOS_memmove: Copy memory with handling for overlapping regions
-void* xytherOS_memmove(void* dest, const void* src, size_t count) {
+// xytherOs_memmove: Copy memory with handling for overlapping regions
+void* xytherOs_memmove(void* dest, const void* src, size_t count) {
     uint8_t* d = (uint8_t*)dest;
     const uint8_t* s = (const uint8_t*)src;
 
     if (d < s) {
         // Copy forward
-        return xytherOS_memcpy(dest, src, count);
+        return xytherOs_memcpy(dest, src, count);
     } else if (d > s) {
         // Copy backward for overlapping regions
         d += count;
@@ -123,8 +123,8 @@ void* xytherOS_memmove(void* dest, const void* src, size_t count) {
     return dest;
 }
 
-// xytherOS_memcmp: Compare two memory regions
-int xytherOS_memcmp(const void* ptr1, const void* ptr2, size_t count) {
+// xytherOs_memcmp: Compare two memory regions
+int xytherOs_memcmp(const void* ptr1, const void* ptr2, size_t count) {
     const uint8_t* p1 = (const uint8_t*)ptr1;
     const uint8_t* p2 = (const uint8_t*)ptr2;
 
@@ -159,8 +159,8 @@ int xytherOS_memcmp(const void* ptr1, const void* ptr2, size_t count) {
     return 0;
 }
 
-// xytherOS_memchr: Find the first occurrence of a byte in memory
-void* xytherOS_memchr(const void* ptr, int value, size_t count) {
+// xytherOs_memchr: Find the first occurrence of a byte in memory
+void* xytherOs_memchr(const void* ptr, int value, size_t count) {
     const uint8_t* p = (const uint8_t*)ptr;
     uint8_t v = (uint8_t)value;
 
@@ -193,7 +193,7 @@ void* xytherOS_memchr(const void* ptr, int value, size_t count) {
     return NULL;
 }
 
-char* xytherOS_strncpy(char* dest, const char* src, size_t n) {
+char* xytherOs_strncpy(char* dest, const char* src, size_t n) {
     char* d = dest;
 
     while (n && ((uintptr_t)src & 15)) {
@@ -234,7 +234,7 @@ char* xytherOS_strncpy(char* dest, const char* src, size_t n) {
     return dest;
 }
 
-char* xytherOS_strcpy(char* dest, const char* src) {
+char* xytherOs_strcpy(char* dest, const char* src) {
     char* d = dest;
 
     while (((uintptr_t)src & 15)) {
@@ -256,7 +256,7 @@ char* xytherOS_strcpy(char* dest, const char* src) {
     }
 }
 
-int xytherOS_strcmp(const char* s1, const char* s2) {
+int xytherOs_strcmp(const char* s1, const char* s2) {
     while (((uintptr_t)s1 & 15) && ((uintptr_t)s2 & 15)) {
         if (*s1 != *s2 || *s1 == '\0') {
             return (unsigned char)*s1 - (unsigned char)*s2;
@@ -286,7 +286,7 @@ int xytherOS_strcmp(const char* s1, const char* s2) {
     }
 }
 
-size_t xytherOS_strlen(const char* str) {
+size_t xytherOs_strlen(const char* str) {
     const char* s = str;
     
     // Align to 16-byte boundary
@@ -310,12 +310,12 @@ size_t xytherOS_strlen(const char* str) {
     }
 }
 
-char* xytherOS_strstr(const char* haystack, const char* needle) {
-    size_t needle_len = xytherOS_strlen(needle);
+char* xytherOs_strstr(const char* haystack, const char* needle) {
+    size_t needle_len = xytherOs_strlen(needle);
     if (!needle_len) return (char*)haystack;
 
     while (*haystack) {
-        if (xytherOS_memcmp(haystack, needle, needle_len) == 0) {
+        if (xytherOs_memcmp(haystack, needle, needle_len) == 0) {
             return (char*)haystack;
         }
         haystack++;
@@ -324,7 +324,7 @@ char* xytherOS_strstr(const char* haystack, const char* needle) {
     return NULL;
 }
 
-char* xytherOS_strrchr(const char* str, int c) {
+char* xytherOs_strrchr(const char* str, int c) {
     char ch = (char)c;
     const char* last = NULL;
 
@@ -336,7 +336,7 @@ char* xytherOS_strrchr(const char* str, int c) {
     return (char*)last;
 }
 
-char* xytherOS_strchr(const char* str, int c) {
+char* xytherOs_strchr(const char* str, int c) {
     char ch = (char)c;
     
     while ((uintptr_t)str & 15) {
@@ -364,10 +364,10 @@ char* xytherOS_strchr(const char* str, int c) {
     }
 }
 
-bool xytherOS_string_eq(const char *s0, const char *s1) {
-    if (xytherOS_strlen(s0) != xytherOS_strlen(s1))
+bool xytherOs_string_eq(const char *s0, const char *s1) {
+    if (xytherOs_strlen(s0) != xytherOs_strlen(s1))
         return false;
-    return !xytherOS_strcmp(s0, s1);
+    return !xytherOs_strcmp(s0, s1);
 }
 
 /*===========================================================================
@@ -387,11 +387,11 @@ static inline void sse_store(void *p, __m128i v) {
 }
 
 /*===========================================================================
-  xytherOS_safestrncpy
+  xytherOs_safestrncpy
   Copies at most n-1 characters from src to dest and always NUL-terminates.
   Uses SSE to copy 16 bytes at a time until a NUL is encountered.
   ===========================================================================*/
-char *xytherOS_safestrncpy(char *dest, const char *src, size_t n) {
+char *xytherOs_safestrncpy(char *dest, const char *src, size_t n) {
     size_t i = 0;
     if (n == 0)
         return dest;
@@ -419,10 +419,10 @@ finish:
 }
 
 /*===========================================================================
-  xytherOS_lfind
+  xytherOs_lfind
   Finds (from the left) the first occurrence of character ch in str.
   ===========================================================================*/
-char *xytherOS_lfind(const char *str, int ch) {
+char *xytherOs_lfind(const char *str, int ch) {
     __m128i target = _mm_set1_epi8((char)ch);
     __m128i zero = _mm_setzero_si128();
     for (;; str += 16) {
@@ -438,11 +438,11 @@ char *xytherOS_lfind(const char *str, int ch) {
 }
 
 /*===========================================================================
-  xytherOS_rfind
+  xytherOs_rfind
   Finds (from the right) the last occurrence of character ch in str.
   ===========================================================================*/
-char *xytherOS_rfind(const char *str, int ch) {
-    size_t len = xytherOS_strlen(str);
+char *xytherOs_rfind(const char *str, int ch) {
+    size_t len = xytherOs_strlen(str);
     /* If searching for the NUL terminator, return the end */
     if (ch == 0)
         return (char *)(str + len);
@@ -455,7 +455,7 @@ char *xytherOS_rfind(const char *str, int ch) {
 }
 
 /*===========================================================================
-  Helpers for xytherOS_strtok_r:
+  Helpers for xytherOs_strtok_r:
   These routines use SSE to quickly skip over or find delimiter characters.
   ===========================================================================*/
 static const char *sse_skip_delim(const char *s, const char *delim, int dlen) {
@@ -507,11 +507,11 @@ static const char *sse_find_delim(const char *s, const char *delim, int dlen) {
 }
 
 /*===========================================================================
-  xytherOS_strtok_r
+  xytherOs_strtok_r
   A reentrant string tokenizer that uses SSE routines when the delimiter
   set is short (<= 16 characters). Otherwise, it falls back to a scalar loop.
   ===========================================================================*/
-char *xytherOS_strtok_r(char *s, const char *delim, char **saveptr) {
+char *xytherOs_strtok_r(char *s, const char *delim, char **saveptr) {
     if (!delim || !delim[0]) {  /* Empty delimiter returns the whole string */
         *saveptr = s ? s + strlen(s) : NULL;
         return s;
@@ -535,14 +535,14 @@ char *xytherOS_strtok_r(char *s, const char *delim, char **saveptr) {
         return token;
     } else {
         /* Fallback scalar code if delimiter set is large */
-        while (*s && xytherOS_strchr(delim, *s))
+        while (*s && xytherOs_strchr(delim, *s))
             s++;
         if (!*s) {
             *saveptr = s;
             return NULL;
         }
         char *token = s;
-        while (*s && !xytherOS_strchr(delim, *s))
+        while (*s && !xytherOs_strchr(delim, *s))
             s++;
         if (*s) {
             *s = '\0';
@@ -553,17 +553,17 @@ char *xytherOS_strtok_r(char *s, const char *delim, char **saveptr) {
     }
 }
 
-char *xytherOS_strtok(char *s, const char *delim) {
+char *xytherOs_strtok(char *s, const char *delim) {
     static char *last;
-    return xytherOS_strtok_r(s, delim, &last);
+    return xytherOs_strtok_r(s, delim, &last);
 }
 
 /*===========================================================================
-  xytherOS_strcat
+  xytherOs_strcat
   Concatenates src onto the end of dest.
   Locates the end of dest using SSE and then copies src (using SSE) until NUL.
   ===========================================================================*/
-char *xytherOS_strcat(char *dest, const char *src) {
+char *xytherOs_strcat(char *dest, const char *src) {
     char *d = dest;
     __m128i zero = _mm_setzero_si128();
     for (;;) {
@@ -594,10 +594,10 @@ char *xytherOS_strcat(char *dest, const char *src) {
 }
 
 /*===========================================================================
-  xytherOS_strncat
+  xytherOs_strncat
   Appends at most n characters from src to dest and always NUL-terminates.
   ===========================================================================*/
-char *xytherOS_strncat(char *dest, const char *src, size_t n) {
+char *xytherOs_strncat(char *dest, const char *src, size_t n) {
     char *d = dest;
     __m128i zero = _mm_setzero_si128();
     for (;;) {
@@ -648,11 +648,11 @@ finish_ncat:
 }
 
 /*===========================================================================
-  xytherOS_strncmp
+  xytherOs_strncmp
   Compares at most n characters of s1 and s2.
   Uses SSE to compare 16 bytes at a time.
   ===========================================================================*/
-int xytherOS_strncmp(const char *s1, const char *s2, size_t n) {
+int xytherOs_strncmp(const char *s1, const char *s2, size_t n) {
     __m128i zero = _mm_setzero_si128();
     while (n >= 16) {
         __m128i v1 = sse_load(s1);
@@ -688,11 +688,11 @@ int xytherOS_strncmp(const char *s1, const char *s2, size_t n) {
 }
 
 /*===========================================================================
-  xytherOS_strcasecmp
+  xytherOs_strcasecmp
   Case-insensitive string compare.
   Uses SSE to convert A-Z to lower-case (by OR-ing with 0x20) before comparing.
   ===========================================================================*/
-int xytherOS_strcasecmp(const char *s1, const char *s2) {
+int xytherOs_strcasecmp(const char *s1, const char *s2) {
     __m128i zero = _mm_setzero_si128();
     __m128i offset = _mm_set1_epi8(0x20);
     __m128i A = _mm_set1_epi8('A' - 1);
@@ -731,10 +731,10 @@ int xytherOS_strcasecmp(const char *s1, const char *s2) {
 }
 
 /*===========================================================================
-  xytherOS_strncasecmp
+  xytherOs_strncasecmp
   As above but comparing at most n characters.
   ===========================================================================*/
-int xytherOS_strncasecmp(const char *s1, const char *s2, size_t n) {
+int xytherOs_strncasecmp(const char *s1, const char *s2, size_t n) {
     if (n == 0)
         return 0;
     __m128i zero = _mm_setzero_si128();
@@ -790,11 +790,11 @@ int xytherOS_strncasecmp(const char *s1, const char *s2, size_t n) {
 }
 
 /*===========================================================================
-  xytherOS_strdup
+  xytherOs_strdup
   Duplicates the string s (allocating memory) using our SSE-optimized copy.
   ===========================================================================*/
-char *xytherOS_strdup(const char *s) {
-    size_t len = xytherOS_strlen(s);
+char *xytherOs_strdup(const char *s) {
+    size_t len = xytherOs_strlen(s);
     char *dup = (char *)kmalloc(len + 1);
     if (!dup)
         return NULL;
@@ -818,7 +818,7 @@ char *xytherOS_strdup(const char *s) {
     return dup;
 }
 
-int xytherOS_tokenize(char *s, int delim, size_t *ntoks, char ***ptokenized, char **plast_tok) {
+int xytherOs_tokenize(char *s, int delim, size_t *ntoks, char ***ptokenized, char **plast_tok) {
     if (!s || !delim || ptokenized == NULL) {
         return -EINVAL;
     }
@@ -896,7 +896,89 @@ int xytherOS_tokenize(char *s, int delim, size_t *ntoks, char ***ptokenized, cha
     return 0;
 }
 
-void xytherOS_tokens_free(char **tokens) {
+int xytherOs_tokenize_r(char *s, const char *delim, size_t *ntoks, char ***ptokenized, char **plast_tok) {
+    if (!s || !delim || !ptokenized) {
+        return -EINVAL;
+    }
+
+    /* Duplicate the input string */
+    size_t len = xytherOs_strlen(s);
+    char *buf = kmalloc(len + 1);
+    if (!buf) {
+        return -ENOMEM;
+    }
+
+    xytherOs_memcpy(buf, s, len + 1);
+
+    /* Trim leading delimiters */
+    char *p = buf;
+    while (*p && xytherOs_strchr(delim, *p)) {
+        p++;
+    }
+
+    if (p != buf) {
+        xytherOs_memmove(buf, p, xytherOs_strlen(p) + 1);
+        p = buf;
+    }
+
+    /* Trim trailing delimiters */
+    char *end = buf + xytherOs_strlen(buf) - 1;
+    while (end >= p && xytherOs_strchr(delim, *end)) {
+        *end-- = '\0';
+    }
+
+    /* Count tokens properly */
+    size_t count = 0;
+    int in_token = 0;
+    for (char *scan = p; *scan; scan++) {
+        if (xytherOs_strchr(delim, *scan)) {
+            in_token = 0;
+        } else if (!in_token) {
+            in_token = 1;
+            count++;
+        }
+    }
+
+    /* Allocate tokens array */
+    char **tokens = kmalloc((count + 1) * sizeof(char *));
+    if (!tokens) {
+        kfree(buf);
+        return -ENOMEM;
+    }
+
+    /* Extract tokens in-place */
+    size_t token_index = 0;
+    while (*p) {
+        tokens[token_index++] = p;
+        while (*p && !xytherOs_strchr(delim, *p)) {
+            p++;
+        }
+
+        if (*p) {
+            *p = '\0';
+            p++;
+            while (*p && xytherOs_strchr(delim, *p)) {
+                p++;
+            }
+        }
+    }
+
+    tokens[token_index] = NULL;
+
+    /* Set output parameters */
+    if (ntoks) {
+        *ntoks = token_index;
+    }
+
+    if (plast_tok) {
+        *plast_tok = (token_index > 0) ? tokens[token_index - 1] : NULL;
+    }
+
+    *ptokenized = tokens;
+    return 0;
+}
+
+void xytherOs_tokens_free(char **tokens) {
     if (!tokens) {
         return;
     }
@@ -905,11 +987,11 @@ void xytherOS_tokens_free(char **tokens) {
     kfree(tokens);
 }
 
-int xytherOS_canonicalize_path(const char *path, size_t *ntoks, char ***ptokenized, char **plast) {
+int xytherOs_canonicalize_path(const char *path, size_t *ntoks, char ***ptokenized, char **plast) {
     return tokenize((char *)path, '/', ntoks, ptokenized, plast);
 }
 
-char *xytherOS_combine_strings(const char *s0, const char *s1) {
+char *xytherOs_combine_strings(const char *s0, const char *s1) {
     if (!s0 || !s1) {
         return NULL;
     }

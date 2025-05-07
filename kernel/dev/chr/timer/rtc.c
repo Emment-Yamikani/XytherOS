@@ -309,7 +309,7 @@ void rtc_intr(void) {
 }
 
 int rtc_init(void) {
-    return dev_register(&rtcdev);
+    return device_register(&rtcdev);
 }
 
 BUILTIN_DEVICE(rtcdev, rtc_init, NULL, NULL);

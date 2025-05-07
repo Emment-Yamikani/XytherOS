@@ -6,6 +6,37 @@
 // global sleep queue.
 static QUEUE(global_sleep_queue);
 
+
+void sched_promote_thread(thread_t *thread) {
+    thread_assert_locked(thread);
+
+    thread_sched_t  *tsched = &thread->t_info.ti_sched;
+    int pr = tsched->ts_prio; // current priority level.
+
+    if ((pr < MLFQ_HIGH) && (tsched->ts_short_holds >= TH_SHORTHOLD_THRESHOLD(pr))) {
+        tsched->ts_prio += 1;
+        tsched->ts_short_holds = 0; // decay over time.
+        tsched->ts_long_holds  = 0; // decay over time.
+    } else {
+        tsched->ts_short_holds++;
+    }
+}
+
+void sched_demote_thread(thread_t *thread) {
+    thread_assert_locked(thread);
+
+    thread_sched_t  *tsched = &thread->t_info.ti_sched;
+    int pr = tsched->ts_prio; // current priority level.
+
+    if ((pr > MLFQ_LOW) && (tsched->ts_long_holds >= TH_LONGHOLD_THRESHOLD)) {
+        tsched->ts_prio -= 1;
+        tsched->ts_short_holds = 0; // decay over time.
+        tsched->ts_long_holds  = 0; // decay over time.
+    } else {
+        tsched->ts_long_holds++;
+    }
+}
+
 void sched(void) {
     isize ncli  = 1; // Don't change this, must always be == 1.
     bool intena = 0;
@@ -22,11 +53,8 @@ void sched(void) {
     
     /// If not used up entire timeslice, drop one priority level.
     if (current_gettimeslice() == 0) {
-        // Check to prevent underflow.
-        if (current->t_info.ti_sched.ts_prio > 0) {
-            current->t_info.ti_sched.ts_prio--;
-        }
-    }
+        sched_demote_thread(current);
+    } else sched_promote_thread(current);
 
     // Return to the scheduler.
     context_switch(&current->t_arch.t_context);
