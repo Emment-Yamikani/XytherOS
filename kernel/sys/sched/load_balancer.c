@@ -73,13 +73,13 @@ void MLFQ_pull(void) {
 
         /// No coresponding thread.
         target_level = MLFQ_get_level(current_mlfq, level - target_mlfq->level);
-        assert(target_level, "Invalid target level.\n");
+        assert(target_level, "Invalid targetQ level.\n");
 
         // Attempt to acquire locks.
         if (!queue_trylock(&target_level->run_queue)) {
             continue;
         }
-        
+
         if (!queue_trylock(&level->run_queue)) {
             queue_unlock(&target_level->run_queue);  // Release first lock before continuing.
             continue;
@@ -125,12 +125,12 @@ void MLFQ_pull(void) {
 }
 
 void MLFQ_push(void) {
-    usize           target_load     = 0;
-    usize           count_pushed    = 0;
-    usize           count           = 0;
-    usize           my_load         = 0;
-    MLFQ_t          *target_mlfq    = NULL;
-    MLFQ_t          *current_mlfq   = NULL;
+    usize   target_load     = 0;
+    usize   count_pushed    = 0;
+    usize   count           = 0;
+    usize   my_load         = 0;
+    MLFQ_t  *target_mlfq    = NULL;
+    MLFQ_t  *current_mlfq   = NULL;
 
     current_mlfq = MLFQ_get(); // get current MLFQ.
 
@@ -146,7 +146,7 @@ void MLFQ_push(void) {
         }
     }
 
-    /** Return if no suitable core is found or if target
+    /** Return if no suitable core is found or if targetQ
      * core has a load greater or equal to current core's load. */
     if (target_mlfq == NULL || target_load >= MLFQ_load(current_mlfq)) {
         return;
@@ -156,7 +156,7 @@ void MLFQ_push(void) {
         MLFQ_level_t    *target_level   = NULL;
 
         target_level = MLFQ_get_level(target_mlfq, level - current_mlfq->level);
-        assert(target_level, "Invalid target level.\n");
+        assert(target_level, "Invalid targetQ level.\n");
 
         if (!queue_trylock(&level->run_queue)) {
             continue;
@@ -234,39 +234,39 @@ static void MLFQ_aging(void) {
                 continue;
             }
 
-            queue_t *source = &level->run_queue;
-            queue_lock(source);
+            queue_t *sourceQ = &level->run_queue;
+            queue_lock(sourceQ);
 
             thread_t *thread;
-            queue_foreach_entry(source, thread, t_run_qnode) {
+            queue_foreach_entry(sourceQ, thread, t_run_qnode) {
                 thread_lock(thread);
 
                 if (++thread->t_info.ti_sched.ts_age > AGING_THRESHOLD) {
-                    int old_priority = 0, new_priority = 0;
-                    thread_bump_priority(thread, THREAD_PRIO_INC, 1, &old_priority, &new_priority);
+                    int old_prior = 0, new_prior = 0;
+                    thread_bump_priority(thread, THREAD_PRIO_INC, 1, &old_prior, &new_prior);
 
-                    if (new_priority > MLFQ_HIGH) {
-                        new_priority = MLFQ_HIGH;
-                        thread_set_prio(thread, new_priority);
+                    if (new_prior > MLFQ_HIGH) {
+                        new_prior = MLFQ_HIGH;
+                        thread_set_prio(thread, new_prior);
                     }
 
-                    queue_t *target = &mlfq->level[new_priority].run_queue;
+                    queue_t *targetQ = &mlfq->level[new_prior].run_queue;
 
-                    if (!queue_trylock(target)) {
-                        thread_set_prio(thread, old_priority);
+                    if (!queue_trylock(targetQ)) {
+                        thread_set_prio(thread, old_prior);
                         thread_unlock(thread);
                         continue;
                     }
 
                     int err = embedded_queue_relloc(
-                        target, source, thread_node,
+                        targetQ, sourceQ, thread_node,
                         QUEUE_UNIQUE, QUEUE_TAIL
                     );
 
-                    queue_unlock(target);
+                    queue_unlock(targetQ);
 
                     if (err != 0) {
-                        thread_set_prio(thread, old_priority);
+                        thread_set_prio(thread, old_prior);
                         thread_unlock(thread);
                         continue;
                     }
@@ -276,7 +276,7 @@ static void MLFQ_aging(void) {
                 thread_unlock(thread);
             }
 
-            queue_unlock(source);
+            queue_unlock(sourceQ);
         }
     }
 }
@@ -296,8 +296,9 @@ __noreturn void scheduler_load_balancer(void) {
         .balance_interval = 1000000, // 1ms in nanoseconds
     };
 
+    thread_sched_t *ts = &current->t_info.ti_sched;
     // Disable both preemption and migration to other CPUs.
-    current_set(THREAD_NO_MIGRATE | THREAD_NO_PREEMPT);
+    ts->ts_flags |= TS_NOMIGRATE | TS_NOPREEMPT | TS_SCHEDULER;
 
     last_balance = last_aging = hpet_now();
 
@@ -306,7 +307,7 @@ __noreturn void scheduler_load_balancer(void) {
     sigsetdelmask(&set, SIGMASK(SIGKILL) | SIGMASK(SIGSTOP));
     pthread_sigmask(SIG_BLOCK, &set, NULL);
 
-    loop_and_yield() {
+    loop() {
         const u64 now = hpet_now();
 
         if (time_before(now, last_aging)) last_aging = now;
@@ -325,8 +326,8 @@ __noreturn void scheduler_load_balancer(void) {
             last_balance = now;
         }
 
-        const u64 next_aging = last_aging + config.aging_interval;
-        const u64 next_balance = last_balance + config.balance_interval;
+        const u64 next_aging    = last_aging + config.aging_interval;
+        const u64 next_balance  = last_balance + config.balance_interval;
         const u64 next_deadline = MIN(next_aging, next_balance);
 
         // Precision sleep using HPET until next needed action

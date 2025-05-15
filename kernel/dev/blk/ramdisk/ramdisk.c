@@ -60,7 +60,7 @@ static void disk_free(ramdisk_t *disk) {
 }
 
 static ramdisk_t *get_ramdisk(struct devid *dd) {
-    if (!valid_devno(dd->minor, NRAMDISK) || dd->type != BLKDEV || dd->major != DEV_RAMDISK) {
+    if (!valid_devno(dd->minor, NRAMDISK) || dd->type != BLKDEV || dd->major != RAMDISK_DEV_MAJOR) {
         return NULL;
     }
 
@@ -94,7 +94,7 @@ static int ramdisk_init(void) {
 
         snprintf(name, sizeof name, "ramdisk%d", i);
 
-        if ((err = device_create(name, BLKDEV, DEV_RAMDISK, DEVOPS_PTR(ramdisk), &dev))) {
+        if ((err = device_create(name, BLKDEV, RAMDISK_DEV_MAJOR, DEVOPS_PTR(ramdisk), &dev))) {
             disk_free(disk);
             return err;
         }

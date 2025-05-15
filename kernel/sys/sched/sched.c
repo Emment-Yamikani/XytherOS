@@ -7,10 +7,7 @@
 static QUEUE(global_sleep_queue);
 
 
-void sched_promote_thread(thread_t *thread) {
-    thread_assert_locked(thread);
-
-    thread_sched_t  *tsched = &thread->t_info.ti_sched;
+void sched_promote_thread(thread_sched_t *tsched) {
     int pr = tsched->ts_prio; // current priority level.
 
     if ((pr < MLFQ_HIGH) && (tsched->ts_short_holds >= TH_SHORTHOLD_THRESHOLD(pr))) {
@@ -22,10 +19,7 @@ void sched_promote_thread(thread_t *thread) {
     }
 }
 
-void sched_demote_thread(thread_t *thread) {
-    thread_assert_locked(thread);
-
-    thread_sched_t  *tsched = &thread->t_info.ti_sched;
+void sched_demote_thread(thread_sched_t *tsched) {
     int pr = tsched->ts_prio; // current priority level.
 
     if ((pr > MLFQ_LOW) && (tsched->ts_long_holds >= TH_LONGHOLD_THRESHOLD)) {
@@ -37,12 +31,18 @@ void sched_demote_thread(thread_t *thread) {
     }
 }
 
+void sched_set_highest_prior(thread_sched_t *tsched) {
+    tsched->ts_long_holds   = 0;
+    tsched->ts_short_holds  = 0;
+    tsched->ts_prio         = MLFQ_HIGH;
+}
+
 void sched(void) {
     isize ncli  = 1; // Don't change this, must always be == 1.
     bool intena = 0;
-
+    
     current_assert_locked();
-
+    
     if (current_test(THREAD_WAKE)) {
         current_mask(THREAD_WAKE | THREAD_PARK);
         return;
@@ -51,10 +51,12 @@ void sched(void) {
     pushcli();
     cpu_swap_preepmpt(&ncli, &intena);
     
-    /// If not used up entire timeslice, drop one priority level.
-    if (current_gettimeslice() == 0) {
-        sched_demote_thread(current);
-    } else sched_promote_thread(current);
+    thread_sched_t *ts = &current->t_info.ti_sched;
+    if (ts->ts_flags & TS_SCHEDULER) { // scheduler thread always runs at highest priority.
+        sched_set_highest_prior(ts);
+    } else if (current_gettimeslice() == 0) { // If not used up entire timeslice, demote.
+        sched_demote_thread(ts);
+    } else sched_promote_thread(ts); // promote thread for cooperative preemption.
 
     // Return to the scheduler.
     context_switch(&current->t_arch.t_context);
@@ -116,7 +118,7 @@ static inline void sched_block(spinlock_t *lock) {
  * @param lock 
  * @return int 
  */
-int sched_wait(queue_t *wait_queue, tstate_t state, queue_relloc_t whence, spinlock_t *lock) {
+int sched_wait_whence(queue_t *wait_queue, tstate_t state, queue_relloc_t whence, spinlock_t *lock) {
     int err;
 
     if (wait_queue == NULL) {
@@ -156,6 +158,10 @@ int sched_wait(queue_t *wait_queue, tstate_t state, queue_relloc_t whence, spinl
     
     current_unlock();
     return err;
+}
+
+int sched_wait(queue_t *wait_queue, tstate_t state, spinlock_t *lock) {
+    return sched_wait_whence(wait_queue, state, QUEUE_TAIL, lock);
 }
 
 static int sched_wake_thread(thread_t *thread, wakeup_t reason) {

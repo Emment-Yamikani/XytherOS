@@ -59,13 +59,15 @@ extern void sched_yield(void);
 
 extern void toggle_sched_monitor(void);
 
-extern int sched_wait(queue_t *wait_queue, tstate_t state, queue_relloc_t whence, spinlock_t *lock);
+extern int sched_wait(queue_t *wait_queue, tstate_t state, spinlock_t *lock);
+extern int sched_wait_whence(queue_t *wait_queue, tstate_t state, queue_relloc_t whence, spinlock_t *lock);
 
 typedef enum {
     WAKEUP_NONE     = 0,
     WAKEUP_NORMAL   = 1, // Normal wakeup.
     WAKEUP_SIGNAL   = 2, // Wakeup due to signal.
     WAKEUP_TIMEOUT  = 3, // Wakeup due to timeout.
+    WAKEUP_ERROR    = 4, // Wakeup due to error.
 } wakeup_t;
 
 static inline int wakeup_reason_validate(wakeup_t reason) {
@@ -96,7 +98,7 @@ extern int sched_detach_and_wakeup(queue_t *wait_queue, thread_t *thread, wakeup
 #define wait_event_interruptible(wq, condition, lock) ({    \
     int __ret = 0;                                          \
     if (!(condition)) {                                     \
-        __ret = sched_wait(wq, T_SLEEP, QUEUE_TAIL, lock);  \
+        __ret = sched_wait_whence(wq, T_SLEEP, QUEUE_TAIL, lock);  \
     }                                                       \
     __ret;                                                  \
 })

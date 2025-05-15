@@ -104,9 +104,14 @@ typedef struct thread_sched_t {
 
     usize       ts_sched_count; /**< Scheduling count. */
 
-    #define TH_SHORTHOLD_THRESHOLD(level) (usize)((level) + 4)
+#define TS_NOMIGRATE    0x1
+#define TS_NOPREEMPT    0x2
+#define TS_SCHEDULER    0x4
+    unsigned int ts_flags;      /**< Per-thread schedulerflags. */
+
+#define TH_SHORTHOLD_THRESHOLD(level) (usize)((level) + 4)
     usize       ts_short_holds;  /**< Holding patterns. */
-    #define TH_LONGHOLD_THRESHOLD  8
+#define TH_LONGHOLD_THRESHOLD  8
     usize       ts_long_holds;   /**< Holding patterns. */
 
     int         ts_prio;        /**< Scheduling priority (can be static or dynamic) */

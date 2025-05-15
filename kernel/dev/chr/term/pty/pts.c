@@ -18,7 +18,7 @@ int pts_mkslave(PTY pty) {
     if (pty == NULL)
         return -EINVAL;
 
-    if ((err = device_create(name, FS_CHR, DEV_PTS, pts_devops, &dev)))
+    if ((err = device_create(name, FS_CHR, PTS_DEV_MAJOR, pts_devops, &dev)))
         return err;
 
     if ((err = device_register(dev))) {
@@ -32,7 +32,7 @@ int pts_mkslave(PTY pty) {
     memset(name, 0, sizeof name);
     snprintf(name, sizeof name - 1, "/dev/pts/%d", pty->pt_id);
 
-    if ((err = vfs_mknod(name, current_cred(), mode, DEV_T(DEV_PTS, pty->pt_id)))) {
+    if ((err = vfs_mknod(name, current_cred(), mode, DEV_T(PTS_DEV_MAJOR, pty->pt_id)))) {
         assert(0, "error mknod: pts, err: %d\n", err);
         dev_unlock(dev);
         kfree(dev);

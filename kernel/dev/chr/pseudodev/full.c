@@ -6,7 +6,7 @@
 
 DECL_DEVOPS(static, full);
 
-static DECL_DEVICE(full, FS_CHR, DEV_FULL, 7);
+static DECL_DEVICE(full, FS_CHR, FULL_DEV_MAJOR, 7);
 
 static int full_init(void) {
     return device_register(&fulldev);

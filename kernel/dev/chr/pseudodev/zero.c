@@ -6,7 +6,7 @@
 
 DECL_DEVOPS(static, zero);
 
-static DECL_DEVICE(zero, FS_CHR, DEV_ZERO, 5);
+static DECL_DEVICE(zero, FS_CHR, ZERO_DEV_MAJOR, 5);
 
 static int zero_init(void) {
     return device_register(&zerodev);

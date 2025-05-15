@@ -6,32 +6,34 @@
 #include <sync/spinlock.h>
 
 /*Character Devices */
-
-#define DEV_MEM     1   // minor=1
-#define DEV_NULL    1   // minor=3
-#define DEV_ZERO    1   // minor=5
-#define DEV_FULL    1   // minor=7
-#define DEV_RANDOM  1   // minor=8
-#define DEV_KBD0    2   // minor=[0..n-1]
-#define DEV_TTY     4   // minor=[0..n-1]
-#define DEV_CONSOLE 5   // minor=1
-#define DEV_PTMX    5   // minor=2
-#define DEV_UART    6   // minor=0
-#define DEV_PSAUX   10  // minor=1
-#define DEV_HPET    10  // minor=228
-#define DEV_KBDEV   13  // minor=0
-#define DEV_MOUSE0  13  // minor=1
-#define DEV_FB      29  // minor=0
-#define DEV_PTS     136 // minor=[0..n-1]
-#define DEV_CPU     202 // minor=[0..n-1]
-#define DEV_CPU_MSR 203 // minor=[0..n-1]
-#define DEV_RTC0    248 // minor=0
+enum cdev_major {
+    MEM_DEV_MAJOR       = 1,   // minor=1
+    NULL_DEV_MAJOR      = 1,   // minor=3
+    ZERO_DEV_MAJOR      = 1,   // minor=5
+    FULL_DEV_MAJOR      = 1,   // minor=7
+    RANDOM_DEV_MAJOR    = 1,   // minor=8
+    KBD0_DEV_MAJOR      = 2,   // minor=[0..n-1]
+    TTY_DEV_MAJOR       = 4,   // minor=[0..n-1]
+    CONSOLE_DEV_MAJOR   = 5,   // minor=1
+    PTMX_DEV_MAJOR      = 5,   // minor=2
+    UART_DEV_MAJOR      = 6,   // minor=0
+    PSAUX_DEV_MAJOR     = 10,  // minor=1
+    HPET_DEV_MAJOR      = 10,  // minor=228
+    KBDEV_DEV_MAJOR     = 13,  // minor=0
+    MOUSE0_DEV_MAJOR    = 13,  // minor=1
+    FB_DEV_MAJOR        = 29,  // minor=0
+    PTS_DEV_MAJOR       = 136, // minor=[0..n-1]
+    CPU_DEV_MAJOR       = 202, // minor=[0..n-1]
+    CPU_MSR_DEV_MAJOR   = 203, // minor=[0..n-1]
+    RTC0_DEV_MAJOR      = 248, // minor=0
+};
 
 /*Block Devices*/
-
-#define DEV_RAMDISK 1   // minor=[0..n-1]
-#define DEV_SDA     8   // minor=[0..n-1]
-#define DEV_CDROM   11  // minor=[0..n-1]
+enum bdev_major {
+    RAMDISK_DEV_MAJOR   = 1,   // minor=[0..n-1]
+    SDA_DEV_MAJOR       = 8,   // minor=[0..n-1]
+    CDROM_DEV_MAJOR     = 11,  // minor=[0..n-1]
+};
 
 #define DEV_TO_MAJOR(dev)       ((devno_t)((dev) & 0xffu))
 #define MAJOR_TO_DEV(major)     ((dev_t)((devno_t)(major) & 0xffu))

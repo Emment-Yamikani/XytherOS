@@ -30,7 +30,7 @@
 
 DECL_DEVOPS(static, rtc);
 
-static DECL_DEVICE(rtc, FS_CHR, DEV_RTC0, 0);
+static DECL_DEVICE(rtc, FS_CHR, RTC0_DEV_MAJOR, 0);
 
 #define CURRENT_YEAR    2023
 

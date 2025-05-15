@@ -49,7 +49,7 @@ int cond_wait(cond_t *cond) {
 
     cond_lock(cond);
     if ((int)atomic_inc(&cond->count) >= 0) {
-        err = sched_wait(&cond->waiters, T_SLEEP, QUEUE_TAIL, &cond->lock);
+        err = sched_wait_whence(&cond->waiters, T_SLEEP, QUEUE_TAIL, &cond->lock);
     }
     cond_unlock(cond);
     return err;

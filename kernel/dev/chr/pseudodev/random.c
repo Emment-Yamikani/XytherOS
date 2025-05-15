@@ -5,7 +5,7 @@
 #include <sync/spinlock.h>
 
 DECL_DEVOPS(static, random);
-static DECL_DEVICE(random, FS_CHR, DEV_RANDOM, 8);
+static DECL_DEVICE(random, FS_CHR, RANDOM_DEV_MAJOR, 8);
 
 static int random_init(void) {
     return device_register(&randomdev);

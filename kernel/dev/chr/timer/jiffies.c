@@ -126,7 +126,7 @@ int jiffies_sleep(jiffies_t jiffies, jiffies_t *rem) {
     jiffies_t expr = jiffies + jiffies_get(), now;
     while (time_before(now = jiffies_get(), expr)) {
         if (!jiffies_create_clock(expr)) {
-            if ((err = sched_wait(jiffies_waiters, T_SLEEP, QUEUE_HEAD, NULL))) {
+            if ((err = sched_wait_whence(jiffies_waiters, T_SLEEP, QUEUE_HEAD, NULL))) {
                 now = jiffies_get();
                 break;
             }

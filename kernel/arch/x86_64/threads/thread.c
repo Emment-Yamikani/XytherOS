@@ -49,7 +49,7 @@ int x86_64_kthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) 
     mctx->ss    = (SEG_KDATA64 << 3);
     mctx->rbp   = (u64)kstack;
     mctx->rsp   = (u64)kstack;
-    mctx->rfl= LF_IF;
+    mctx->rfl   = LF_IF;
     mctx->cs    = (SEG_KCODE64 << 3);
     mctx->rip   = (u64)entry;
     mctx->rdi   = (u64)arg;
@@ -101,7 +101,7 @@ int x86_64_uthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) 
 
     mctx->ss      = (SEG_UDATA64 << 3) | DPL_USR;
     mctx->rbp     = mctx->rsp = (u64)ustack;
-    mctx->rfl  = LF_IF;
+    mctx->rfl     = LF_IF;
     mctx->cs      = (SEG_UCODE64 << 3) | DPL_USR;
     mctx->rip     = (u64)entry;
     mctx->rdi     = (u64)arg;
@@ -154,7 +154,7 @@ int x86_64_thread_execve(arch_thread_t *thread, thread_entry_t entry, int argc, 
 
     mctx->ss      = (SEG_UDATA64 << 3) | DPL_USR;
     mctx->rbp     = mctx->rsp = (u64)ustack;
-    mctx->rfl  = LF_IF;
+    mctx->rfl     = LF_IF;
     mctx->cs      = (SEG_UCODE64 << 3) | DPL_USR;
     mctx->rip     = (u64)entry;
 

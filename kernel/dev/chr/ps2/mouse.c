@@ -4,7 +4,7 @@
 
 DECL_DEVOPS(static, ps2mouse);
 
-static DECL_DEVICE(ps2mouse, FS_CHR, DEV_MOUSE0, 1);
+static DECL_DEVICE(ps2mouse, FS_CHR, MOUSE0_DEV_MAJOR, 1);
 
 int ps2mouse_init(void) {
     return device_register(&ps2mousedev);

@@ -7,7 +7,7 @@
 
 DECL_DEVOPS(static, ptmx);
 
-static DECL_DEVICE(ptmx, FS_CHR, DEV_PTMX, 2);
+static DECL_DEVICE(ptmx, FS_CHR, PTMX_DEV_MAJOR, 2);
 
 static int ptmx_init(void) {
     int err = 0;
@@ -56,7 +56,7 @@ static int ptmx_open(struct devid *dd __unused, inode_t **pip) {
     cred_unlock(cred);
 
     ip->i_size  = 1;
-    ip->i_rdev  = DEV_T(DEV_PTMX, 2);
+    ip->i_rdev  = DEV_T(PTMX_DEV_MAJOR, 2);
     ip->i_priv  = (void *)pty;
     ip->i_flags|= INO_PTMX;
  

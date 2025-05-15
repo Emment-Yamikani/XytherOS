@@ -493,7 +493,7 @@ int enqueue_sorted(queue_t *queue, queue_node_t *qnode, queue_uniqueness_t uniqu
     queue_node_t *next;
     forlinked(node, queue->head, next) {
         next = node->next;
-        
+
         int retval = queue_cmp_nodes(qnode, node, order, compare);
 
         if (retval == QUEUE_EQUAL) {
