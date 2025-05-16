@@ -5,7 +5,7 @@ ISO_IMAGE   := xytheros.iso
 KERNEL_DIR  := kernel
 KERNEL_LINKER_SCRIPT:= kernel.ld
 
-KERNEL_FLAGS:= -DDEBUG_BUILD -D__x86_64__ -DUSE_SPINLOCK_FUNCTIONS
+KERNEL_FLAGS:= -DDEBUG_BUILD -D__x86_64__ #-DUSE_SPINLOCK_FUNCTIONS
 
 # Toolchain Configuration
 CC          := x86_64-elf-gcc
@@ -81,7 +81,7 @@ iso: all
 	$(GRUBMKRESCUE) -o $(ISO_IMAGE) $(ISO_DIR)
 	@echo "ISO image created: $(ISO_IMAGE)"
 
-CPU_COUNT 	:= 2
+CPU_COUNT 	:= 1
 RAM_SIZE	:= 2048M
 QUEUE_FLAGS := -no-reboot -no-shutdown -parallel none
 
@@ -96,7 +96,7 @@ run_serial: iso
 	@echo "Starting QEMU..."
 	qemu-system-x86_64 -cdrom $(ISO_IMAGE) \
     $(QUEUE_FLAGS) -smp $(CPU_COUNT) -m size=$(RAM_SIZE) -vga std \
-    -chardev stdio,id=char0,path=serial.log -serial chardev:char0
+    -chardev stdio,id=char0,logfile=serial.log -serial chardev:char0
 
 # Debug in QEMU with GDB
 debug: iso
@@ -112,5 +112,5 @@ debug_log: iso
     -chardev file,id=char0,path=serial.log -serial chardev:char0
 
 dump: $(ISO_DIR)/$(TARGET)
-	objdump -d $< -M intel > xyther.asm
+	objdump -d $< -M intel | less > xyther.asm
 
