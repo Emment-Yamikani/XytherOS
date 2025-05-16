@@ -65,7 +65,7 @@ int cond_wait_releasing(cond_t *cond, spinlock_t *lk) {
 
 static void cond_wake1(cond_t *cond) {
     cond_lock(cond);
-    sched_wakeup(&cond->waiters, WAKEUP_NORMAL, QUEUE_HEAD);
+    sched_wakeup_whence(&cond->waiters, WAKEUP_NORMAL, QUEUE_HEAD);
     atomic_dec(&cond->count);
     cond_unlock(cond);
 }

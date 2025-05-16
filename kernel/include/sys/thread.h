@@ -537,6 +537,7 @@ extern int      thread_bump_priority(thread_t *thread, int how, int by, int *old
 extern int      thread_alloc(usize stack_size, int cflags, thread_t **ptp);
 extern int      thread_reap(thread_t *thread, thread_info_t *info, void **retval);
 
+extern void     thread_dump_all(void);
 extern int      thread_sleep(wakeup_t *preason);
 extern int      thread_create_group(thread_t *thread);
 extern int      thread_wakeup(thread_t *thread, wakeup_t reason);

@@ -263,7 +263,7 @@ void cga_putc(const int c) {
     // Handle escape sequences
     static int esc_state = 0;
     static int esc_value = 0;
-    static int esc_values[4];
+    static int esc_values[16];
     static int esc_index = 0;
 
     if (esc_state == 0 && c == '\x1B') {
@@ -287,7 +287,7 @@ void cga_putc(const int c) {
         if (c >= '0' && c <= '9') {
             esc_value = esc_value * 10 + (c - '0');
         } else if (c == ';') {
-            if (esc_index < 3) {
+            if (esc_index < 16) {
                 esc_values[esc_index++] = esc_value;
                 esc_value = 0;
             }

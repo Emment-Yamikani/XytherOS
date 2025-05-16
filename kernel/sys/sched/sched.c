@@ -211,7 +211,7 @@ int sched_detach_and_wakeup(queue_t *wait_queue, thread_t *thread, wakeup_t reas
     return 0;
 }
 
-int sched_wakeup(queue_t *wait_queue, wakeup_t reason, queue_relloc_t whence) {
+int sched_wakeup_whence(queue_t *wait_queue, wakeup_t reason, queue_relloc_t whence) {
     int err;
     thread_t *thread;
 
@@ -254,6 +254,10 @@ int sched_wakeup(queue_t *wait_queue, wakeup_t reason, queue_relloc_t whence) {
 
     queue_unlock(wait_queue);
     return -ESRCH;  // No thread was waiting on this wait queue.
+}
+
+int sched_wakeup(queue_t *wait_queue, wakeup_t reason) {
+    return sched_wakeup_whence(wait_queue, reason, QUEUE_HEAD);
 }
 
 int sched_wakeup_specific(queue_t *wait_queue, wakeup_t reason, tid_t tid) {

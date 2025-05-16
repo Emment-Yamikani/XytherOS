@@ -30,9 +30,9 @@ static void MLFQ_init(void) {
     int l = 0; // implicit level: 0 is highest
 
     foreach_level(mlfq) {
-        // Q = t * 2^n, Q is the allocated quantum,
+        // Q = t + (5 * 2^n), Q is the allocated quantum,
         // t is the base quantum where n is the level index.
-        level->quantum = t * (1 < l++);
+        level->quantum = t  + (5 * (1 < l++));
     }
 }
 

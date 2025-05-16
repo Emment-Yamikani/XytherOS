@@ -310,3 +310,5 @@ int thread_get_info_by_id(tid_t tid, thread_info_t *info) {
 
     return err;
 }
+
+void thread_dump_all(void);

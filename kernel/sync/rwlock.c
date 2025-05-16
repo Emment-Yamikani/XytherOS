@@ -70,7 +70,7 @@ void rw_readlock_release(rwlock_t *rw) {
     if (atomic_dec_fetch(&rw->readers) == 0) {
         if (sched_wait_queue_length(&rw->writersq) >= 1) {
             // Wake up one waiting writer.
-            sched_wakeup(&rw->writersq, WAKEUP_NORMAL, QUEUE_HEAD);
+            sched_wakeup_whence(&rw->writersq, WAKEUP_NORMAL, QUEUE_HEAD);
         }
     }
     spin_unlock(&rw->guard);
@@ -134,7 +134,7 @@ void rw_writelock_release(rwlock_t *rw) {
 
     // First, if any writer is waiting, wake one up.
     if (sched_wait_queue_length(&rw->writersq)) {
-        sched_wakeup(&rw->writersq, WAKEUP_NORMAL, QUEUE_HEAD);
+        sched_wakeup_whence(&rw->writersq, WAKEUP_NORMAL, QUEUE_HEAD);
         spin_unlock(&rw->guard);
         return;
     }
