@@ -165,16 +165,16 @@ int hpet_init(void) {
 
     // Enable the timer to fire interrupts via I/O (x) APIC.
     pushcli();
-    interrupt_controller_enable(IRQ_HPET, getcpuid());
+    enable_intr_line(IRQ_HPET, getcpuid());
     popcli();
     return 0;
 }
 
 #include <core/debug.h>
 
-#define HPET_INT0_STATUS 0x1
-#define HPET_INT1_STATUS 0x2
-#define HPET_INT2_STATUS 0x4
+#define HPET_INT0_STATUS    0x0001
+#define HPET_INT1_STATUS    0x0002
+#define HPET_INT2_STATUS    0x0004
 
 void hpet_intr(void) {
     u64 int_status = HPET_INT_STATUS;

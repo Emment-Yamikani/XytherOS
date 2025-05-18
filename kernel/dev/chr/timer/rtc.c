@@ -143,7 +143,7 @@ static int rtc_probe(struct devid *dd __unused) {
     RTC_CENT = FADT ? FADT->RTC_CENTURY: 0;
 
     pushcli();
-    interrupt_controller_enable(IRQ_RTC, getcpuid());
+    enable_intr_line(IRQ_RTC, getcpuid());
     popcli();
 
     outb(RTC_CMD, 0x8A);

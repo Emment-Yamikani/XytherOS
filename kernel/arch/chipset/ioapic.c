@@ -135,7 +135,7 @@ int interrupt_controller_init(void) {
 
 
 extern void pic_enable(int irq);
-void interrupt_controller_enable(int irq, int core_id) {
+void enable_intr_line(int irq, int core_id) {
     pic_enable(irq);
     ioapic_enable(irq, core_id);
 }

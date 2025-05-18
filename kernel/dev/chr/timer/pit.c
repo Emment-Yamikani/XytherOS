@@ -34,7 +34,7 @@ void pit_init(void) {
     pic_enable(IRQ_PIT0);
 
     pushcli();
-    interrupt_controller_enable(IRQ_PIT2, getcpuid());
+    enable_intr_line(IRQ_PIT2, getcpuid());
     popcli();
 }
 

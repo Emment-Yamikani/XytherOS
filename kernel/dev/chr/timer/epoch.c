@@ -1,15 +1,16 @@
 #include <dev/timer.h>
 #include <sys/_time.h>
+#include <core/debug.h>
 
-static volatile atomic_t epoch_time = 0;
+static volatile atomic_long epoch_time = 0;
 
 static const    int   days_in_month[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
-u64 epoch_get(void) {
+time_t epoch_get(void) {
     return atomic_read(&epoch_time);
 }
 
-void epoch_set(u64 epoch) {
+void epoch_set(time_t epoch) {
     atomic_write(&epoch_time, epoch);
 }
 
@@ -21,7 +22,7 @@ static int is_leap_year(int year) {
     return (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
 }
 
-void epoch_to_datetime(u64 epoch, int *year, int *month, int *day, int *hour, int *minute, int *second) {
+void epoch_to_datetime(time_t epoch, int *year, int *month, int *day, int *hour, int *minute, int *second) {
     int days    = epoch / 86400;  // Total days since 1970
 
     *second     = epoch % 60;
@@ -44,11 +45,11 @@ void epoch_to_datetime(u64 epoch, int *year, int *month, int *day, int *hour, in
     *day = days + 1;
 }
 
-u64 epoch_from_datetime(int year, int month, int day, int hour, int minute, int second) {
+time_t epoch_from_datetime(int year, int month, int day, int hour, int minute, int second) {
     if (year < 1970 || month < 1 || month > 12 || day < 1 || day > 31)
         return 0; // Invalid date
 
-    u64 epoch = 0;
+    time_t epoch = 0;
 
     // Add days from past years
     for (int y = 1970; y < year; y++) {
@@ -71,11 +72,11 @@ u64 epoch_from_datetime(int year, int month, int day, int hour, int minute, int 
     return epoch;
 }
 
-void epoch_to_timespec(uint64_t epoch, struct timespec *ts) {
+void epoch_to_timespec(time_t epoch, struct timespec *ts) {
     ts->tv_sec = epoch;
     ts->tv_nsec = 0;
 }
 
-uint64_t epoch_from_timespec(const struct timespec *ts) {
+time_t epoch_from_timespec(const struct timespec *ts) {
     return ts->tv_sec;
 }

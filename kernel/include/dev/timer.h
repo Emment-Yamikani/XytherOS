@@ -110,15 +110,15 @@ extern void timer_intr(void);
 
 extern void timer_wait(timer_t timer, double sec);
 
-extern u64 epoch_get(void);
+extern time_t epoch_get(void);
 
 extern void epoch_update(void);
 
-extern void epoch_set(u64 epoch);
+extern void epoch_set(time_t epoch);
 
-extern void epoch_to_timespec(u64 epoch, struct timespec *ts);
-extern u64 epoch_from_timespec(const struct timespec *ts);
+extern void epoch_to_timespec(time_t epoch, struct timespec *ts);
+extern time_t epoch_from_timespec(const struct timespec *ts);
 
-extern u64 epoch_from_datetime(int year, int month, int day, int hour, int minute, int second);
+extern time_t epoch_from_datetime(int year, int month, int day, int hour, int minute, int second);
 
-extern void epoch_to_datetime(u64 epoch, int *year, int *month, int *day, int *hour, int *minute, int *second);
+extern void epoch_to_datetime(time_t epoch, int *year, int *month, int *day, int *hour, int *minute, int *second);

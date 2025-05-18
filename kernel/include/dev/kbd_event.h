@@ -23,10 +23,11 @@ typedef enum {
 
 // ────────────── Event Structure ──────────────
 typedef struct {
-    // TODO: Track timestamp and keyboard hardware ID.
-    uchar       scancode;   // Raw scancode (may be index into extended table)
-    vt_key_t    vt_key;     // Mapped virtual key
-    ushort      ev_flags;   // EV_MAKE / BREAK / REPEAT / etc.
+    // TODO: Track keyboard hardware ID.
+    time_t      ev_timestamp;  // Timestamp of keyboard event.
+    uint8_t     ev_scode;      // Raw scancode (may be index into extended table).
+    vt_key_t    ev_vt_key;     // Mapped virtual key.
+    uint16_t    ev_flags;      // EV_MAKE / BREAK / REPEAT / etc.
 } kbd_event_t;
 
 // ────────────── Helper Macro ──────────────

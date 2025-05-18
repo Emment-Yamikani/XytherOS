@@ -78,7 +78,10 @@ static void jiffies_worker(void) {
 } BUILTIN_THREAD(jiffies_worker, jiffies_worker, NULL);
 
 void jiffies_update(void) {
-    atomic_inc(&jiffies_now);
+    if ((atomic_inc_fetch(&jiffies_now) % SYS_Hz) == 0) {
+        epoch_update();
+    }
+
     cond_signal(jiffies_condvar);
 }
 

@@ -237,9 +237,10 @@ void ps2kbd_intr(void) {
     }
 
     kbd_event_t kbd_event = {
-        .scancode   = scode,
-        .vt_key   = vt_key,
-        .ev_flags   = flags,
+        .ev_scode       = scode,
+        .ev_flags       = flags,
+        .ev_vt_key      = vt_key,
+        .ev_timestamp   = epoch_get()
     };
 
     async_kbd_inject_event(&kbd_event);
@@ -274,7 +275,7 @@ static int ps2kbd_probe(devid_t *dd __unused) {
     }
 
     // enable interrupt on line 1.
-    interrupt_controller_enable(IRQ_PS2_KBD, getcpuid());
+    enable_intr_line(IRQ_PS2_KBD, getcpuid());
 
     return 0;
 }
