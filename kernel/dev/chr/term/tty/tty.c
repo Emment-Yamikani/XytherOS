@@ -77,6 +77,24 @@ void tty_free(tty_t *tp) {
     kfree(tp);
 }
 
+tty_t *tty_current(void) {
+    return atomic_load(&active_tty);
+}
+
+void tty_switch(int tty) {
+    if (tty < 1 || tty > 8) {
+        return;
+    }
+
+    tty_t *tp = ttys[tty];
+
+    atomic_store(&active_tty, tp);
+
+    if (tp && tp->t_ops.redraw) {
+        tp->t_ops.redraw(tp);
+    }
+}
+
 /**
  * tty_init_termios - Initialize a termios struct with standard defaults
  * @tio: termios structure to initialize

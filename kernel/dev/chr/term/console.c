@@ -87,7 +87,7 @@ static isize console_write(tty_t *, const char *, usize);
 
 static tty_ops_t console_ops = {
     .ioctl          = NULL,
-    .read           = NULL,
+    .redraw         = NULL,
     .flush          = console_flush,
     .open           = console_open,
     .write          = console_write,

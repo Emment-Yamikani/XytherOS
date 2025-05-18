@@ -475,7 +475,9 @@ static isize x_tty_write(tty_t *tp, const char *buf, usize count) {
     return written;
 }
 
-int x_tty_ioctl(tty_t *tp, uint cmd, void *arg);
+int x_tty_ioctl(tty_t *, int, void *) {
+    return -EOPNOTSUPP;
+}
 
 void x_tty_set_termios(tty_t *tp, struct termios *old);
 

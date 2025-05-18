@@ -240,15 +240,9 @@ static bool get_kbd_flag(kbd_flags_t flag) {
 
 /* Send multiple bytes to TTY */
 static void send_to_tty(tty_t *tp, const char   *data, size_t len) {
-    if (!tp) {
-        return;
-    }
-
-    tty_lock(tp);
     if (tp->t_ldisc && tp->t_ldisc->receive_buf && data && len > 0) {
         tp->t_ldisc->receive_buf(tp, data, NULL, len);
     }
-    tty_unlock(tp);
 }
 
 /* Single-character convenience wrapper */
@@ -296,30 +290,30 @@ static void key_released(vt_key_t vt_key) {
 }
 
 /* Main key processing function */
-static void process_key(tty_t *tp, vt_key_t vt_key) {
+static int process_key(tty_t *tp, vt_key_t vt_key) {
     /* Handle modifier toggles */
     if (vt_key == VT_KEY_CAPSLOCK) {
         bool current_state = get_kbd_flag(KBD_CAPSLOCK);
         set_kbd_flag(KBD_CAPSLOCK, !current_state);
-        return;
+        return 0;
     }
 
     if (vt_key == VT_KEY_NUMLOCK) {
         bool current_state = get_kbd_flag(KBD_NUMLOCK);
         set_kbd_flag(KBD_NUMLOCK, !current_state);
-        return;
+        return 0;
     }
 
     /* Update modifier flags */
     if (KEY_SHIFT(vt_key)) {
         set_kbd_flag(KBD_SHIFT, true);
-        return;
+        return 0;
     } else if (KEY_CONTROL(vt_key)) {
         set_kbd_flag(KBD_CTRL, true);
-        return;
+        return 0;
     } else if (KEY_ALT(vt_key)) {
         set_kbd_flag(KBD_ALT, true);
-        return;
+        return 0;
     }
 
     /* Get current_state modifier state */
@@ -333,13 +327,26 @@ static void process_key(tty_t *tp, vt_key_t vt_key) {
         switch (vt_key) {
             case VT_KEY_M:
                 toggle_sched_monitor();
-                return;
+                return 0;
             case VT_KEY_S:
                 toggle_kernel_shell();
-                return;
+                return 0;
+            case VT_KEY_F1 ... VT_KEY_F8:
+                tty_switch((vt_key - VT_KEY_F1) + 1);
+                return 0;
             /* TODO: add more Ctrl+Shift combinations as needed */
-            default: return;
+            default: return -EINVAL;
         }
+    }
+
+    if (tp == NULL) {
+        return -ENOTTY;
+    }
+
+    tty_lock(tp);
+    if (tp->t_flags & TF_NOINPUT) {
+        tty_unlock(tp);
+        return -EIO;
     }
 
     /* Get the appropriate key mapping */
@@ -361,27 +368,32 @@ static void process_key(tty_t *tp, vt_key_t vt_key) {
         } else if (vt_key >= VT_KEY_F1 && vt_key <= VT_KEY_F12) {
             send_ansi_sequence(tp, vt_key);
         }
-        return;
+        tty_unlock(tp);
+        return 0;
     }
 
     send_char_to_tty(tp, key);
+    tty_unlock(tp);
+    return 0;
 }
 
-void tty_receive_input(tty_t *tp, void *data) {
+int tty_receive_input(tty_t *tp, void *data) {
     kbd_event_t *event = data;
 
-    if (tp == NULL || event == NULL) {
-        return;
+    if (event == NULL) {
+        return -EINVAL;
     }
 
     if (event->vt_key == VT_KEY_NONE || event->vt_key >= VT_KEY_MAX) {
+        return -EINVAL;
     }
 
     if (event->ev_flags & EV_MAKE) {
-        process_key(tp, event->vt_key);
+        return process_key(tp, event->vt_key);
     } else {
         key_released(event->vt_key);
     }
+    return 0;
 }
 
 /* Main input thread */
@@ -394,7 +406,7 @@ void tty_input(void) {
     }
     
     while (1) {
-        tp = atomic_load(&active_tty);
+        tp = tty_current();
         if (tp == NULL) {
             sched_yield();
             continue;

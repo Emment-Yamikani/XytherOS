@@ -79,22 +79,20 @@ int async_kbd_inject_event(kbd_event_t *ev) {
         return -EINVAL;
     }
 
-    tty_t *tp = atomic_load(&active_tty);
-    if (tp != NULL) {
-        tty_receive_input(tp, ev);
-        return 0;
+    tty_t *tp = tty_current();
+    int err = tty_receive_input(tp, ev);
+    if (err == 0 || err != -EIO) {
+        return err;
     }
 
     ringbuf_lock(&event_buffer);
-    int err = ringbuf_write(&event_buffer, (void *)ev, sizeof(kbd_event_t));
+    err = ringbuf_write(&event_buffer, (void *)ev, sizeof(kbd_event_t));
     sched_wakeup_all(event_readers, WAKEUP_NORMAL, NULL);
 
     err = err == sizeof *ev ? 0 : err < 0 ? err : -EFAULT;
     ringbuf_unlock(&event_buffer);
     return err;
 }
-
-// 400 = 100 000 000 = 1 0000 0000
 
 int kbd_inject_event(kbd_event_t *ev) {
     int err;

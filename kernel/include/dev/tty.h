@@ -45,11 +45,12 @@ typedef struct tty_attr {
 //    for use with tty->t_flags     |
 ////////////////////////////////////
 
-#define TF_OPEN          0x001 // tty is opened.
-#define TF_BUSY          0x002 // tty is busy.
-#define TF_ESC           0x004 // escape is set.
-#define TF_CSI           0x008 // processing CSI.
-#define TF_DIRTY         0x010 // buffer is dirty.
+#define TF_OPEN     0x001 // tty is opened.
+#define TF_BUSY     0x002 // tty is busy.
+#define TF_ESC      0x004 // escape is set.
+#define TF_CSI      0x008 // processing CSI.
+#define TF_DIRTY    0x010 // buffer is dirty.
+#define TF_NOINPUT  0x020 // if set on the active TTY, input is not received by that tty.
 
 struct tty;
 
@@ -62,7 +63,7 @@ typedef struct tty_ops {
     void    (*write_char)(struct tty *tp, int c);
     int     (*receive_char)(struct tty *tp, int c);
     int     (*ioctl)(struct tty *tp, int req, void *arg);
-    isize   (*read)(struct tty *tp, char *buf, usize sz);
+    isize   (*redraw)(struct tty *tp);
     isize   (*write)(struct tty *tp, const char *buf, usize sz);
 } tty_ops_t;
 
@@ -126,11 +127,12 @@ extern tty_t *console;
 #define tty_inputbuf_recursive_lock(tp) ({ tty_assert(tp); ringbuf_recursive_lock(&(tp)->t_inputbuf); })
 
 extern void tty_free(tty_t *tp);
-extern int tty_alloc(tty_t **ptp);
+extern int  tty_alloc(tty_t **ptp);
 
-extern int tty_alloc_buffer(tty_t *tp);
+extern int  tty_alloc_buffer(tty_t *tp);
 extern void tty_free_buffers(tty_t *tp);
-extern void tty_receive_input(tty_t *tp, void *data);
-extern int tty_create(const char *name, devno_t minor, tty_ops_t *ops, ldisc_t *ldisc, tty_t **ptp);
+extern int  tty_receive_input(tty_t *tp, void *data);
+extern int  tty_create(const char *name, devno_t minor, tty_ops_t *ops, ldisc_t *ldisc, tty_t **ptp);
 
+extern void tty_switch(int tty);
 extern tty_t *tty_current(void);

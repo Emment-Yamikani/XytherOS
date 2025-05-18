@@ -15,7 +15,7 @@ typedef struct ldisc {
     ssize_t (*chars_in_buffer)(struct tty *tp);
     ssize_t (*read)(struct tty *tp, char *buf, size_t nr);
     ssize_t (*write)(struct tty *tp, const char *buf, size_t nr);
-    int     (*ioctl)(struct tty *tp, uint cmd, void *arg);
+    int     (*ioctl)(struct tty *tp, int cmd, void *arg);
     void    (*set_termios)(struct tty *tp, struct termios *old);
     int     (*receive_buf)(struct tty *tp, const char *cp, char *fp, int count);
 
