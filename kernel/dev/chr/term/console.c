@@ -86,14 +86,14 @@ static void console_redraw_cursor(tty_t *tp);
 static isize console_write(tty_t *, const char *, usize);
 
 static tty_ops_t console_ops = {
-    .ioctl  = NULL,
-    .read   = NULL,
-    .redraw_cursor = console_redraw_cursor,
-    .flush  = console_flush,
-    .open   = console_open,
-    .write  = console_write,
-    .erase  = console_erase,
-    .write_char = console_write_char,
+    .ioctl          = NULL,
+    .read           = NULL,
+    .flush          = console_flush,
+    .open           = console_open,
+    .write          = console_write,
+    .erase          = console_erase,
+    .write_char     = console_write_char,
+    .redraw_cursor  = console_redraw_cursor,
 };
 
 tty_t *console = NULL;
@@ -108,12 +108,12 @@ void console_puts(const char *s) {
 }
 
 static void console_flush(tty_t *tp) {
-    if (tp->t_flags & T_DIRTY) {
+    if (tp->t_flags & TF_DIRTY) {
         ushort *vga_mem = (ushort *)V2HI(0xb8000) + tp->ta_dirty_pos;
         ushort *shadow  = (ushort *)tp->t_shadow_buffer + tp->ta_dirty_pos;
 
         xytherOs_memcpy(vga_mem, shadow, tp->ta_dirty_size);
-        tp->t_flags &= ~T_DIRTY;
+        tp->t_flags &= ~TF_DIRTY;
 
         tp->t_ops.redraw_cursor(tp);
     }
@@ -150,7 +150,7 @@ static void console_write_char(tty_t *tp, int c) {
 
     if (shadow[tp->t_cursor_pos] != cga_attrib->attrib) {
         tp->ta_dirty_size   = 2;
-        tp->t_flags         |= T_DIRTY;
+        tp->t_flags         |= TF_DIRTY;
         tp->ta_dirty_pos    = tp->t_cursor_pos;
         shadow[tp->t_cursor_pos] = cga_attrib->attrib;
     }
@@ -174,7 +174,7 @@ static inline void console_erase(tty_t *tp, off_t off, usize sz) {
     }
 
     memsetw(&shadow[off], cga_attrib->attrib, sz);
-    tp->t_flags |= T_DIRTY;
+    tp->t_flags |= TF_DIRTY;
     tp->ta_dirty_pos = off;
     tp->ta_dirty_size = sz * 2;
 }
@@ -221,7 +221,7 @@ static void console_scroll(tty_t *tp, bool down/*scroll down?*/, usize lines) {
         }
     }
 
-    tp->t_flags |= T_DIRTY; // shadow buffer is dirty.
+    tp->t_flags |= TF_DIRTY; // shadow buffer is dirty.
     tp->ta_dirty_pos = 0;
     tp->ta_dirty_size = wsz->ws_col * wsz->ws_row * 2;
 }
@@ -415,7 +415,7 @@ static int console_handle_csi(tty_t *tp, int c) {
 
     switch (c) {
         default:
-            tp->t_flags &= ~(T_ESC | T_CSI);
+            tp->t_flags &= ~(TF_ESC | TF_CSI);
             return -EINVAL; // Not a recognized CSI sequence command. 
 
         case 'A' ... 'D': console_move_cursor(tp, c, param0); break; // Cursor movement
@@ -494,13 +494,13 @@ static int console_handle_csi(tty_t *tp, int c) {
         case 'm': console_set_attributes(tp); break; // Selec graphic rendition
     }
 
-    tp->t_flags &= ~(T_ESC | T_CSI);
+    tp->t_flags &= ~(TF_ESC | TF_CSI);
     return 0;
 }
 
 static int console_handle_esc(tty_t *tp, int c) {
-    if (c == '[' && !(tp->t_flags & T_CSI)) { // CSI sequence detected.
-        tp->t_flags |= T_CSI;
+    if (c == '[' && !(tp->t_flags & TF_CSI)) { // CSI sequence detected.
+        tp->t_flags |= TF_CSI;
         return 0;
     }
     
@@ -635,11 +635,6 @@ static int console_open(tty_t *tp) {
         xytherOs_memsetw(tp->t_shadow_buffer, 0x0720, size);
     }
 
-    err = tp->t_ldisc->open(tp);
-    if (err) {
-        return err;
-    }
-
     return 0;
 }
 
@@ -654,19 +649,19 @@ static isize console_write(tty_t *tp, const char *buf, usize count) {
         int c = buf[i];
 
         /* Handle escape sequences */
-        if (tp->t_flags & T_ESC) {
+        if (tp->t_flags & TF_ESC) {
             int ret = console_handle_esc(tp, c);
             if (ret == 0) {
                 continue;
             }
 
             /* If escape sequence fails, fall through to normal processing */
-            tp->t_flags &= ~(T_ESC | T_CSI);
+            tp->t_flags &= ~(TF_ESC | TF_CSI);
         }
 
         /* Start new escape sequence */
-        if (c == '\e') {
-            tp->t_flags |= T_ESC;
+        if (c == '\033') {
+            tp->t_flags |= TF_ESC;
             tp->t_esc_seqpos = 0;
             tp->t_esc_seqcnt = 0;
             memset(tp->t_esc_seq, 0, sizeof(tp->t_esc_seq));
@@ -675,25 +670,10 @@ static isize console_write(tty_t *tp, const char *buf, usize count) {
 
         /* Apply termios output processing (if OPOST enabled) */
         if (tp->t_termios.c_oflag & OPOST) {
-            /* ONLCR: Convert \n to \r\n */
-            if (c == '\n' && (tp->t_termios.c_oflag & ONLCR)) {
-                console_handle_special(tp, '\r');
-            }
-
-            /* OCRNL: Convert \r to \n */
-            if (c == '\r' && (tp->t_termios.c_oflag & OCRNL)) {
-                c = '\n';
-            }
-
             /* ONOCR: Skip \r at column 0 */
             if (c == '\r' && (tp->t_termios.c_oflag & ONOCR) && 
                 (tp->t_cursor_pos % tp->t_winsize.ws_col) == 0) {
                 continue;
-            }
-
-            /* OLCUC: Convert lowercase to uppercase */
-            if ((tp->t_termios.c_oflag & OLCUC) && (c >= 'a' && c <= 'z')) {
-                c -= 0x20;
             }
         }
 

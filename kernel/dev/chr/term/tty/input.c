@@ -208,8 +208,8 @@ static const char* ansi_sequences[] = {
     
     /* Lock keys */
     [VT_KEY_CAPSLOCK] = "",        // No sequence
-    [VT_KEY_NUMLOCK] = "",         // No sequence
-    [VT_KEY_SCRLOCK] = "",         // No sequence
+    [VT_KEY_NUMLOCK]  = "",        // No sequence
+    [VT_KEY_SCRLOCK]  = "",        // No sequence
 };
 
 static devid_t *kbdev   = DEVID_PTR(NULL, CHRDEV, DEV_T(KBDEV_DEV_MAJOR, 0));

@@ -8,7 +8,7 @@
 #include <sync/spinlock.h>
 #include <termios.h>
 
-#define NTTY    8
+#define NTTY    256
 
 typedef struct termios termios_t;
 
@@ -45,11 +45,11 @@ typedef struct tty_attr {
 //    for use with tty->t_flags     |
 ////////////////////////////////////
 
-#define T_OPEN          0x001 // tty is opened.
-#define T_BUSY          0x002 // tty is busy.
-#define T_ESC           0x004 // escape is set.
-#define T_CSI           0x008 // processing CSI.
-#define T_DIRTY         0x010 // buffer is dirty.
+#define TF_OPEN          0x001 // tty is opened.
+#define TF_BUSY          0x002 // tty is busy.
+#define TF_ESC           0x004 // escape is set.
+#define TF_CSI           0x008 // processing CSI.
+#define TF_DIRTY         0x010 // buffer is dirty.
 
 struct tty;
 

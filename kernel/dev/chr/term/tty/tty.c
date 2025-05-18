@@ -200,28 +200,36 @@ static int get_tty(devid_t *dd, tty_t **ptp) {
     return 0;
 }
 
-static int tty_probe(struct devid *dd __unused) {
+static int tty_probe(struct devid *) {
     return 0;
 }
 
-static int tty_fini(struct devid *dd __unused) {
+static int tty_fini(struct devid *) {
     return 0;
 }
 
 static int tty_close(struct devid *dd) {
     tty_t *tp;
-    int err = get_tty(dd, &tp);
 
+    int err = get_tty(dd, &tp);
     if (err != 0) {
         return err;
     }
 
-    if (tp->t_ops.close == NULL) {
+    if (!(tp->t_flags & TF_OPEN)) {
+        tty_unlock(tp);
+        return -ENOTTY;
+    }
+
+    if (!tp->t_ldisc || !tp->t_ldisc->close) {
         tty_unlock(tp);
         return -ENOSYS;
     }
 
-    tp->t_ops.close(tp);
+    tp->t_ldisc->close(tp);
+
+    tp->t_flags &= ~TF_OPEN;
+
     tty_unlock(tp);
     return 0;
 }
@@ -233,20 +241,22 @@ static int tty_open(struct devid *dd, inode_t **) {
         return err;
     }
 
-    if (tp->t_ops.open == NULL) {
+    if (!tp->t_ldisc || !tp->t_ldisc->open) {
         tty_unlock(tp);
         return -ENOSYS;
     }
 
-    tp->t_flags |= T_OPEN;
+    err = tp->t_ldisc->open(tp);
+    if (err == 0) {
+        tp->t_flags |= TF_OPEN;
+    }
 
-    tp->t_ops.open(tp);
     tty_unlock(tp);
     return 0;
 }
 
 static int tty_mmap(struct devid *, vmr_t *) {
-    return -ENOSYS;
+    return -EINVAL;
 }
 
 static int tty_getinfo(struct devid *, void *) {
@@ -254,7 +264,7 @@ static int tty_getinfo(struct devid *, void *) {
 }
 
 static off_t tty_lseek(struct devid *, off_t, int) {
-    return -ENOSYS;
+    return -EOPNOTSUPP;
 }
 
 static int tty_ioctl(struct devid *dd, int request, void *arg) {
@@ -265,14 +275,19 @@ static int tty_ioctl(struct devid *dd, int request, void *arg) {
         return err;
     }
 
-    if (tp->t_ops.ioctl == NULL) {
+    if (!(tp->t_flags & TF_OPEN)) {
+        tty_unlock(tp);
+        return -ENOTTY;
+    }
+
+    if (!tp->t_ldisc || !tp->t_ldisc->ioctl) {
         tty_unlock(tp);
         return -ENOSYS;
     }
 
-    tp->t_ops.ioctl(tp, request, arg);
+    err = tp->t_ldisc->ioctl(tp, request, arg);
     tty_unlock(tp);
-    return -ENOSYS;
+    return err;
 }
 
 static ssize_t tty_read(struct devid *dd, off_t, void *buf, size_t nbyte) {
@@ -283,7 +298,7 @@ static ssize_t tty_read(struct devid *dd, off_t, void *buf, size_t nbyte) {
         return ret;
     }
 
-    if (!(tp->t_flags & T_OPEN)) {
+    if (!(tp->t_flags & TF_OPEN)) {
         tty_unlock(tp);
         return -ENOTTY;
     }
@@ -306,7 +321,7 @@ static ssize_t tty_write(struct devid *dd, off_t, void *buf, size_t nbyte) {
         return ret;
     }
 
-    if (!(tp->t_flags & T_OPEN)) {
+    if (!(tp->t_flags & TF_OPEN)) {
         tty_unlock(tp);
         return -ENOTTY;
     }
