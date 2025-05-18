@@ -96,8 +96,6 @@ static tty_ops_t console_ops = {
     .redraw_cursor  = console_redraw_cursor,
 };
 
-tty_t *console = NULL;
-
 void console_putc(int c) {
     cga_putc(c);
     uart_putc(c);
@@ -683,24 +681,49 @@ static isize console_write(tty_t *tp, const char *buf, usize count) {
     return written;
 }
 
-int console_init(void) {
-    int err = tty_create("console", 1, &console_ops, &ldisc_X_TTY, &console);
-
+int console_create(int tty_minor, tty_t **ref) {
+    char tty_name[32] = {0};
+    
+    sprintf(tty_name, "tty%d", tty_minor);
+    
+    tty_t *console = NULL;
+    int err = tty_create(tty_name, tty_minor, &console_ops, &ldisc_X_TTY, &console);
     if (err != 0) {
         return err;
     }
-
+    
     console->t_default_attrib.ta_backg = 0;
     console->t_default_attrib.ta_foreg = 0x7;
     console->t_attrib = console->t_default_attrib;
-
+    
     console->t_winsize.ws_col = 80;
     console->t_winsize.ws_row = 25;
-
+    
     err = device_register(console->t_dev);
     if (err != 0) {
         tty_free(console);
         return err;
+    }
+
+    *ref = console;
+
+    return 0;
+}
+
+int console_init(void) {
+    for (int tty = 1; tty <= 8; ++tty) {
+        tty_t *tp = NULL;
+        int err = console_create(tty, &tp);
+        if (err) {
+            return err;
+        }
+
+        err = tty_register(tty, tp);
+        if (err) {
+            device_unregister(&tp->t_dev->devid);
+            tty_free(tp);
+            return err;
+        }
     }
 
     return 0;

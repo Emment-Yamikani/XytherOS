@@ -482,14 +482,14 @@ int x_tty_ioctl(tty_t *, int, void *) {
 void x_tty_set_termios(tty_t *tp, struct termios *old);
 
 ldisc_t ldisc_X_TTY = {
-    .name        = "x_TTY",
-    .magic       = 0x797474,
-    .open        = x_tty_open,
-    .close       = x_tty_close,
-    .read        = x_tty_read,
-    .receive_buf = x_tty_receive_buf,
-    .flush_buffer = x_tty_flush_buffer,
-    .chars_in_buffer = x_tty_chars_in_buffer,
-    .write      = x_tty_write,
-    .ioctl      = x_tty_ioctl,
+    .name           = "x_TTY",
+    .magic          = 0x797474,
+    .open           = x_tty_open,
+    .close          = x_tty_close,
+    .read           = x_tty_read,
+    .write          = x_tty_write,
+    .ioctl          = x_tty_ioctl,
+    .receive_buf    = x_tty_receive_buf,
+    .flush_buffer   = x_tty_flush_buffer,
+    .chars_in_buffer= x_tty_chars_in_buffer,
 };

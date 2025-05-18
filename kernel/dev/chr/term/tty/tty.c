@@ -170,6 +170,16 @@ int tty_create(const char *name, devno_t minor, tty_ops_t *ops, ldisc_t *ldisc, 
     return 0;
 }
 
+int tty_register(int minor, tty_t *tp) {
+    if (tp == NULL || !valid_devno(minor, MAX_MINOR)) {
+        return -EINVAL;
+    }
+
+    ttys[minor] = tp;
+
+    return 0;
+}
+
 static int tty_init(void) {
 
     memset(ttys, 0, sizeof ttys);
@@ -181,15 +191,23 @@ static int tty_init(void) {
 
     tty_t *tty;
     err = tty_create("tty0", 0, NULL, NULL, &tty);
-    if (err)  return err;
+    if (err) {
+        return err;
+    }
 
     err = device_register(tty->t_dev);
-    if (err) return err;
+    if (err) {
+        return err;
+    }
+
+    ttys[0] = tty;
 
     err = console_init();
-    if (err) return err;
+    if (err) {
+        return err;
+    }
 
-    active_tty = ttys[1] = console;
+    active_tty = ttys[1];
 
     return 0;
 } BUILTIN_DEVICE(tty, tty_init, NULL, NULL);

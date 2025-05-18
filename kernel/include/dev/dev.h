@@ -199,7 +199,7 @@ extern int  find_bdev_by_name(const char *name, struct devid *dd);
 extern int  find_cdev_by_name(const char *name, struct devid *dd);
 
 extern int  device_register(device_t *dev);
-extern int  dev_unregister(struct devid *dd);
+extern int  device_unregister(struct devid *dd);
 
 extern void device_destroy(device_t *dev);
 extern int  kdevice_create(const char *dev_name, int type, dev_t devid, const devops_t *devops, device_t **pdp);

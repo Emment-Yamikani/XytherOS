@@ -301,7 +301,7 @@ int device_register(device_t *dev) {
     return 0;
 }
 
-int dev_unregister(struct devid *dd) {
+int device_unregister(struct devid *dd) {
     device_t       *dev;
     device_table_t *table;
 

@@ -111,7 +111,6 @@ typedef struct tty {
 } tty_t;
 
 extern tty_t *active_tty;
-extern tty_t *console;
 
 #define tty_assert(tp)                  ({ assert(tp, "Invalid tty."); })
 #define tty_init_lock(tp)               ({ tty_assert(tp); spinlock_init(&(tp)->t_lock); })
@@ -135,4 +134,5 @@ extern int  tty_receive_input(tty_t *tp, void *data);
 extern int  tty_create(const char *name, devno_t minor, tty_ops_t *ops, ldisc_t *ldisc, tty_t **ptp);
 
 extern void tty_switch(int tty);
+extern int tty_register(int tty, tty_t *tp);
 extern tty_t *tty_current(void);

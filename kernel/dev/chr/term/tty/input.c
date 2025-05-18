@@ -384,14 +384,14 @@ int tty_receive_input(tty_t *tp, void *data) {
         return -EINVAL;
     }
 
-    if (event->vt_key == VT_KEY_NONE || event->vt_key >= VT_KEY_MAX) {
+    if (event->ev_vt_key == VT_KEY_NONE || event->ev_vt_key >= VT_KEY_MAX) {
         return -EINVAL;
     }
 
     if (event->ev_flags & EV_MAKE) {
-        return process_key(tp, event->vt_key);
+        return process_key(tp, event->ev_vt_key);
     } else {
-        key_released(event->vt_key);
+        key_released(event->ev_vt_key);
     }
     return 0;
 }
@@ -401,7 +401,7 @@ void tty_input(void) {
     tty_t *tp = NULL;
     kbd_event_t event;
 
-    while (device_open(kbdev, NULL)) { // try to open the keyboard event.
+    while (device_open(kbdev, NULL)) { // try to open the keyboard event.rv_
         sched_yield();
     }
     
@@ -417,14 +417,14 @@ void tty_input(void) {
             continue;
         }
 
-        if (event.vt_key == VT_KEY_NONE || event.vt_key >= VT_KEY_MAX) {
+        if (event.ev_vt_key == VT_KEY_NONE || event.ev_vt_key >= VT_KEY_MAX) {
             continue;
         }
 
         if (event.ev_flags & EV_MAKE) {
-            process_key(tp, event.vt_key);
+            process_key(tp, event.ev_vt_key);
         } else {
-            key_released(event.vt_key);
+            key_released(event.ev_vt_key);
         }
     }
 }
