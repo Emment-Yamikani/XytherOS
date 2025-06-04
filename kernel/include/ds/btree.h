@@ -30,8 +30,9 @@ typedef struct btree_node {
 } btree_node_t;
 
 typedef struct btree {
-    btree_node_t    *root;
+    queue_t         traversal_queue;
     size_t          nr_nodes;
+    btree_node_t    *root;
     spinlock_t      lock;
 } btree_t;
 
@@ -44,6 +45,7 @@ typedef struct btree {
 #define btree_lock(btree)           ({ btree_assert(btree); spin_lock(&(btree)->lock); })
 #define btree_unlock(btree)         ({ btree_assert(btree); spin_unlock(&(btree)->lock); })
 #define btree_islocked(btree)       ({ btree_assert(btree); spin_islocked(&(btree)->lock); })
+#define btree_recursive_lock(btree) ({ btree_assert(btree); spin_recursive_lock(&(btree)->lock); })
 #define btree_assert_locked(btree)  ({ btree_assert(btree); spin_assert_locked(&(btree)->lock); })
 
 #define btree_nr_nodes(btree)       ({ btree_assert_locked(btree); ((btree)->nr_nodes); })
@@ -52,6 +54,7 @@ typedef struct btree {
 #define btree_node_isleft(node)     ({ (node)->parent ? ((node)->parent->left == (node)) ? 1 : 0 : 0; })
 #define btree_node_isright(node)    ({ (node)->parent ? ((node)->parent->right == (node)) ? 1 : 0 : 0; })
 
+extern int btree_init(btree_t *btree);
 void btree_free(btree_t *btree);
 int btree_alloc(btree_t **pbtree);
 
@@ -90,6 +93,8 @@ void *btree_largest(btree_t *btree);
 */
 void btree_delete(btree_t *btree, btree_key_t key);
 
+void btree_delete_node(btree_t *btree, btree_node_t *node);
+
 /**
  * @brief btree_search
 */
@@ -105,9 +110,28 @@ btree_node_t *btree_lookup(btree_t *btree, btree_key_t key);
 */
 int btree_insert(btree_t *btree, btree_key_t key, void *data);
 
-int btree_node_traverse(btree_node_t *tree, queue_t *queue);
-
 int btree_traverse(btree_t *tree, queue_t *queue);
+
+int btree_traverse_inorder(btree_node_t *node, int (*cb)(void *item, void *arg), void *arg);
 
 int btree_flush(btree_t *btree);
 int btree_flush_node(btree_node_t *node);
+
+/**
+ * @brief THIS IS AN IMPLEMENTATION OF AN ITERATOR OVER THE BINARY TREE
+ * 
+ */
+
+#include <ds/iter.h>
+
+extern int btree_iter_init(btree_t *tree, iter_t *iter);
+extern int btree_iter_next(iter_t *iter, void **item);
+extern void btree_iter_destory(iter_t *iter);
+extern int btree_iter_create(btree_t *tree, iter_t **riter);
+extern int btree_iter_reverse_next(iter_t *iter, void **item);
+
+#define btree_foreach_item(item, iter, tree) \
+    iter_foreach_item(item, iter, btree_iter_init, tree)
+
+#define btree_foreach_item_reverse(item, iter, tree) \
+    iter_foreach_item_reverse(item, iter, btree_iter_init, tree)

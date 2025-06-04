@@ -61,6 +61,11 @@ void queue_flush(queue_t *queue) {
     queue->head = NULL;
 }
 
+bool queue_empty(queue_t *queue) {
+    queue_assert_locked(queue);
+    return queue_length(queue) ? false : true;
+}
+
 void queue_free(queue_t *queue) {
     queue_recursive_lock(queue);
     queue_flush(queue);

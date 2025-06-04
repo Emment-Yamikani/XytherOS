@@ -109,6 +109,8 @@ extern int queue_alloc(queue_t **pqp);
 // returns the number of items currently on the queue specified by param 'queue'.
 extern size_t queue_length(queue_t *queue);
 
+extern bool queue_empty(queue_t *queue);
+
 /**
  * @brief Used to take a peek at the front
  * or back-end of the queue specified by queue.

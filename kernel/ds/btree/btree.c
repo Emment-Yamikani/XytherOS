@@ -3,6 +3,18 @@
 #include <mm/kalloc.h>
 #include <string.h>
 
+int btree_init(btree_t *btree) {
+    if (btree == NULL) {
+        return -EINVAL;
+    }
+
+    spinlock_init(&btree->lock);
+    btree->root = NULL;
+    btree->nr_nodes = 0;
+
+    return 0;
+}
+
 int btree_alloc(btree_t **pbtree) {
     int err = 0;
     btree_t *btree = NULL;
@@ -81,7 +93,7 @@ done:
     return 0;
 }
 
-static void btree_delete_node(btree_t *btree, btree_node_t *node) {
+void btree_delete_node(btree_t *btree, btree_node_t *node) {
     btree_node_t *parent = NULL, *left = NULL, *right = NULL;
 
     if (btree == NULL)
@@ -92,8 +104,8 @@ static void btree_delete_node(btree_t *btree, btree_node_t *node) {
     if (node == NULL)
         return;
 
-    left = node->left;
-    right = node->right;
+    left   = node->left;
+    right  = node->right;
     parent = node->parent;
 
     if (node == btree->root)
@@ -220,7 +232,7 @@ void *btree_largest(btree_t *btree) {
     return node->data;
 }
 
-int btree_node_traverse(btree_node_t *node, queue_t *queue) {
+static int btree_node_traverse(btree_node_t *node, queue_t *queue) {
     int err = 0;
 
     queue_assert_locked(queue);
@@ -243,7 +255,29 @@ int btree_traverse(btree_t *btree, queue_t *queue) {
     queue_assert_locked(queue);
     if (btree == NULL || queue == NULL)
         return -EINVAL;
-    return btree_node_traverse(btree->root, queue);
+    
+    int err = btree_node_traverse(btree->root, queue);
+    if (err != 0) {
+        queue_flush(queue);
+    }
+    return err;
+}
+
+int btree_traverse_inorder(btree_node_t *node, int (*cb)(void *item, void *arg), void *arg) {
+    if (!node || !cb) {
+        return -EINVAL;
+    }
+
+    if (node) {
+        btree_assert_locked(node->btree);
+        btree_traverse_inorder(node->left, cb, arg);
+        int err = cb(node->data, arg);
+        if (err != 0)
+            return err;
+        btree_traverse_inorder(node->right, cb, arg);
+    }
+
+    return 0;
 }
 
 int btree_flush_node(btree_node_t *node) {
