@@ -20,6 +20,8 @@
  */
 typedef struct iter { queue_t queue; } iter_t;
 
+#define ITER(__name) iter_t *__name = &(iter_t){0}
+
 /**
  * @typedef iter_init_cb_t
  * @brief Initialization callback for populating the iterator.

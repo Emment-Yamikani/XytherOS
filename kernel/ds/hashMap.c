@@ -8,31 +8,41 @@ static inline hashKey default_hash(hashMap *map, const void *key) {
     return (hashKey)sha256_index((const char *)key, map->capacity);
 }
 
-static inline bool match_keys(const void *key0, const void *key1) {
+static inline bool default_match_keys(const void *key0, const void *key1) {
     return string_eq((const char *)key0, (const char *)key1);
 }
 
-static inline void *default_copy_key(const void *key) {
-    return strdup((const char *)key);
+static inline int default_copy_key(const void *key, void **ref) {
+    if (!key || !ref) {
+        return -EINVAL;
+    }
+
+    void *copy = strdup((const char *)key);
+    if (copy == NULL) {
+        return -ENOMEM;
+    }
+
+    *ref = copy;
+    return 0;
 }
 
 static inline void default_destroy_key(void *key) {
     kfree(key);
 }
 
-int hashMap_init(hashMap *map, hashMapCtx *ctx) {
+int hashMap_init(hashMap *map, hashMapContext *ctx) {
     if (!map) {
         return -EINVAL;
     }
 
     map->size       = 0;
     map->capacity   = HASHMAP_SIZE;
-    map->context    = ctx ? *ctx : (hashMapCtx){0};
+    map->context    = ctx ? *ctx : (hashMapContext){0};
     spinlock_init(&map->lock);
     return btree_init(&map->bucket_tree);
 }
 
-int hashMap_alloc(hashMapCtx *ctx, hashMap **ref) {
+int hashMap_alloc(hashMapContext *ctx, hashMap **ref) {
     if (!ref) {
         return -EINVAL;
     }
@@ -52,7 +62,7 @@ int hashMap_alloc(hashMapCtx *ctx, hashMap **ref) {
     return 0;
 }
 
-void hashEntry_destroy(hashMapCtx *ctx, hashEntry *entry) {
+void hashEntry_destroy(hashMapContext *ctx, hashEntry *entry) {
     if (entry == NULL) {
         return;
     }
@@ -66,7 +76,7 @@ void hashEntry_destroy(hashMapCtx *ctx, hashEntry *entry) {
     kfree(entry);
 }
 
-int hashEntry_alloc(hashMapCtx *ctx, const void *key, void *value, hashEntry **ref) {
+int hashEntry_alloc(hashMapContext *ctx, const void *key, void *value, hashEntry **ref) {
 
     if (!key || !ref) {
         return -EINVAL;
@@ -77,10 +87,10 @@ int hashEntry_alloc(hashMapCtx *ctx, const void *key, void *value, hashEntry **r
         return -ENOMEM;
     }
 
-    entry->key = (ctx->copy ? ctx->copy : default_copy_key)(key);
-    if (entry->key == NULL) {
+    int err = HASHCTX_GET_FUNC(ctx, copy, default_copy_key)(key, &entry->key);
+    if (err != 0) {
         kfree(entry);
-        return -ENOMEM;
+        return err;
     }
 
     entry->value = value;
@@ -90,15 +100,36 @@ int hashEntry_alloc(hashMapCtx *ctx, const void *key, void *value, hashEntry **r
     return 0;
 }
 
+int hashMap_duplicate_entry(hashMapContext *ctx, hashEntry *entry, hashEntry **ref) {
+    if (!entry || !ref) {
+        return -EINVAL;
+    }
+
+    hashEntry *new_entry = kzalloc(sizeof *new_entry);
+    if (new_entry == NULL) {
+        return -ENOMEM;
+    }
+
+    int err = HASHCTX_GET_FUNC(ctx, copy, default_copy_key)(entry->key, &new_entry->key);
+    if (err != 0) {
+        kfree(new_entry);
+        return err;
+    }
+
+    new_entry->value = entry->value;
+    *ref = new_entry;
+    return 0;
+}
+
 int hashMap_insert_entry(hashMap *map, hashEntry *entry) {
     hashMap_assert_locked(map);
     
     btree_lock(&map->bucket_tree);
 
-    const usize idx = (map->context.hash ? map->context.hash : default_hash)(map, entry->key);
+    const hashKey hash_key = HASHCTX_GET_FUNC(&map->context, hash, default_hash)(map, entry->key);
 
     hashEntry *head, *tail = NULL;
-    int err = btree_search(&map->bucket_tree, idx, (void **)&head);
+    int err = btree_search(&map->bucket_tree, hash_key, (void **)&head);
     if (err == 0) { // there is an item already.
         forlinked(node, head, node->next) {
             tail = node;
@@ -106,7 +137,7 @@ int hashMap_insert_entry(hashMap *map, hashEntry *entry) {
 
         tail->next = entry;
     } else if (err == -ENOENT) {
-        err = btree_insert(&map->bucket_tree, idx, (void *)entry);
+        err = btree_insert(&map->bucket_tree, hash_key, (void *)entry);
     }
 
     btree_unlock(&map->bucket_tree);
@@ -145,13 +176,15 @@ int hashMap_lookup_entry(hashMap *map, const void *key, hashEntry **ref) {
 
     hashMap_assert_locked(map);
 
-    hashEntry *head;
     btree_lock(&map->bucket_tree);
-    const usize idx = (map->context.hash ? map->context.hash : default_hash)(map, key);
-    int err = btree_search(&map->bucket_tree, idx, (void **)&head);
+    
+    const hashKey hash_key = HASHCTX_GET_FUNC(&map->context, hash, default_hash)(map, key);
+    
+    hashEntry *head;
+    int err = btree_search(&map->bucket_tree, hash_key, (void **)&head);
     if (err == 0) {
         forlinked(entry, head, entry->next) {
-            if ((map->context.compare ? map->context.compare : match_keys)(entry->key, key)) {
+            if ((map->context.compare ? map->context.compare : default_match_keys)(entry->key, key)) {
                 if (ref != NULL) {
                     *ref = entry;
                 }
@@ -184,16 +217,121 @@ int hashMap_lookup(hashMap *map, const void *key, void **ref) {
     return -ENOENT;
 }
 
+int hashMap_migrate_entry(hashMap *dst_map, hashMap *src_map, void *key) {
+    if (!dst_map || !src_map || !key) {
+        return -EINVAL;
+    }
+
+    hashMap_assert_locked(dst_map);
+    hashMap_assert_locked(src_map);
+
+    // Lookup the entry in the source map
+    hashEntry *entry;
+    int err = hashMap_lookup_entry(src_map, key, &entry);
+    if (err != 0) {
+        return err;
+    }
+
+    // Remove the entry from the source map
+    err = hashMap_remove_entry(src_map, entry);
+    if (err != 0) {
+        return err;
+    }
+
+    // Re-insert the entry into the destination map
+    err = hashMap_insert_entry(dst_map, entry);
+    if (err != 0) {
+        // If re-insertion fails, put it back in the source map
+        hashMap_insert_entry(src_map, entry);
+        return err;
+    }
+
+    return 0;
+}
+
+int hashMap_update(hashMap *map, const void *key, void *new_value) {
+    if (!map || !key || !new_value) {
+        return -EINVAL;
+    }
+
+    hashMap_assert_locked(map);
+
+    hashEntry *entry;
+    int err = hashMap_lookup_entry(map, key, &entry);
+    if (err != 0) {
+        return err;
+    }
+
+    entry->value = new_value;
+    return 0;
+}
+
+/**
+ * @brief Clones a single hash entry and inserts it into a destination hash map.
+ *
+ * @param src_map Source hash map (must be locked).
+ * @param entry The hash entry to clone.
+ * @param dst_map Destination hash map (must be locked).
+ * @return 0 on success, or a negative error code.
+ */
+static int hashMap_clone_iter(hashMap *src_map, hashEntry *entry, void *dst_map) {
+    if (!src_map || !entry || !dst_map) {
+        return -EINVAL;
+    }
+
+    hashEntry *new_entry;
+    int err = hashMap_duplicate_entry(&src_map->context, entry, &new_entry);
+    if (err != 0) {
+        return err;
+    }
+
+    err = hashMap_insert_entry((hashMap *)dst_map, new_entry);
+    if (err != 0) {
+        hashEntry_destroy(&((hashMap *)dst_map)->context, new_entry);
+        return err;
+    }
+
+    return 0;
+}
+
+int hashMap_clone(hashMap *src_map, hashMap **ref) {
+    if (!src_map || !ref) {
+        return -EINVAL;
+    }
+
+    hashMap_assert_locked(src_map);
+
+    hashMap *dst_map;
+    int err = hashMap_alloc(&src_map->context, &dst_map);
+    if (err != 0) {
+        return err;
+    }
+
+    hashMap_lock(dst_map);
+
+    dst_map->capacity = src_map->capacity;
+
+    err = hashMap_into_iter(src_map, hashMap_clone_iter, dst_map);
+    if (err != 0) {
+        hashMap_free(dst_map);
+        return err;
+    }
+
+    hashMap_unlock(dst_map);
+    *ref = dst_map;
+    return 0;
+}
+
 static bool hashMap_match_by_ptr(hashMap *, const hashEntry *entry, const void *arg) {
     return entry == (const hashEntry *)arg;
 }
 
 static bool hashMap_match_by_key(hashMap *map, const hashEntry *entry, const void *arg) {
-    return (map->context.compare ? map->context.compare : match_keys)(entry->key, arg);
+    return HASHCTX_GET_FUNC(&map->context, compare, default_match_keys)(entry->key, arg);
 }
 
-typedef bool (*match_t)(hashMap *, const hashEntry *, const void *arg);
-static int hashMap_remove_internal(hashMap *map, btree_key_t btkey, match_t match, const void *arg) {
+typedef bool (*hashMap_match_entry_fn_t)(hashMap *, const hashEntry *, const void *arg);
+static int hashMap_remove_internal_entry(hashMap *map, btree_key_t btkey, hashMap_match_entry_fn_t match, const void *arg, bool destory_entry) {
     if (!map || !match) {
         return -EINVAL;
     }
@@ -239,22 +377,25 @@ static int hashMap_remove_internal(hashMap *map, btree_key_t btkey, match_t matc
 
     map->size--;
 
-    hashEntry_destroy(&map->context, entry);
+    if (destory_entry) {
+        hashEntry_destroy(&map->context, entry);
+    }
+
     return 0;
 }
 
 int hashMap_remove_entry(hashMap *map, hashEntry *target) {
     if (!map || !target) return -EINVAL;
 
-    btree_key_t btkey = (map->context.hash ? map->context.hash : default_hash)(map, target->key);
-    return hashMap_remove_internal(map, btkey, hashMap_match_by_ptr, target);
+    const hashKey hash_key = HASHCTX_GET_FUNC(&map->context, hash, default_hash)(map, target->key);
+    return hashMap_remove_internal_entry(map, hash_key, hashMap_match_by_ptr, target, false);
 }
 
 int hashMap_remove(hashMap *map, const void *key) {
     if (!map || !key) return -EINVAL;
 
-    btree_key_t btkey = (map->context.hash ? map->context.hash : default_hash)(map, key);
-    return hashMap_remove_internal(map, btkey, hashMap_match_by_key, key);
+    const hashKey hash_key = HASHCTX_GET_FUNC(&map->context, hash, default_hash)(map, key);
+    return hashMap_remove_internal_entry(map, hash_key, hashMap_match_by_key, key, true);
 }
 
 size_t hashMap_size(hashMap *map) {
@@ -267,14 +408,17 @@ size_t hashMap_capacity(hashMap *map) {
     return map->capacity;
 }
 
-static int hashMap_iter_init_internal(void *item, void *arg) {
-    hashEntry *head = item; queue_t *queue = arg;
+static int hashMap_iter_common_internal(void *item, void *arg, bool use_values) {
+    hashEntry   *head   = item;
+    queue_t     *queue  = arg;
+
     if (!head || !queue) {
         return -EINVAL;
     }
 
     forlinked(entry, head, entry->next) {
-        int err = enqueue(queue,(void *)entry, QUEUE_UNIQUE, NULL);
+        void *data = use_values ? entry->value : (void *)entry;
+        int err = enqueue(queue, data, QUEUE_UNIQUE, NULL);
         if (err != 0) {
             queue_flush(queue);
             return err;
@@ -284,7 +428,15 @@ static int hashMap_iter_init_internal(void *item, void *arg) {
     return 0;
 }
 
-int hashMap_iter_init(hashMap *map, iter_t *iter) {
+static int hashMap_iter_value_init_internal(void *item, void *arg) {
+    return hashMap_iter_common_internal(item, arg, true);
+}
+
+static int hashMap_iter_init_internal(void *item, void *arg) {
+    return hashMap_iter_common_internal(item, arg, false);
+}
+
+static int hashMap_iter_init_impl(hashMap *map, iter_t *iter, bool use_values) {
     if (!map || !iter) {
         return -EINVAL;
     }
@@ -292,31 +444,55 @@ int hashMap_iter_init(hashMap *map, iter_t *iter) {
     hashMap_assert_locked(map);
 
     btree_lock(&map->bucket_tree);
-    int err = btree_traverse_inorder(map->bucket_tree.root,
-        hashMap_iter_init_internal, &iter->queue);
+    int (*iter_cb)(void *, void *) = use_values ? hashMap_iter_value_init_internal : hashMap_iter_init_internal;
+    int err = btree_traverse_inorder(map->bucket_tree.root, iter_cb, &iter->queue);
     btree_unlock(&map->bucket_tree);
 
     return err;
 }
 
-int hashMap_into_iter(hashMap *map, btree_node_t *node, hashMap_iter_cb_t cb, void *arg) {
+int hashMap_iter_init(hashMap *map, iter_t *iter) {
+    return hashMap_iter_init_impl(map, iter, false); // false → enqueue entry
+}
+
+int hashMap_iter_value_init(hashMap *map, iter_t *iter) {
+    return hashMap_iter_init_impl(map, iter, true); // true → enqueue entry->value
+}
+
+static int hashMap_into_iter_internal(hashMap *map, void *target, hashMap_iter_cb_t cb, void *arg) {
     if (cb == NULL) {
         return -EINVAL;
     }
 
+    btree_node_t *node = (btree_node_t *)target;
     if (node != NULL) {
         btree_assert_locked(node->btree);
-        hashMap_into_iter(map, node->left, cb, arg);
+        hashMap_into_iter_internal(map, node->left, cb, arg);
         hashEntry *head = node->data, *next;
         btree_node_t *right = node->right;
         forlinked(entry, head, next) {
-            next = entry->next;
+            next    = entry->next;
             int err = cb(map, entry, arg);
             if (err != 0) return err;
         }
-        hashMap_into_iter(map, right, cb, arg);
+        hashMap_into_iter_internal(map, right, cb, arg);
     }
     return 0;
+}
+
+int hashMap_into_iter(hashMap *map, hashMap_iter_cb_t cb, void *arg) {
+    if (!map || !cb) {
+        return -EINVAL;
+    }
+
+    hashMap_assert_locked(map);
+
+    btree_lock(&map->bucket_tree);
+    btree_node_t *root = map->bucket_tree.root;
+    int err = hashMap_into_iter_internal(map, root, cb, arg);
+    btree_unlock(&map->bucket_tree);
+
+    return err;
 }
 
 static inline int hashEntry_detach_and_destroy_entry(hashMap *map, hashEntry *entry, void *) {
@@ -330,10 +506,7 @@ void hashMap_flush(hashMap *map) {
 
     hashMap_assert_locked(map);
 
-    btree_lock(&map->bucket_tree);
-    hashMap_into_iter(map, map->bucket_tree.root,    
-        hashEntry_detach_and_destroy_entry, NULL);
-    btree_unlock(&map->bucket_tree);
+    hashMap_into_iter(map, hashEntry_detach_and_destroy_entry, NULL);
 }
 
 void hashMap_free(hashMap *map) {
@@ -347,4 +520,21 @@ void hashMap_free(hashMap *map) {
     hashMap_unlock(map);
 
     kfree(map);
+}
+
+static int hashEntry_dump_raw(hashMap *, hashEntry *entry, void *) {
+    if (entry == NULL) {
+        return -EINVAL;
+    }
+
+    printk("[key: %p: value: %p]\n", entry->key, entry->value);
+
+    return 0;
+}
+
+void hashMap_dump(hashMap *map) {
+    hashMap_assert_locked(map);
+
+    hashMap_iter_cb_t dumper = map->context.dump ? map->context.dump : hashEntry_dump_raw;
+    hashMap_into_iter(map, dumper, NULL);
 }
