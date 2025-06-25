@@ -8,20 +8,20 @@
 #include <limits.h>
 #include <xytherOs_string.h>
 
-#define MAX_CMD_LEN 1024
-#define MAX_ARGS 16
-#define HISTORY_SIZE 10
+#define MAX_CMD_LEN     4096
+#define MAX_ARGS        256
+#define HISTORY_SIZE    20
 
-atomic_int shell_tid = 0;
-atomic_int shell_die = true;
-atomic_int shell_dead = true;
+atomic_int shell_tid    = 0;
+atomic_int shell_die    = true;
+atomic_int shell_dead   = true;
 
 /* Shell command history */
 static char *cmd_history[HISTORY_SIZE];
 static int history_index = 0;
 static int history_count = 0;
 
-void *kernel_shell(void *);
+static void *kernel_shell(void *);
 
 /* TTY device handling */
 static devid_t *tty = DEVID_PTR(NULL, CHRDEV, DEV_T(TTY_DEV_MAJOR, 0));
@@ -45,7 +45,7 @@ void tty_read(char *buf, size_t nb) {
 static void print_prompt(void) {
     char prompt[64];
     int tid = gettid();
-    snprintf(prompt, sizeof(prompt), "[\e[32mxytherOS:%d\e[m $] ", tid);
+    snprintf(prompt, sizeof(prompt) - 1, "[\e[32mxytherOS:%d\e[m $] ", tid);
     tty_write(prompt);
 }
 
@@ -81,14 +81,15 @@ static void get_cmd(char *buf, size_t size) {
 }
 
 static void add_to_history(const char *cmd) {
-    if (history_count > 0 && xytherOs_string_eq(cmd, cmd_history[(history_index - 1) % HISTORY_SIZE])) {
+    const int index = history_index - (history_index ? 1 : 0);
+    if (history_count > 0 && xytherOs_string_eq(cmd, cmd_history[index % HISTORY_SIZE])) {
         return;  /* Don't add duplicate consecutive commands */
     }
-    
+
     if (cmd_history[history_index % HISTORY_SIZE]) {
         kfree(cmd_history[history_index % HISTORY_SIZE]);
     }
-    
+
     cmd_history[history_index % HISTORY_SIZE] = xytherOs_strdup(cmd);
     history_index = (history_index + 1) % HISTORY_SIZE;
     if (history_count < HISTORY_SIZE) history_count++;
@@ -100,7 +101,7 @@ static void show_history(void) {
     
     for (int i = 0; i < history_count; i++) {
         int idx = (start + i) % HISTORY_SIZE;
-        snprintf(buf, sizeof(buf), "%d: %s\n", i+1, cmd_history[idx]);
+        snprintf(buf, sizeof(buf) - 1, "%d: %s\n", i+1, cmd_history[idx]);
         tty_write(buf);
     }
 }
@@ -160,16 +161,25 @@ static void cmd_show(char **args) {
 }
 
 static void cmd_help(void) {
-    tty_write(
-        "xytherOS Kernel Shell Commands:\n"
-        "  show [mem|threads|devices] - Display system information\n"
+    tty_write("xytherOS Kernel Shell Commands:\n"
+        "  clear                      - Clear the screen\n"
+        "  echo [args...]             - Echo the arguments\n"
+        "  halt [thread]              - Stop execution\n"
+        "  help                       - Show this help\n"
+        "  history                    - Show command history\n"
         "  kill <tid>                 - Terminate a thread\n"
         "  run <name> [args...]       - Start a new thread\n"
-        "  halt [thread]              - Stop execution\n"
-        "  history                    - Show command history\n"
-        "  clear                      - Clear the screen\n"
-        "  help                       - Show this help\n"
+        "  show [mem|threads|devices] - Display system information\n"
     );
+}
+
+static void cmd_echo(char **args) {
+    foreach(arg, &args[1]) {
+        tty_write(arg);
+        tty_write(" ");
+    }
+
+    tty_write("\n"); // Add a NL.
 }
 
 static void cmd_clear(void) {
@@ -219,54 +229,52 @@ static void cmd_run(char **args) {
 
 /* Main command processor */
 static void process_cmd(char **args) {
-    if (!args[0]) return;
+    if (args[0] == NULL) return;
 
     add_to_history(args[0]);
 
     if (xytherOs_string_eq("show", args[0])) {
         cmd_show(args);
-    }
-    else if (xytherOs_string_eq("help", args[0])) {
+    } else if (xytherOs_string_eq("help", args[0])) {
         cmd_help();
-    }
-    else if (xytherOs_string_eq("clear", args[0])) {
+    } else if (xytherOs_string_eq("echo", args[0])) {
+        cmd_echo(args);
+    } else if (xytherOs_string_eq("clear", args[0])) {
         cmd_clear();
-    }
-    else if (xytherOs_string_eq("kill", args[0])) {
+    } else if (xytherOs_string_eq("kill", args[0])) {
         cmd_kill(args);
-    }
-    else if (xytherOs_string_eq("run", args[0])) {
+    } else if (xytherOs_string_eq("run", args[0])) {
         cmd_run(args);
-    }
-    else if (xytherOs_string_eq("history", args[0])) {
+    } else if (xytherOs_string_eq("history", args[0])) {
         show_history();
-    }
-    else {
+    } else {
         char err_msg[128];
-        snprintf(err_msg, sizeof(err_msg), "%s: command not found\n", args[0]);
+        snprintf(err_msg, sizeof(err_msg) - 1, "%s: command not found.\n", args[0]);
         tty_write(err_msg);
     }
 }
 
 /* Shell thread main function */
-void *kernel_shell(void *) {
+static void *kernel_shell(void *) {
     char *cmd_tokens[MAX_ARGS + 1];  /* +1 for NULL terminator */
+
     atomic_store(&shell_tid, gettid());
 
     tty_open();
-    tty_write("xytherOS Kernel Shell\nType 'help' for commands\n");
+    tty_write("xytherOS Kernel Shell\nType 'help' for available commands.\n");
 
     while (!atomic_load(&shell_die)) {
         print_prompt();
         
         char buf[MAX_CMD_LEN] = {0};
-        get_cmd(buf, sizeof buf);
+        get_cmd(buf, sizeof buf - 1);
         /* Tokenize and process command */
-        int token_count = __xytherOs_tokenize_r(buf, " \t\n", cmd_tokens, MAX_ARGS);
+        int token_count = __xytherOs_tokenize_r(buf, " \t\r\n", cmd_tokens, MAX_ARGS);
         if (token_count < 0) {
             tty_write("Error: Memory allocation failed\n");
             continue;
         }
+
         cmd_tokens[token_count] = NULL;  /* Ensure NULL termination */
         
         if (token_count > 0) {

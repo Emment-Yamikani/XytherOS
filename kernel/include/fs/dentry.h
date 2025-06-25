@@ -40,6 +40,7 @@ extern int dalloc(const char *name, dentry_t **pdp);
 extern int dinit(const char *name, dentry_t *dentry);
 
 extern dentry_t *dget(dentry_t *dentry);
+extern void dput(dentry_t *dentry);
 extern int  dopen(dentry_t *dentry);
 extern void dclose(dentry_t *dentry);
 extern int  dunbind(dentry_t *dentry);

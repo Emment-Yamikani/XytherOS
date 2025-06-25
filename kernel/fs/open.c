@@ -7,7 +7,7 @@
 #include <string.h>
 #include <sys/thread.h>
 
-int     vfs_openat(dentry_t *dir, const char *pathname, int oflags, mode_t mode, dentry_t **pdp) {
+int vfs_openat(dentry_t *dir, const char *pathname, int oflags, mode_t mode, dentry_t **pdp) {
     int         err     = 0;
     vfspath_t   *path   = NULL;
 
@@ -74,7 +74,7 @@ error:
     return err;
 }
 
-int     open(const char *pathname, int oflags, mode_t mode) {
+int open(const char *pathname, int oflags, mode_t mode) {
     int         fd      = 0;
     int         err     = 0;
     vfspath_t   *path   = NULL;
@@ -84,8 +84,7 @@ int     open(const char *pathname, int oflags, mode_t mode) {
     if (pathname == NULL)
         return -EINVAL;
 
-    printk("%s:%d: %s(%s, %o, %o);\n",
-        __FILE__, __LINE__, __func__, pathname, oflags, mode);
+    printk("%s:%d: %s(%s, %o, %o);\n", __FILE__, __LINE__, __func__, pathname, oflags, mode);
 
     // open() must only be called by threads.
     current_assert();
@@ -161,7 +160,7 @@ error:
     return err;
 }
 
-int     openat(int fd, const char *pathname, int oflags, mode_t mode) {
+int openat(int fd, const char *pathname, int oflags, mode_t mode) {
     int         err     = 0;
     vfspath_t   *path   = NULL;
     file_t      *file   = NULL;

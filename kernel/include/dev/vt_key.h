@@ -4,7 +4,7 @@
 
 // ────────────── Virtual Key Codes ──────────────
 typedef enum {
-    VT_KEY_NONE = 0,
+    VT_KEY_UNDEF = 0,
 
     // Alphanumeric keys
     VT_KEY_A, VT_KEY_B, VT_KEY_C, VT_KEY_D, VT_KEY_E, VT_KEY_F,

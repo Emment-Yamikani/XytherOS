@@ -213,7 +213,7 @@ int vfspath_parse(const char *pathname, int flags, vfspath_t **rp) {
         }
     }
 
-    if (NULL == (vfspath = (vfspath_t *)kcalloc(1, sizeof *vfspath))) {
+    if (NULL == (vfspath = (vfspath_t *)kzalloc(sizeof *vfspath))) {
         err = -ENOMEM;
         goto error1;
     }
@@ -335,7 +335,7 @@ int vfspath_untokenize(char **tokens, size_t nt, int flags, char **ppath, size_t
             static size_t   off     = 1;    // where to write the next token.
             char            *tmp    = NULL; // for temporal use.
 
-            if (string_eq(token, "/")){
+            if (string_eq(token, "/")) {
                 nt -= 1; // we discard '/'
                 if (nt == 0) path[len - 1] = '\0';
                 continue; // skip the root fs "/".

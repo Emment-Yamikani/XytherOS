@@ -12,9 +12,9 @@
 struct  iops;
 struct  dentry;
 struct  superblock;
-typedef struct superblock superblock_t;
+typedef struct superblock sblock_t;
 struct  filesystem;
-typedef struct filesystem filesystem_t;
+typedef struct filesystem fs_t;
 struct  dirent;
 
 typedef enum {
@@ -64,7 +64,7 @@ typedef struct inode {
     ssize_t         i_refcnt;   // Number of references to this inode.
     ssize_t         i_hlinks;   // Number of hard links to this inode. 
 
-    superblock_t    *i_sb;      // Superblock to while this inode belongs.
+    sblock_t    *i_sb;      // Superblock to while this inode belongs.
     struct iops     *i_ops;     // Filesystem specific inode operations. 
     void            *i_priv;    // Filesystem specific private data.
     icache_t        *i_cache;   // Page cache for this inode.

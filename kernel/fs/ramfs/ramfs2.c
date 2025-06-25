@@ -10,15 +10,15 @@
 
 static iops_t           ramfs2_iops;
 static inode_t          *iroot        = NULL;
-static superblock_t     *ramfs2_sb    = NULL;
+static sblock_t     *ramfs2_sb    = NULL;
 static ramfs2_super_t   *ramfs2_super = NULL;
 // static vmr_ops_t ramfs2_vmr_ops __unused;
 
-static int ramfs_fill_sb(filesystem_t *fs, const char *target, struct devid *devid, superblock_t *sb);
-static int ramfs_getsb(filesystem_t *fs, const char *src, const char *target,
-                        unsigned long flags, void *data, superblock_t **);
+static int ramfs_fill_sb(fs_t *fs, const char *target, struct devid *devid, sblock_t *sb);
+static int ramfs_getsb(fs_t *fs, const char *src, const char *target,
+                        unsigned long flags, void *data, sblock_t **);
 
-filesystem_t ramfs2 = {
+fs_t ramfs2 = {
     .fs_iops        = &ramfs2_iops,
     .fs_id          = 0,
     .fs_count       = 1,
@@ -41,12 +41,12 @@ int ramfs_init(void) {
     return err;
 }
 
-static int ramfs_getsb(filesystem_t *fs, const char *src,
-        const char *target, unsigned long flags, void *data, superblock_t **psb) {
+static int ramfs_getsb(fs_t *fs, const char *src,
+        const char *target, unsigned long flags, void *data, sblock_t **psb) {
     return getsb_bdev(fs, src, target, flags, data, psb, ramfs_fill_sb);
 }
 
-static int ramfs_fill_sb(filesystem_t *fs, const char *target, struct devid *devid, superblock_t *sb) {
+static int ramfs_fill_sb(fs_t *fs, const char *target, struct devid *devid, sblock_t *sb) {
     ssize_t                 err     = 0;
     size_t                  sbsz    = 0;
     ramfs2_super_header_t   hdr     = {0};

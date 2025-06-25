@@ -84,7 +84,7 @@ int     fbind(file_t *dir, struct dentry *dentry, inode_t *file);
 #define NFILE   1024    // file count.
 
 typedef struct file_ctx_t {
-    dentry_t    *fc_cwd;      // current working directory of this file contect.
+    dentry_t    *fc_cwd;      // current working directory of this file context.
     int         fc_fmax;      // file context's allowed maximum for open files.
     dentry_t    *fc_root;     // root directory of this file context.
     int         fc_nfile;     // file context's open file count.
@@ -93,10 +93,10 @@ typedef struct file_ctx_t {
 } file_ctx_t;
 
 #define fctx_assert(fctx)        ({ assert(fctx, "No file table pointer."); })
-#define fctx_lock(fctx)          ({ fassert(fctx); spin_lock(&(fctx)->fc_lock); })
-#define fctx_unlock(fctx)        ({ fassert(fctx); spin_unlock(&(fctx)->fc_lock); })
-#define fctx_islocked(fctx)      ({ fassert(fctx); spin_islocked(&(fctx)->fc_lock); })
-#define fctx_assert_locked(fctx) ({ fassert(fctx); spin_assert_locked(&(fctx)->fc_lock); })
+#define fctx_lock(fctx)          ({ fctx_assert(fctx); spin_lock(&(fctx)->fc_lock); })
+#define fctx_unlock(fctx)        ({ fctx_assert(fctx); spin_unlock(&(fctx)->fc_lock); })
+#define fctx_islocked(fctx)      ({ fctx_assert(fctx); spin_islocked(&(fctx)->fc_lock); })
+#define fctx_assert_locked(fctx) ({ fctx_assert(fctx); spin_assert_locked(&(fctx)->fc_lock); })
 
 int     fctx_alloc(file_ctx_t**ret);
 void    fctx_free(file_ctx_t *fctx);

@@ -6,7 +6,7 @@
 #include <mm/kalloc.h>
 #include <string.h>
 
-static filesystem_t *sysfs = NULL;
+static fs_t *sysfs = NULL;
 
 static iops_t sysfs_iops = {
     .iopen      = sysfs_iopen,
@@ -31,8 +31,8 @@ static iops_t sysfs_iops = {
     .irename    = sysfs_irename,
 };
 
-static int sysfs_fill_sb(filesystem_t *fs __unused, const char *target,
-                         struct devid *devid __unused, superblock_t *sb) {
+static int sysfs_fill_sb(fs_t *fs __unused, const char *target,
+                         struct devid *devid __unused, sblock_t *sb) {
     int         err    = 0;
     inode_t     *iroot = NULL;
     dentry_t    *droot = NULL;
@@ -71,8 +71,8 @@ static int sysfs_fill_sb(filesystem_t *fs __unused, const char *target,
     return 0;
 }
 
-static int sysfs_getsb(filesystem_t *fs, const char *src __unused, const char *target,
-                       unsigned long flags, void *data, superblock_t **psbp) {
+static int sysfs_getsb(fs_t *fs, const char *src __unused, const char *target,
+                       unsigned long flags, void *data, sblock_t **psbp) {
     return getsb_nodev(fs, target, flags, data, psbp, sysfs_fill_sb);
 }
 

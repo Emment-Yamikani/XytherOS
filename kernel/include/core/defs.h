@@ -27,12 +27,16 @@
 
 #define foreach(elem, list)                                             \
     for (typeof(*list) *__tmp__foreach = list,                          \
-        elem = (typeof(elem))(__tmp__foreach ? *__tmp__foreach : NULL); \
+        elem = (typeof(elem))(__tmp__foreach ? *__tmp__foreach : 0); \
         elem; elem = *++__tmp__foreach)
+
+#define foreach_take(elem, list, count)        \
+    for (size_t __i = 0; __i < (count); ++__i) \
+        for (typeof(*(list)) elem = (list)[__i]; elem; elem = 0)
 
 #define foreach_reverse(elem, list)                                     \
     for (typeof(*list) *__tmp__foreach = list,                          \
-        elem = (typeof(elem))(__tmp__foreach ? *__tmp__foreach : NULL); \
+        elem = (typeof(elem))(__tmp__foreach ? *__tmp__foreach : 0); \
         elem; elem = *--__tmp__foreach)
 
 #ifndef container_of

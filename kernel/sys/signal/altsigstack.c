@@ -12,8 +12,8 @@ int sigaltstack(const uc_stack_t *ss, uc_stack_t *oss) {
         return -EPERM;
     }
     
-    // ss->ss_flags has flags other than SS_DISABLE set?
-    if (ss) {
+    if (ss != NULL) {
+        // ss->ss_flags has flags other than SS_DISABLE set?
         if ((ss->ss_flags & ~SS_DISABLE) || ((ss->ss_size < MINSIGSTKSZ))) {
             return -EINVAL;
         }

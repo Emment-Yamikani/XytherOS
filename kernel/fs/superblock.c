@@ -9,44 +9,16 @@ static atomic_t sbID = 0;
 #define NODEV_TMPFS 0
 #define NODEV_DEVFS 1
 
-static const char *minors[] = {
-    "0",   "1",   "2",   "3",   "4",   "5",   "6",   "7",   "8",   "9",
-    "10",  "11",  "12",  "13",  "14",  "15",  "16",  "17",  "18",  "19",
-    "20",  "21",  "22",  "23",  "24",  "25",  "26",  "27",  "28",  "29",
-    "30",  "31",  "32",  "33",  "34",  "35",  "36",  "37",  "38",  "39",
-    "40",  "41",  "42",  "43",  "44",  "45",  "46",  "47",  "48",  "49",
-    "50",  "51",  "52",  "53",  "54",  "55",  "56",  "57",  "58",  "59",
-    "60",  "61",  "62",  "63",  "64",  "65",  "66",  "67",  "68",  "69",
-    "70",  "71",  "72",  "73",  "74",  "75",  "76",  "77",  "78",  "79",
-    "80",  "81",  "82",  "83",  "84",  "85",  "86",  "87",  "88",  "89",
-    "90",  "91",  "92",  "93",  "94",  "95",  "96",  "97",  "98",  "99",
-    "100", "101", "102", "103", "104", "105", "106", "107", "108", "109",
-    "110", "111", "112", "113", "114", "115", "116", "117", "118", "119",
-    "120", "121", "122", "123", "124", "125", "126", "127", "128", "129",
-    "130", "131", "132", "133", "134", "135", "136", "137", "138", "139",
-    "140", "141", "142", "143", "144", "145", "146", "147", "148", "149",
-    "150", "151", "152", "153", "154", "155", "156", "157", "158", "159",
-    "160", "161", "162", "163", "164", "165", "166", "167", "168", "169",
-    "170", "171", "172", "173", "174", "175", "176", "177", "178", "179",
-    "180", "181", "182", "183", "184", "185", "186", "187", "188", "189",
-    "190", "191", "192", "193", "194", "195", "196", "197", "198", "199",
-    "200", "201", "202", "203", "204", "205", "206", "207", "208", "209",
-    "210", "211", "212", "213", "214", "215", "216", "217", "218", "219",
-    "220", "221", "222", "223", "224", "225", "226", "227", "228", "229",
-    "230", "231", "232", "233", "234", "235", "236", "237", "238", "239",
-    "240", "241", "242", "243", "244", "245", "246", "247", "248", "249",
-    "250", "251", "252", "253", "254", "255", NULL,
-};
-
-int getsb(filesystem_t * fs, struct devid *devid, superblock_t **psb) {
+int getsb(fs_t * fs, devid_t *devid, sblock_t **psb) {
     int err = 0;
-    superblock_t *sb = NULL;
+    sblock_t *sb = NULL;
     queue_node_t *next = NULL;
 
     fsassert_locked(fs);
 
-    if (psb == NULL || devid == NULL)
+    if (psb == NULL || devid == NULL) {
         return -EINVAL;
+    }
 
     queue_lock(fs->fs_superblocks);
     forlinked(node, fs->fs_superblocks->head, next) {
@@ -62,13 +34,14 @@ int getsb(filesystem_t * fs, struct devid *devid, superblock_t **psb) {
     }
     queue_unlock(fs->fs_superblocks);
 
-    if ((sb = kmalloc(sizeof *sb)) == NULL)
+    if ((sb = kmalloc(sizeof *sb)) == NULL) {
         return -ENOMEM;
+    }
 
     memset(sb, 0, sizeof *sb);
     sb->sb_lock = SPINLOCK_INIT();
 
-    *sb = (superblock_t) {
+    *sb = (sblock_t) {
         .sb_count       = 1,
         .sb_blocksize   = 0,
         .sb_flags       = 0,
@@ -90,28 +63,31 @@ int getsb(filesystem_t * fs, struct devid *devid, superblock_t **psb) {
     return 0;
 }
 
-int getsb_bdev(filesystem_t *fs, const char *bdev_name, const char *target,
-                usize flags, void *data __unused, superblock_t **psbp,
-                int (*sb_fill)(filesystem_t *fs, const char *target, struct devid *dd, superblock_t *sb)) {
+int getsb_bdev(fs_t *fs, const char *bdev_name, const char *target, usize flags,
+    void *data __unused, sblock_t **psbp, sb_fill_fn_t sb_fill) {
     int             err     = 0;
-    superblock_t    *sb     = NULL;
-    struct devid    devid   = {0};
+    sblock_t    *sb     = NULL;
+    devid_t         devid   = {0};
     bdev_info_t     bdevinfo= {0};
 
     fsassert_locked(fs);
 
-    if (psbp == NULL)
+    if (psbp == NULL) {
         return -EINVAL;
+    }
 
-    if (sb_fill == NULL)
+    if (sb_fill == NULL) {
         return -ENOSYS;
+    }
 
-    if ((err = find_bdev_by_name(bdev_name, &devid)))
+    if ((err = find_bdev_by_name(bdev_name, &devid))) {
         return err;
+    }
     
     if ((err = getsb(fs, &devid, &sb))) {
-        if (err == -EINVAL)
+        if (err == -EINVAL) {
             return err;
+        }
     }
 
     device_getinfo(&devid, &bdevinfo);
@@ -120,45 +96,52 @@ int getsb_bdev(filesystem_t *fs, const char *bdev_name, const char *target,
     sb->sb_size         = bdevinfo.bi_size;
     sb->sb_blocksize    = bdevinfo.bi_blocksize;
 
-    if ((err = sb_fill(fs, target, &devid, sb)))
+    if ((err = sb_fill(fs, target, &devid, sb))) {
         return err;
+    }
 
     *psbp = sb;
     return 0;
 }
 
-int getsb_nodev(filesystem_t *fs, const char *target,
-                usize flags __unused, void *data __unused,
-                superblock_t **psbp, int (*sb_fill)(filesystem_t *fs,
-                const char *target, struct devid *dd, superblock_t *sb)) {
-    int             err     = 0;
-    device_t        *dev    = NULL;
-    char            *name   = NULL;
-    superblock_t    *sb     = NULL;
-    static uint16_t devno   = 1;
-
-    if ((sb_fill == NULL))
-        return -ENOSYS;
+int getsb_nodev(fs_t *fs, const char *target, usize flags __unused,
+    void *data __unused, sblock_t **psbp, sb_fill_fn_t sb_fill) {
+    int err = 0;
     
-    if (psbp == NULL)
+    if ((sb_fill == NULL)) {
+        return -ENOSYS;
+    }
+    
+    if (psbp == NULL) {
         return -EINVAL;
-
+    }
+    
+    static uint16_t devno = 1;
     uint16_t minor = atomic_fetch_inc(&devno);
 
-    if (minor >= 256)
-        return -ENOMEM;
+    if (minor >= 256) {
+        return -ENOSPC;
+    }
 
-    if ((name = combine_strings("virtdev", minors[minor])) == NULL)
-        return -ENOMEM;
+    char *name;
 
-    if ((err = device_create(name, FS_BLK, 0, NULL, &dev)))
+    char dev_minor[8] = {0};
+    snprintf(dev_minor, sizeof dev_minor - 1, "%d", minor);
+    if ((name = combine_strings("virtdev", dev_minor)) == NULL) {
+        return -ENOMEM;
+    }
+
+    device_t *dev;
+    if ((err = device_create(name, FS_BLK, 0, NULL, &dev))) {
         return err;
+    }
 
+    sblock_t *sb;
     if ((err = getsb(fs, &dev->devid, &sb))) {
         dev_unlock(dev);
         return err;
     }
-    
+
     if ((err = sb_fill(fs, target, &dev->devid, sb))) {
         dev_unlock(dev);
         return err;
@@ -169,12 +152,8 @@ int getsb_nodev(filesystem_t *fs, const char *target,
     return 0;
 }
 
-int getsb_pseudo(filesystem_t *fs, const char *target,
-    usize flags, void *data, superblock_t **psbp,
-    int (*sb_fill)(filesystem_t *fs, const char *target,
-    struct devid *dd, superblock_t *sb));
+int getsb_pseudo(fs_t *fs, const char *target, usize flags,
+    void *data, sblock_t **psbp, sb_fill_fn_t sb_fill);
 
-int getsb_single(filesystem_t *fs, const char *target,
-    usize flags, void *data, superblock_t **psbp,
-    int (*sb_fill)(filesystem_t *fs, const char *target,
-    struct devid *dd, superblock_t *sb));
+int getsb_single(fs_t *fs, const char *target, usize flags,
+    void *data, sblock_t **psbp, sb_fill_fn_t sb_fill);

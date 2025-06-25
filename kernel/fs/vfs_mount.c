@@ -50,36 +50,39 @@ void fsmount_free(fs_mount_t *mnt) {
  * Ensures proper locking and adds the mount to the global mount queue.
  */
 static int mnt_insert(fs_mount_t *mnt, dentry_t *target) {
-    int         err             = 0;
-    int         root_locked     = 0;
     int         parent_locked   = 0;
     stack_t     *stack          = NULL;
     dentry_t    *parent         = NULL;
 
     // Validate input parameters
-    if (!mnt || !target)
+    if (!mnt || !target) {
         return -EINVAL;
+    }
 
     mnt_assert_locked(mnt);  // Ensure mount is locked
     dassert_locked(target);  // Ensure target dentry is locked
 
-    if (!mnt->mnt_root)
+    if (!mnt->mnt_root) {
         return -EINVAL;
+    }
 
     // Ensure the root dentry is locked
+    int root_locked     = 0;
     if (!dislocked(mnt->mnt_root)) {
         root_locked = 1;
         dlock(mnt->mnt_root);
     }
 
     stack = &mnt->mnt_root->d_mnt_stack;
-
+    
     // Add the target dentry to the mount stack
     stack_lock(stack);
+    int err = 0;
     if ((err = stack_push(stack, (void *)target))) {
         stack_unlock(stack);
-        if (root_locked)
+        if (root_locked) {
             dunlock(mnt->mnt_root);
+        }
         return err;
     }
     stack_unlock(stack);
@@ -93,8 +96,9 @@ static int mnt_insert(fs_mount_t *mnt, dentry_t *target) {
         }
 
         dopen(parent);        // Increment reference count
-        if (parent_locked)
+        if (parent_locked) {
             dunlock(parent);
+        }
         
         dunbind(target);     // Unbind the target from its parent
 
@@ -104,20 +108,25 @@ static int mnt_insert(fs_mount_t *mnt, dentry_t *target) {
         }
 
         if ((err = dbind(parent, mnt->mnt_root))) {
-            dclose(parent);
-            if (parent_locked)
+            dput(parent);
+            if (parent_locked) {
                 dunlock(parent);
-            if (root_locked)
+            }
+            
+            if (root_locked) {
                 dunlock(mnt->mnt_root);
+            }
             return err;
         }
-        dclose(parent);
-        if (parent_locked)
+        dput(parent);
+        if (parent_locked) {
             dunlock(parent);
+        }
     } else { // Root-level mount (e.g., "/")
         if ((err = vfs_mount_droot(mnt->mnt_root))) {
-            if (root_locked)
+            if (root_locked) {
                 dunlock(mnt->mnt_root);
+            }
             return err;
         }
     }
@@ -126,8 +135,9 @@ static int mnt_insert(fs_mount_t *mnt, dentry_t *target) {
     queue_lock(mnt_queue);
     if ((err = enqueue(mnt_queue, (void *)mnt, 1, NULL))) {
         queue_unlock(mnt_queue);
-        if (root_locked)
+        if (root_locked) {
             dunlock(mnt->mnt_root);
+        }
         return err;
     }
     queue_unlock(mnt_queue);
@@ -144,8 +154,9 @@ static int mnt_insert(fs_mount_t *mnt, dentry_t *target) {
 __unused static int mnt_remove(fs_mount_t *mnt) {
     int err = 0;
 
-    if (!mnt)
+    if (!mnt) {
         return -EINVAL;
+    }
 
     mnt_assert_locked(mnt);  // Ensure mount is locked
 
@@ -175,8 +186,9 @@ static int mnt_move(fs_mount_t *mnt, dentry_t *new_parent) {
     }
 
     err = dbind(new_parent, mnt->mnt_root);
-    if (err)
+    if (err) {
         return err;
+    }
 
     mnt->mnt_root->d_parent = new_parent;
 
@@ -184,8 +196,9 @@ static int mnt_move(fs_mount_t *mnt, dentry_t *new_parent) {
 }
 
 static int vfs_find_mount(const char *target, fs_mount_t **mnt) {
-    if (target == NULL || mnt == NULL)
+    if (target == NULL || mnt == NULL) {
         return -EINVAL;
+    }
 
     return -ENOSYS;
 }
@@ -193,17 +206,19 @@ static int vfs_find_mount(const char *target, fs_mount_t **mnt) {
 /**
  * Handle remounting a filesystem.
  */
-static int vfs_handle_remount(const i8 *target, filesystem_t *fs, u64 flags, const void *data) {
+static int vfs_handle_remount(const i8 *target, fs_t *fs, u64 flags, const void *data) {
     int         err     = 0;
     fs_mount_t  *mnt    = NULL;
 
     // Find the mount point
-    if ((err = vfs_find_mount(target, &mnt)))
+    if ((err = vfs_find_mount(target, &mnt))) {
         return err;
+    }
 
     // Perform the remount operation
-    if (fs->remount == NULL)
+    if (fs->remount == NULL) {
         return -ENOSYS;
+    }
 
     mnt_lock(mnt);
     err = fs->remount(fs, mnt, flags, data);
@@ -220,8 +235,9 @@ static int vfs_handle_bind(const i8 *src, const i8 *target) {
     int err;
 
     // Lookup source and target dentries
-    if ((err = vfs_lookup(src, NULL, 0, &src_dentry)))
+    if ((err = vfs_lookup(src, NULL, 0, &src_dentry))) {
         return err;
+    }
 
     if ((err = vfs_lookup(target, NULL, O_EXCL, &target_dentry))) {
         dclose(src_dentry);
@@ -241,16 +257,17 @@ static int vfs_handle_bind(const i8 *src, const i8 *target) {
  * Handle moving a mount to a new target location.
  */
 static int vfs_handle_move(const i8 *src, const i8 *target) {
-    fs_mount_t *mnt = NULL;
-    dentry_t *target_dentry = NULL;
     int err;
-
+    fs_mount_t *mnt = NULL;
     // Find the source mount and target dentry
-    if ((err = vfs_find_mount(src, &mnt)))
+    if ((err = vfs_find_mount(src, &mnt))) {
         return err;
-
-    if ((err = vfs_lookup(target, NULL, O_EXCL, &target_dentry)))
+    }
+    
+    dentry_t *target_dentry;
+    if ((err = vfs_lookup(target, NULL, O_EXCL, &target_dentry))) {
         return err;
+    }
 
     // Perform the move operation
     mnt_lock(mnt);
@@ -262,15 +279,16 @@ static int vfs_handle_move(const i8 *src, const i8 *target) {
     return err;
 }
 
-static int vfs_handle_new_mount(filesystem_t *fs, const char *src, const char *target, u64 flags, void *data, fs_mount_t **pmnt) {
+static int vfs_handle_new_mount(fs_t *fs, const char *src, const char *target, u64 flags, void *data, fs_mount_t **pmnt) {
     int             err = 0;
     fs_mount_t      *mnt= NULL;
-    superblock_t    *sb = NULL;
+    sblock_t    *sb = NULL;
 
     fsassert_locked(fs);
 
-    if (pmnt == NULL || fs == NULL)
+    if (pmnt == NULL || fs == NULL) {
         return -EINVAL;
+    }
     
     if ((mnt = alloc_fsmount()) == NULL) {
         err = -ENOMEM;
@@ -282,8 +300,9 @@ static int vfs_handle_new_mount(filesystem_t *fs, const char *src, const char *t
         goto error;
     }
 
-    if ((err = fs->get_sb(fs, src, target, flags, data, &sb)))
+    if ((err = fs->get_sb(fs, src, target, flags, data, &sb))) {
         goto error;
+    }
 
     mnt->mnt_sb     = sb;
     sb->sb_mnt      = mnt;
@@ -299,17 +318,19 @@ error:
 
 int vfs_mount(const i8 *src, const i8 *target, const i8 *type, u64 flags, const void *data) {
     int                 err             = 0;
-    filesystem_t        *fs             = NULL;
+    fs_t        *fs             = NULL;
     fs_mount_t          *mnt            = NULL;
     char                *last_token     = NULL;
     dentry_t            *target_dentry  = NULL;
 
-    if (target == NULL || type == NULL)
+    if (target == NULL || type == NULL) {
         return -EINVAL;
+    }
 
     // Lookup filesystem type
-    if ((err = vfs_getfs(type, &fs)))
+    if ((err = vfs_getfs(type, &fs))) {
         return err;
+    }
 
     // Get the last token of the target path (e.g., "dir" from "/mnt/dir")
     if ((err = path_get_lasttoken(target, &last_token))) {
@@ -332,8 +353,9 @@ int vfs_mount(const i8 *src, const i8 *target, const i8 *type, u64 flags, const 
         goto cleanup;
     } else {
         // Handle a new mount
-        if ((err = vfs_handle_new_mount(fs, src, last_token, flags, (void *)data, &mnt)))
+        if ((err = vfs_handle_new_mount(fs, src, last_token, flags, (void *)data, &mnt))) {
             goto cleanup;
+        }
 
         // Bind the new mount to the target path
         if ((err = vfs_lookup(target, NULL, O_EXCL, &target_dentry))) {
@@ -358,8 +380,9 @@ cleanup:
     kfree(last_token);
     fsunlock(fs);
 
-    if (err)
+    if (err) {
         printk("%s:%d: %s(): error: %d\n", __FILE__, __LINE__, __func__, err);
+    }
 
     return err;
 }

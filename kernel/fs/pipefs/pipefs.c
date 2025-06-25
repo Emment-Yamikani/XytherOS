@@ -9,8 +9,8 @@
 #include <sys/thread.h>
 #include <sys/_signal.h>
 
-static filesystem_t *pipefs = NULL;
-__unused static superblock_t *pipefs_sb = NULL;
+static fs_t *pipefs = NULL;
+__unused static sblock_t *pipefs_sb = NULL;
 
 static iops_t pipefs_iops = {
     .iopen      = pipefs_iopen,
@@ -35,8 +35,8 @@ static iops_t pipefs_iops = {
     .irename    = pipefs_irename,
 };
 
-static int pipefs_fill_sb(filesystem_t *fs __unused, const char *target,
-                         struct devid *devid __unused, superblock_t *sb) {
+static int pipefs_fill_sb(fs_t *fs __unused, const char *target,
+                         struct devid *devid __unused, sblock_t *sb) {
     int         err    = 0;
     inode_t     *iroot = NULL;
     dentry_t    *droot = NULL;
@@ -75,8 +75,8 @@ static int pipefs_fill_sb(filesystem_t *fs __unused, const char *target,
     return 0;
 }
 
-static int pipefs_getsb(filesystem_t *fs, const char *src __unused, const char *target,
-                       unsigned long flags, void *data, superblock_t **psbp) {
+static int pipefs_getsb(fs_t *fs, const char *src __unused, const char *target,
+                       unsigned long flags, void *data, sblock_t **psbp) {
     return getsb_nodev(fs, target, flags, data, psbp, pipefs_fill_sb);
 }
 

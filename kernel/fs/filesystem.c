@@ -14,10 +14,10 @@ static u64 fsIDalloc(void) {
     return id;
 }
 
-int fsalloc(filesystem_t **pfs) {
+int fsalloc(fs_t **pfs) {
     int err = 0;
     queue_t *queue = NULL;
-    filesystem_t *fs = NULL;
+    fs_t *fs = NULL;
 
     if (pfs == NULL)
         return -EINVAL;
@@ -45,7 +45,7 @@ error:
     return err;
 }
 
-void fs_free(filesystem_t *fs) {
+void fs_free(fs_t *fs) {
     if (!fsislocked(fs))
         fslock(fs);
 
@@ -64,9 +64,9 @@ void fs_free(filesystem_t *fs) {
     fsunlock(fs);
 }
 
-int fs_create(const char *name, iops_t *iops, filesystem_t **pfs) {
+int fs_create(const char *name, iops_t *iops, fs_t **pfs) {
     int err = 0;
-    filesystem_t *fs = NULL;
+    fs_t *fs = NULL;
     if (name == NULL || iops == NULL || pfs == NULL)
         return -EINVAL;
     
@@ -88,22 +88,22 @@ error:
 }
 
 
-void fs_dup(filesystem_t *fs) {
+void fs_dup(fs_t *fs) {
     fsassert_locked(fs);
     fs->fs_count++;
 }
 
-void fs_put(filesystem_t *fs) {
+void fs_put(fs_t *fs) {
     fsassert_locked(fs);
     fs->fs_count--;
 }
 
-long fs_count(filesystem_t *fs) {
+long fs_count(fs_t *fs) {
     fsassert_locked(fs);
     return fs->fs_count;
 }
 
-int fs_setname(filesystem_t *fs, const char *fsname) {
+int fs_setname(fs_t *fs, const char *fsname) {
     char *name = NULL;
 
     fsassert_locked(fs);
@@ -119,7 +119,7 @@ int fs_setname(filesystem_t *fs, const char *fsname) {
     return 0;
 }
 
-void fs_unsetname(filesystem_t *fs) {
+void fs_unsetname(fs_t *fs) {
     fsassert_locked(fs);
     if (fs == NULL)
         return;
@@ -127,7 +127,7 @@ void fs_unsetname(filesystem_t *fs) {
         kfree(fs->fs_name);
 }
 
-int fs_set_iops(filesystem_t *fs, iops_t *iops) {
+int fs_set_iops(fs_t *fs, iops_t *iops) {
     fsassert_locked(fs);
     if (fs == NULL || iops == NULL)
         return -EINVAL;
@@ -135,7 +135,7 @@ int fs_set_iops(filesystem_t *fs, iops_t *iops) {
     return 0;
 }
 
-int fs_add_superblock(filesystem_t *fs, superblock_t *sb) {
+int fs_add_superblock(fs_t *fs, sblock_t *sb) {
     int err = 0;
 
     fsassert_locked(fs);
@@ -154,7 +154,7 @@ int fs_add_superblock(filesystem_t *fs, superblock_t *sb) {
     return 0;
 }
 
-int fs_del_superblock(filesystem_t *fs, superblock_t *sb)
+int fs_del_superblock(fs_t *fs, sblock_t *sb)
 {
     int err = 0;
     fsassert_locked(fs);

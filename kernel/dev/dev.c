@@ -296,7 +296,9 @@ int device_register(device_t *dev) {
 
     table_unlock(table);
 
-    printk("Registered %s[\e[033m%s\e[0m]...\n", DEVICE_TYPE(dev) == CHRDEV ? "chardev" : "blkdev", dev->name);
+    const bool chardev = DEVICE_TYPE(dev) == CHRDEV;
+    printk("[\033[32mOK\033[m] registered %sdev [%3d:%d] \e[033m%s\e[0m.\n",
+        chardev ? "chr" : "blk", major, minor, dev->name);
 
     return 0;
 }

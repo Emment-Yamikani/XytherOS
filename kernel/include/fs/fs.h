@@ -62,7 +62,7 @@ typedef struct superblock {
     fs_mount_t          *sb_mnt;
     struct filesystem   *sb_filesystem;
     spinlock_t          sb_lock;
-} superblock_t;
+} sblock_t;
 
 #define sbassert(sb)        ({ assert((sb), "No superblock"); })
 #define sblock(sb)          ({ sbassert(sb); spin_lock(&(sb)->sb_lock); });
@@ -79,11 +79,11 @@ typedef struct filesystem {
     iops_t      *fs_iops;
     void        *fs_priv;
     queue_t     *fs_superblocks;
-    int         (*remount)(filesystem_t *fs, fs_mount_t *mnt, u64 flags, const void *data);
-    int         (*get_sb)(struct filesystem *fs, const char *src, const char *target, unsigned long flags, void *data, superblock_t **psbp);
-    int         (*mount)(struct filesystem *fs, dentry_t *src, dentry_t *dst, unsigned long flags, void *data);
+    int         (*remount)(fs_t *fs, fs_mount_t *mnt, u64 flags, const void *data);
+    int         (*get_sb)(struct filesystem *fs, const char *src, const char *target, ulong flags, void *data, sblock_t **psbp);
+    int         (*mount)(struct filesystem *fs, dentry_t *src, dentry_t *dst, ulong flags, void *data);
     spinlock_t  fs_lock;
-} filesystem_t;
+} fs_t;
 
 #define fsassert(fs)        ({ assert((fs), "No filesystem"); })
 #define fslock(fs)          ({ fsassert(fs); spin_lock(&(fs)->fs_lock); });
@@ -91,16 +91,16 @@ typedef struct filesystem {
 #define fsislocked(fs)      ({ fsassert(fs); spin_islocked(&(fs)->fs_lock); })
 #define fsassert_locked(fs) ({ fsassert(fs); spin_assert_locked(&(fs)->fs_lock); })
 
-void fs_dup(filesystem_t *fs);
-void fs_put(filesystem_t *fs);
-void fs_free(filesystem_t *fs);
-long fs_count(filesystem_t *fs);
-void fs_unsetname(filesystem_t *fs);
-int  fs_set_iops(filesystem_t *fs, iops_t *iops);
-int  fs_setname(filesystem_t *fs, const char *fsname);
-int  fs_create(const char *name, iops_t *iops, filesystem_t **pfs);
-int  fs_add_superblock(filesystem_t *fs, superblock_t *sb);
-int  fs_del_superblock(filesystem_t *fs, superblock_t *sb);
+void fs_dup(fs_t *fs);
+void fs_put(fs_t *fs);
+void fs_free(fs_t *fs);
+long fs_count(fs_t *fs);
+void fs_unsetname(fs_t *fs);
+int  fs_set_iops(fs_t *fs, iops_t *iops);
+int  fs_setname(fs_t *fs, const char *fsname);
+int  fs_create(const char *name, iops_t *iops, fs_t **pfs);
+int  fs_add_superblock(fs_t *fs, sblock_t *sb);
+int  fs_del_superblock(fs_t *fs, sblock_t *sb);
 
 
 int vfs_init(void);
@@ -108,9 +108,9 @@ int ramfs_init(void);
 int vfs_alloc_vnode(const char *name, itype_t type, inode_t **pip, dentry_t **pdp);
 dentry_t *vfs_getdroot(void);
 int vfs_mount_droot(dentry_t *dentry);
-int vfs_register_fs(filesystem_t *fs);
-int vfs_unregister_fs(filesystem_t *fs);
-int  vfs_getfs(const char *type, filesystem_t **pfs);
+int vfs_register_fs(fs_t *fs);
+int vfs_unregister_fs(fs_t *fs);
+int  vfs_getfs(const char *type, fs_t **pfs);
 
 int vfs_traverse_path(vfspath_t *path, cred_t *cred, int oflags);
 int vfs_resolve_path(const char *pathname, dentry_t *dir, cred_t *cred, int oflags, vfspath_t **dp);
@@ -136,22 +136,16 @@ fs_mount_t *alloc_fsmount(void);
  * Super block helpers
 */
 
-int getsb_bdev(filesystem_t *fs,    const char *bdev_name,
-    const char *target, unsigned long flags, void *data,
-    superblock_t **psbp, int (*sb_fill)(filesystem_t *fs,
-    const char *target, struct devid *dd, superblock_t *sb));
+typedef int (*sb_fill_fn_t)(fs_t *fs, const char *target, struct devid *dd, sblock_t *sb);
 
-int getsb_nodev(filesystem_t *fs,   const char *target,
-    unsigned long flags, void *data, superblock_t **psbp,
-    int (*sb_fill)(filesystem_t *fs, const char *target,
-    struct devid *dd, superblock_t *sb));
+int getsb_bdev(fs_t *fs, const char *bdev_name, const char *target,
+    ulong flags, void *data, sblock_t **psbp, sb_fill_fn_t sb_fill);
 
-int getsb_pseudo(filesystem_t *fs,  const char *target,
-    unsigned long flags, void *data, superblock_t **psbp,
-    int (*sb_fill)(filesystem_t *fs, const char *target,
-    struct devid *dd, superblock_t *sb));
+int getsb_nodev(fs_t *fs,   const char *target, ulong flags,
+    void *data, sblock_t **psbp, sb_fill_fn_t sb_fill);
 
-int getsb_single(filesystem_t *fs,  const char *target,
-    unsigned long flags, void *data, superblock_t **psbp,
-    int (*sb_fill)(filesystem_t *fs, const char *target,
-    struct devid *dd, superblock_t *sb));
+int getsb_pseudo(fs_t *fs,  const char *target, ulong flags,
+    void *data, sblock_t **psbp, sb_fill_fn_t sb_fill);
+
+int getsb_single(fs_t *fs,  const char *target,
+    ulong flags, void *data, sblock_t **psbp, sb_fill_fn_t sb_fill);

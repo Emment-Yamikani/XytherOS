@@ -1,9 +1,49 @@
 #include <bits/errno.h>
+#include <core/debug.h>
 #include <fs/dentry.h>
 #include <fs/fs.h>
 #include <fs/inode.h>
 #include <string.h>
 #include <sys/thread.h>
+
+int vfs_attach_rootdir(vfspath_t *path) {
+    if (!path || path->directory) {
+        return -EINVAL;
+    }
+
+    /**
+     * If no directory was specified
+     * use the system's root directory.
+     * TODO: perhaps use the thread's group
+     * root directory?*/
+    if (current_fctx()) {
+        fctx_lock(current_fctx());
+        if (path->directory != current_fctx()->fc_cwd) {
+            if (path->directory) {
+                dclose(path->directory);
+            }
+
+            if (vfspath_isabsolute(path)) {
+                path->directory = current_fctx()->fc_root;
+            } else {
+                path->directory = current_fctx()->fc_cwd;
+            }
+
+            dlock(path->directory);
+            dopen(path->directory);
+        }
+
+        fctx_unlock(current_fctx());
+    } 
+    
+    if (path->directory == NULL) {
+        if ((path->directory = vfs_getdroot()) == NULL) {
+            return -ENOTDIR;
+        }
+    }
+
+    return 0;
+}
 
 /**
  * @brief 
@@ -25,34 +65,13 @@ int vfs_traverse_path(vfspath_t *path, cred_t *cred, int oflags) {
     inode_t     *ip      = NULL;
     dentry_t    *dentry  = NULL;
 
-    if (path == NULL)
+    if (path == NULL) {
         return -EINVAL;
-    
-    /**
-     * If no directory was specified
-     * use the system's root directory.
-     * TODO: perhaps use the thread's group
-     * root directory?*/
+    }
+
     if (path->directory == NULL) {
-        if (current_fctx()) {
-            fctx_lock(current_fctx());
-            if (path->directory != current_fctx()->fc_cwd) {
-                if (path->directory)
-                    dclose(path->directory);
-                if (vfspath_isabsolute(path))
-                    path->directory = current_fctx()->fc_root;
-                else
-                    path->directory = current_fctx()->fc_cwd;
-                dlock(path->directory);
-                dopen(path->directory);
-            }
-            fctx_unlock(current_fctx());
-        } 
-        
-        if (path->directory == NULL) {
-            if ((path->directory = vfs_getdroot()) == NULL) {
-                return -ENOTDIR;
-            }
+        if ((err = vfs_attach_rootdir(path))) {
+            return err;
         }
     }
 
@@ -65,8 +84,10 @@ int vfs_traverse_path(vfspath_t *path, cred_t *cred, int oflags) {
         if (current_fctx()) {
             fctx_lock(current_fctx());
             if (path->directory != current_fctx()->fc_root) {
-                if (path->directory)
+                if (path->directory) {
                     dclose(path->directory);
+                }
+
                 path->directory = current_fctx()->fc_root;
                 dlock(path->directory);
                 dopen(path->directory);
@@ -79,11 +100,13 @@ int vfs_traverse_path(vfspath_t *path, cred_t *cred, int oflags) {
             ilock(path->directory->d_inode);
             if ((err = icheck_perm(path->directory->d_inode, cred, oflags))) {
                 iunlock(path->directory->d_inode);
+
                 return err;
             }
+
             iunlock(path->directory->d_inode);
         }
-
+        
         path->dentry    = path->directory;
         path->directory = NULL;
         return 0;
@@ -99,6 +122,7 @@ int vfs_traverse_path(vfspath_t *path, cred_t *cred, int oflags) {
             iunlock(path->directory->d_inode);
             // printk("%s:%d: %s() failed to lookup: '%s/%s', index: %d err: %d\n",
                 // __FILE__, __LINE__, __func__, path->directory->d_name, path->token, path->tok_index, err);
+
             goto error;
         }
 
@@ -107,6 +131,7 @@ int vfs_traverse_path(vfspath_t *path, cred_t *cred, int oflags) {
             // printk("%s:%d: %s() failed to lookup: '%s/%s', index: %d err: %d\n",
                 // __FILE__, __LINE__, __func__, path->directory->d_name, path->token, path->tok_index, err);
             iunlock(path->directory->d_inode);
+
             goto error;
         }
         iunlock(path->directory->d_inode);
@@ -131,6 +156,7 @@ int vfs_traverse_path(vfspath_t *path, cred_t *cred, int oflags) {
                             iunlock(path->directory->d_inode);
                             // printk("%s:%d: %s() failed to lookup: '%s/%s', index: %d err: %d\n",
                                 // __FILE__, __LINE__, __func__, path->directory->d_name, path->token, path->tok_index, err);
+
                             goto error;
                         }
                         iunlock(path->directory->d_inode);
@@ -140,6 +166,7 @@ int vfs_traverse_path(vfspath_t *path, cred_t *cred, int oflags) {
                             irelease(ip);
                             // printk("%s:%d: %s() failed to lookup: '%s/%s', index: %d err: %d\n",
                                 // __FILE__, __LINE__, __func__, path->directory->d_name, path->token, path->tok_index, err);
+
                             goto error;
                         }
 
@@ -148,6 +175,7 @@ int vfs_traverse_path(vfspath_t *path, cred_t *cred, int oflags) {
                             irelease(ip);
                             // printk("%s:%d: %s() failed to lookup: '%s/%s', index: %d err: %d\n",
                                 // __FILE__, __LINE__, __func__, path->directory->d_name, path->token, path->tok_index, err);
+
                             goto error;
                         }
 
@@ -156,6 +184,7 @@ int vfs_traverse_path(vfspath_t *path, cred_t *cred, int oflags) {
                             irelease(ip);
                             // printk("%s:%d: %s() failed to lookup: '%s/%s', index: %d err: %d\n",
                                 // __FILE__, __LINE__, __func__, path->directory->d_name, path->token, path->tok_index, err);
+
                             goto error;
                         }
 
@@ -172,8 +201,10 @@ int vfs_traverse_path(vfspath_t *path, cred_t *cred, int oflags) {
                              * therefore this is an error.*/
                             if (vfspath_isdir(path) && err == -ENOTDIR) {
                                 dclose(dentry);
+
                                 goto error;
                             }
+
                             path->dentry = dentry;
                         } else { // we've not reached the end of the path.
                             if (err == - ENOTDIR) {
@@ -182,19 +213,22 @@ int vfs_traverse_path(vfspath_t *path, cred_t *cred, int oflags) {
                                 // printk("%s:%d: %s() failed to lookup: '%s/%s', index: %d err: %d\n",
                                     // __FILE__, __LINE__, __func__, path->directory->d_name, path->token, path->tok_index, err);
                                 dclose(dentry);
+
                                 goto error;
                             }
 
                             dclose(path->directory);
                             // next token is a dir and can be followed.
                             path->tok_index++;
-                            path->directory     = dentry;
+                            path->directory = dentry;
                         }
                     }
+
                     goto done;
                 }
                 panic("%s:%d: Direcetory has no inode to follow, error: %d\n", __FILE__, __LINE__, err);
             }
+
             goto error;
         }
 
@@ -208,6 +242,7 @@ int vfs_traverse_path(vfspath_t *path, cred_t *cred, int oflags) {
                 dclose(dentry);
                 // printk("%s:%d: %s() failed to lookup: '%s/%s', index: %d err: %d\n",
                     // __FILE__, __LINE__, __func__, path->directory->d_name, path->token, path->tok_index, err);
+
                 goto error;
             }
             err = IISDIR(dentry->d_inode) ? 0: -ENOTDIR;
@@ -224,6 +259,7 @@ int vfs_traverse_path(vfspath_t *path, cred_t *cred, int oflags) {
              * therefore this is an error.*/
             if (vfspath_isdir(path) && err == -ENOTDIR) {
                 dclose(dentry);
+
                 goto error;
             }
             path->dentry = dentry;
@@ -234,19 +270,20 @@ int vfs_traverse_path(vfspath_t *path, cred_t *cred, int oflags) {
                 // printk("%s:%d: %s() failed to lookup: '%s/%s', index: %d err: %d\n",
                     // __FILE__, __LINE__, __func__, path->directory->d_name, path->token, path->tok_index, err);
                 dclose(dentry);
+
                 goto error;
             }
 
             dclose(path->directory);
             // next token is a dir and can be followed.
             path->tok_index++;
-            path->directory     = dentry;
+            path->directory = dentry;
         }
     }
 
 done:
-    /*close the directory, we do not need it anymore
-    not have access to the directory, one only need
+    /*close the directory, we do not need it anymore.
+    No need to have access to the directory, one only need
     access to path->dentry->d_parent.*/
     dclose(path->directory);
     path->directory = NULL;
@@ -262,26 +299,27 @@ int vfs_resolve_path(const char *pathname, dentry_t *dir,  cred_t *cred, int ofl
     inode_t   *newip= NULL;
     inode_t   *oldip= NULL;
     
-    if (pathname == NULL || rp == NULL)
+    if (pathname == NULL || rp == NULL) {
         return -EINVAL;
+    }
 
-    if ((err = vfspath_parse(pathname, 0, &path)))
+    if ((err = vfspath_parse(pathname, 0, &path))) {
         return err;
+    }
 
     path->directory = dir;
     
     if ((err = vfs_traverse_path(path, cred, oflags)) == 0) {
         /** Open the requested inode.
          * to iopen() 2nd parameter will overwrite path->dentry->d_inode,
-         * this will happen in the even that the call to iopen causes another inode to be
-         * allocated, is in the case of device multiplexing, e.g opening '/dev/ptmx'.
+         * this will happen in the even that the call to 'iopen' causes another inode to be
+         * allocated, as in the case of 'device multiplexing' e.g. (ptmx -> pts, multiplexing), e.g opening '/dev/ptmx'.
          * This will ensure that opening a device multiplexer will result in
          * creation of a unique device file descriptor.
-         * TODO: assess the effectiveness of this design decision.*/
+         * TODO: assess the effectiveness of this design decision. */
         dopen(path->dentry);
         dunlock(path->dentry);
-        oldip = path->dentry->d_inode;
-        if (oldip != NULL) {
+        if ((oldip = path->dentry->d_inode)) {
             ilock(oldip);
             if ((err = iopen(oldip, &newip))) {
                 iunlock(oldip);
@@ -292,7 +330,7 @@ int vfs_resolve_path(const char *pathname, dentry_t *dir,  cred_t *cred, int ofl
             }
 
             /** We prefer the new inode over the old one,
-             * So close the old inode struct.*/
+             * So close the old inode struct. */
             if (newip != NULL) {
                 newip->i_sb  = oldip->i_sb;
                 newip->i_ino = oldip->i_ino;
@@ -303,14 +341,14 @@ int vfs_resolve_path(const char *pathname, dentry_t *dir,  cred_t *cred, int ofl
             } else iunlock(oldip);
         }
         dlock(path->dentry);
-        dclose(path->dentry);
+        dput(path->dentry);
     }
 
     *rp = path;
     return err;
 }
 
-int vfs_lookupat(const char *pathname, dentry_t *dir, cred_t *cred, int oflags, dentry_t **pdp) {
+int vfs_lookupat(const char *pathname, dentry_t *dir, cred_t *cred, int oflags, dentry_t **rdp) {
     int         err     = 0;
     vfspath_t   *path   = NULL;
 
@@ -319,25 +357,29 @@ int vfs_lookupat(const char *pathname, dentry_t *dir, cred_t *cred, int oflags, 
             assert(path->directory, "On error, path has no directory\n");
             dclose(path->directory);
         }
+
         goto error;
     }
 
-    assert(path->directory == NULL, "On success, path has directory\n");
-    assert(path->dentry, "On success, path has no dentry\n");
+    assert_eq(path->directory, NULL, "On success, path has directory\n");
+    assert_ne(path->dentry, NULL, "On success, path has no dentry\n");
 
-    if (pdp)
-        *pdp = path->dentry;
-    else
+    if (rdp) {
+        *rdp = path->dentry;
+    } else {
         dclose(path->dentry);
+    }
 
     path_free(path);
     return 0;
 error:
-    if (path)
+    if (path) {
         path_free(path);
+    }
+
     return err;
 }
 
-int vfs_lookup(const char *pathname, cred_t *__cred, int oflags, dentry_t **pdp) {
-    return vfs_lookupat(pathname, NULL, __cred, oflags, pdp);
+int vfs_lookup(const char *pathname, cred_t *cred, int oflags, dentry_t **rdp) {
+    return vfs_lookupat(pathname, NULL, cred, oflags, rdp);
 }

@@ -424,12 +424,12 @@ typedef struct thread_t {
 #define thread_group(t)             ({ thread_assert(t); (t)->t_group; })
 #define thread_signals(t)           ({ thread_assert(t); (t)->t_signals; })
 
-#define current_proc()              thread_proc(current)
-#define current_cred()              thread_cred(current)
-#define current_fctx()              thread_fctx(current)
-#define current_mmap()              thread_mmap(current)
-#define current_group()             thread_group(current)
-#define current_signals()           thread_signals(current)
+#define current_proc()              ({ current ? thread_proc(current) : NULL; })
+#define current_cred()              ({ current ? thread_cred(current) : NULL; })
+#define current_fctx()              ({ current ? thread_fctx(current) : NULL; })
+#define current_mmap()              ({ current ? thread_mmap(current) : NULL; })
+#define current_group()             ({ current ? thread_group(current) : NULL; })
+#define current_signals()           ({ current ? thread_signals(current) : NULL; })
 
 /*=====================================================================
  *  Builtin Threads
@@ -548,7 +548,7 @@ extern int      thread_get_info_by_id(tid_t tid, thread_info_t *info);
 extern int      thread_get_info(thread_t *thread, thread_info_t *pinfo);
 extern int      thread_queue_find_by_tid(queue_t *queue, tid_t tid, thread_t **ptp);
 
-extern int      thread_builtin_init(void);
+extern int      builtin_thread_init(void);
 
 extern pid_t    fork(void);
 extern void     exit(int exit_code);

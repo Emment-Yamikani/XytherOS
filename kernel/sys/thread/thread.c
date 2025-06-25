@@ -130,13 +130,15 @@ int thread_create_group(thread_t *thread) {
     queue_t         *timers  = NULL;
     signal_t        *signals = NULL;
 
-    if (thread == NULL)
+    if (thread == NULL) {
         return -EINVAL;
+    }
 
     thread_assert_locked(thread);
 
-    if (thread->t_group)
+    if (thread->t_group) {
         return -EALREADY;
+    }
 
     if ((err = queue_alloc(&queue)))
         return err;
@@ -146,6 +148,10 @@ int thread_create_group(thread_t *thread) {
     }
 
     if ((err = signal_alloc(&signals))) {
+        goto error;
+    }
+
+    if ((err = fctx_alloc(&fctx))) {
         goto error;
     }
 
@@ -171,14 +177,26 @@ int thread_create_group(thread_t *thread) {
 
     return 0;
 error:
-    if (queue) queue_free(queue);
-    if (timers) queue_free(timers);
+    if (queue) {
+        queue_free(queue);
+    }
+
+    if (timers) {
+        queue_free(timers);
+    }
 
     if (cred) {
-        todo("FIXME!\n"); }
+        todo("FIXME!\n");
+    }
+
     if (fctx) {
-        todo("FIXME!\n"); }
-    if (signals) signal_free(signals);
+        todo("FIXME!\n");
+    }
+
+    if (signals) {
+        signal_free(signals);
+    }
+
     return err;
 }
 
@@ -209,7 +227,7 @@ int thread_join_group(thread_t *peer, thread_t *thread) {
     return 0;
 }
 
-int thread_builtin_init(void) {
+int builtin_thread_init(void) {
     foreach_builtin_thread() {
         int err = thread_create(
             NULL, 

@@ -59,7 +59,9 @@ enum bdev_major {
     .minor = DEV_TO_MINOR(dev),         \
 }
 
-#define DEVID_PTR(ip, typ, dev) (&DEVID(ip, typ, dev))    
+#define DEVID_PTR(ip, typ, dev) (&DEVID(ip, typ, dev))
+
+#define DEVID_DEF(_name, _ip, _typ, _dev) devid_t *_name = DEVID_PTR(_ip, _typ, _dev)
 
 #define IDEVID(ip)          DEVID_PTR(ip, INODE_TYPE(ip), INODE_DEV(ip))
 #define INODE_TO_DEVID(ip)  DEVID_PTR(ip, INODE_TYPE(ip), INODE_DEV(ip))
@@ -184,8 +186,8 @@ extern builtin_device_t __builtin_devices_end[];
  * @param f[in] fini function of device driver.
  * 
  */
-#define BUILTIN_DEVICE(n, i, a, f) \
-    builtin_device_t __used_section(.__builtin_devices) __dev_##n = {.name = #n, .arg = a, .init = i, .fini = f}
+#define BUILTIN_DEVICE(nam, ini, _arg, fin) \
+    builtin_device_t __used_section(.__builtin_devices) __dev_##nam = {.name = #nam, .arg = _arg, .init = ini, .fini = fin}
 
 #define foreach_builtin_device() \
     for (builtin_device_t *dev = __builtin_devices; dev < __builtin_devices_end; ++dev)
@@ -215,3 +217,5 @@ extern int      device_ioctl(struct devid *dd, int request, void *arg);
 extern off_t    device_lseek(struct devid *dd, off_t offset, int whence);
 extern isize    device_read(struct devid *dd, off_t off, void *buf, usize size);
 extern isize    device_write(struct devid *dd, off_t off, void *buf, usize size);
+
+extern int dev_init(void);

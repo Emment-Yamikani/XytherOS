@@ -105,7 +105,7 @@ extern int      sys_pause(void);
 extern int      sys_raise(int signo);
 extern int      sys_kill(pid_t pid, int signo);
 extern unsigned sys_alarm(unsigned sec);
-extern sigfunc_t sys_signal(int signo, sigfunc_t func);
+extern sighandler_t sys_signal(int signo, sighandler_t func);
 extern int      sys_sigprocmask(int how, const sigset_t *restrict set, sigset_t *restrict oset);
 extern int      sys_sigpending(sigset_t *set);
 extern int      sys_sigaction(int signo, const sigaction_t *restrict act, sigaction_t *restrict oact);

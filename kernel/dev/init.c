@@ -9,7 +9,9 @@ int dev_init(void) {
     if (err != 0) {
         return err;
     }
-    
+
+    printk("Initializing builtin device drivers...\n");
+
     foreach_builtin_device() {
         if (dev->init && (err = (dev->init)(dev->arg))) {
             return err;
@@ -17,4 +19,4 @@ int dev_init(void) {
     }
 
     return 0;
-} BUILTIN_THREAD(device_subsys, dev_init, NULL);
+}

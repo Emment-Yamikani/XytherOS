@@ -41,6 +41,7 @@ typedef atomic_u64      atomic_t;
 #define atomic_set(ptr, val)            __atomic_store_n((ptr), (val), __ATOMIC_SEQ_CST)
 #define atomic_store(ptr, val)          __atomic_store_n((ptr), (val), __ATOMIC_SEQ_CST)
 #define atomic_write(ptr, val)          __atomic_store_n((ptr), (val), __ATOMIC_SEQ_CST)
+#define atomic_init(ptr, val)           __atomic_store_n((ptr), (val), __ATOMIC_SEQ_CST)
 
 // Atomic clear (used with 'char' or 'bool')
 #define atomic_clear(ptr)               __atomic_clear((ptr), __ATOMIC_SEQ_CST)

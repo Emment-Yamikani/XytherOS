@@ -711,7 +711,7 @@ int console_create(int tty_minor, tty_t **ref) {
 }
 
 int console_init(void) {
-    for (int tty = 1; tty <= 8; ++tty) {
+    for (int tty = 1; tty <= 7; ++tty) {
         tty_t *tp = NULL;
         int err = console_create(tty, &tp);
         if (err) {

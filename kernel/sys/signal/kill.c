@@ -76,3 +76,8 @@ int pthread_sigqueue(tid_t tid, int signo, union sigval sigval) {
 int pthread_kill(tid_t tid, int signo) {
     return pthread_sigqueue(tid, signo, (union sigval){0});
 }
+
+int kill(pid_t pid __unused, int signo __unused) {
+
+    return -ENOSYS;
+}

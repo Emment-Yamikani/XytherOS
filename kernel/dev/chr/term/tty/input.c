@@ -18,18 +18,18 @@ typedef enum {
 
 /* Thread-safe keyboard state */
 typedef struct {
-    uint8_t flags;
-    spinlock_t lock;
+    uint8_t     flags;
+    spinlock_t  lock;
 } kbd_state_t;
 
 static kbd_state_t kbd_state = {
     .flags = 0,
-    .lock = SPINLOCK_INIT()
+    .lock  = SPINLOCK_INIT()
 };
 
 /* Keymap with 4 mappings: Normal, Shift, Ctrl, Alt */
 static char key_map[][4] = {
-    [VT_KEY_NONE] = {'\0', '\0', '\0', '\0'},
+    [VT_KEY_UNDEF] = {'\0', '\0', '\0', '\0'},
 
     /* Alphanumeric keys */
     [VT_KEY_A] = {'a', 'A', CTRL('A'), 0x01},
@@ -212,7 +212,7 @@ static const char* ansi_sequences[] = {
     [VT_KEY_SCRLOCK]  = "",        // No sequence
 };
 
-static devid_t *kbdev   = DEVID_PTR(NULL, CHRDEV, DEV_T(KBDEV_DEV_MAJOR, 0));
+static DEVID_DEF(kbdev, NULL, CHRDEV, DEV_T(KBDEV_DEV_MAJOR, 0));
 
 /* Helper macros */
 #define KEY_ALT(k)      ((k) == VT_KEY_LALT   || (k) == VT_KEY_RALT)
@@ -384,7 +384,7 @@ int tty_receive_input(tty_t *tp, void *data) {
         return -EINVAL;
     }
 
-    if (event->ev_vt_key == VT_KEY_NONE || event->ev_vt_key >= VT_KEY_MAX) {
+    if (event->ev_vt_key == VT_KEY_UNDEF || event->ev_vt_key >= VT_KEY_MAX) {
         return -EINVAL;
     }
 
@@ -398,27 +398,25 @@ int tty_receive_input(tty_t *tp, void *data) {
 
 /* Main input thread */
 void tty_input(void) {
-    tty_t *tp = NULL;
-    kbd_event_t event;
-
     while (device_open(kbdev, NULL)) { // try to open the keyboard event.rv_
         sched_yield();
     }
     
     while (1) {
-        tp = tty_current();
+        tty_t *tp = tty_current(); // get the currently active tty.
         if (tp == NULL) {
-            sched_yield();
+            sched_yield(); // yield if the tty subsystem is not ready yet.
+            continue;
+        }
+        
+        kbd_event_t event;
+        if (device_ioctl(kbdev, EV_READ, &event) != 0) { // read the keystroe from the generic-keyboard buffer.
+            sched_yield(); // yield is there isn't anyt data in the buffer.
             continue;
         }
 
-        if (device_ioctl(kbdev, EV_READ, &event) != 0) {
-            sched_yield();
-            continue;
-        }
-
-        if (event.ev_vt_key == VT_KEY_NONE || event.ev_vt_key >= VT_KEY_MAX) {
-            continue;
+        if (event.ev_vt_key == VT_KEY_UNDEF || event.ev_vt_key >= VT_KEY_MAX) {
+            continue; // received a key with a full buffer or undefined key.
         }
 
         if (event.ev_flags & EV_MAKE) {

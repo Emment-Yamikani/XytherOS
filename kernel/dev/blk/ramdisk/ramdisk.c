@@ -1,5 +1,6 @@
 #include <bits/errno.h>
 #include <boot/boot.h>
+#include <core/debug.h>
 #include <dev/dev.h>
 #include <mm/kalloc.h>
 #include <string.h>
@@ -59,7 +60,7 @@ static void disk_free(ramdisk_t *disk) {
     kfree(disk);
 }
 
-static ramdisk_t *get_ramdisk(struct devid *dd) {
+static ramdisk_t *get_ramdisk(devid_t *dd) {
     if (!valid_devno(dd->minor, NRAMDISK) || dd->type != BLKDEV || dd->major != RAMDISK_DEV_MAJOR) {
         return NULL;
     }
@@ -81,10 +82,10 @@ static int ramdisk_init(void) {
     }
 
     for (u32 i = 0; i < bootinfo.modcnt; ++i, mod++) {
-        int      err;
-        device_t *dev;
-        ramdisk_t *disk;
-        char     name[16];
+        int         err;
+        device_t    *dev;
+        ramdisk_t   *disk;
+        char        name[16];
 
         if ((err = disk_alloc(&disk))) {
             return err;
@@ -120,31 +121,31 @@ static int ramdisk_init(void) {
     return 0;
 } BUILTIN_DEVICE(ramdisk, ramdisk_init, NULL, NULL);
 
-static int ramdisk_probe(struct devid *dd __unused) {
+static int ramdisk_probe(devid_t *dd __unused) {
     return 0;
 }
 
-static int ramdisk_fini(struct devid *dd __unused) {
+static int ramdisk_fini(devid_t *dd __unused) {
     return 0;
 }
 
-static int ramdisk_close(struct devid *dd __unused) {
+static int ramdisk_close(devid_t *dd __unused) {
     return 0;
 }
 
-static int ramdisk_open(struct devid *dd __unused, inode_t **pip __unused) {
+static int ramdisk_open(devid_t *dd __unused, inode_t **pip __unused) {
     return 0;
 }
 
-static int ramdisk_getinfo(struct devid *dd, void *info) {
+static int ramdisk_getinfo(devid_t *dd, void *info) {
     return ramdisk_ioctl(dd, RAMDISK_GETINFO, info);
 }
 
-static int ramdisk_mmap(struct devid *dd __unused, vmr_t *vmregion __unused) {
+static int ramdisk_mmap(devid_t *dd __unused, vmr_t *vmregion __unused) {
     return -ENOSYS;
 }
 
-static int ramdisk_ioctl(struct devid *dd, int request, void *arg) {
+static int ramdisk_ioctl(devid_t *dd, int request, void *arg) {
     ramdisk_t *disk = get_ramdisk(dd);
     if (disk == NULL || arg == NULL) {
         return -EINVAL;
@@ -168,11 +169,11 @@ static int ramdisk_ioctl(struct devid *dd, int request, void *arg) {
     return err;
 }
 
-static off_t ramdisk_lseek(struct devid *dd __unused, off_t offset __unused, int whence __unused) {
+static off_t ramdisk_lseek(devid_t *dd __unused, off_t offset __unused, int whence __unused) {
     return -ENOSYS;
 }
 
-static isize ramdisk_read(struct devid *dd, off_t off, void *buf, usize size) {
+static isize ramdisk_read(devid_t *dd, off_t off, void *buf, usize size) {
     ramdisk_t *disk = get_ramdisk(dd);
     if (disk == NULL || buf == NULL) {
         return -EINVAL;
@@ -189,7 +190,7 @@ static isize ramdisk_read(struct devid *dd, off_t off, void *buf, usize size) {
     return retval;
 }
 
-static isize ramdisk_write(struct devid *dd, off_t off, void *buf, usize size) {
+static isize ramdisk_write(devid_t *dd, off_t off, void *buf, usize size) {
     ramdisk_t *disk = get_ramdisk(dd);
     if (disk == NULL || buf == NULL) {
         return -EINVAL;

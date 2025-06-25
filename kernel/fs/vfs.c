@@ -1,4 +1,5 @@
 #include <bits/errno.h>
+#include <core/debug.h>
 #include <fs/fs.h>
 #include <fs/devtmpfs.h>
 #include <fs/tmpfs.h>
@@ -85,50 +86,65 @@ int vfs_init(void) {
 
     dunlock(droot);
 
-    if ((err = ramfs_init()))
+    if ((err = ramfs_init())) {
         return err;
+    }
 
-    if ((err = tmpfs_init()))
+    
+    if ((err = tmpfs_init())) {
         return err;
+    }
 
-    if ((err = devtmpfs_init()))
+    
+    if ((err = devtmpfs_init())) {
         return err;
+    }
 
-    if ((err = pipefs_init()))
+    if ((err = pipefs_init())) {
         return err;
+    }
 
-    if ((err = procfs_init()))
+    if ((err = procfs_init())) {
         return err;
+    }
 
-    if ((err = sysfs_init()))
+    if ((err = sysfs_init())) {
         return err;
+    }
 
-    if ((err = vfs_mount(NULL, "/", "tmpfs", 0, NULL)))
+    if ((err = vfs_mount(NULL, "/", "tmpfs", 0, NULL))) {
         return err;
+    }
 
     mode = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH;
 
     for (int i = 0; dir[i] ; ++i) {
-        if ((err = vfs_mkdir(dir[i], NULL, mode | S_IFDIR)))
+        if ((err = vfs_mkdir(dir[i], NULL, mode | S_IFDIR))) {
             return err;
+        }
     }
 
-    if ((err = vfs_mount("ramdisk0", "/ramfs/", "ramfs", 0, NULL)))
+    if ((err = vfs_mount("ramdisk0", "/ramfs/", "ramfs", 0, NULL))) {
         return err;
+    }
 
-    if ((err = vfs_mount(NULL, "/dev/", "devtmpfs", 0, NULL)))
+    if ((err = vfs_mount(NULL, "/dev/", "devtmpfs", 0, NULL))) {
         return err;
+    }
     
     for (int i = 0; dev_dirs[i] ; ++i) {
-        if ((err = vfs_mkdir(dev_dirs[i], NULL, mode | S_IFDIR)))
+        if ((err = vfs_mkdir(dev_dirs[i], NULL, mode | S_IFDIR))) {
             return err;
+        }
     }
 
-    if ((err = vfs_mount(NULL, "/sys/", "sysfs", 0, NULL)))
+    if ((err = vfs_mount(NULL, "/sys/", "sysfs", 0, NULL))) {
         return err;
+    }
 
-    if ((err = vfs_mount(NULL, "/proc/", "procfs", 0, NULL)))
+    if ((err = vfs_mount(NULL, "/proc/", "procfs", 0, NULL))) {
         return err;
+    }
 
     return 0;
 }
@@ -166,7 +182,7 @@ int vfs_alloc_vnode(const char *name, itype_t type, inode_t **pip, dentry_t **pd
     return 0;
 }
 
-int vfs_register_fs(filesystem_t *fs) {
+int vfs_register_fs(fs_t *fs) {
     int err = 0;
 
     fsassert_locked(fs);
@@ -183,7 +199,7 @@ int vfs_register_fs(filesystem_t *fs) {
     return err;
 }
 
-int vfs_unregister_fs(filesystem_t *fs) {
+int vfs_unregister_fs(fs_t *fs) {
     fsassert_locked(fs);
     if (fs == NULL)
         return -EINVAL;
@@ -194,8 +210,8 @@ int vfs_unregister_fs(filesystem_t *fs) {
     return -EBUSY;
 }
 
-int vfs_getfs(const char *type, filesystem_t **pfs) {
-    filesystem_t *fs = NULL;
+int vfs_getfs(const char *type, fs_t **pfs) {
+    fs_t *fs = NULL;
     queue_node_t *next = NULL;
 
     if (type == NULL || pfs == NULL)

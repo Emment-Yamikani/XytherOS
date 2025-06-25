@@ -107,10 +107,10 @@ void tty_switch(int tty) {
  */
 void tty_init_termios(struct termios *tio) {
     /* Control modes */
-    tio->c_cflag = CS8 | CREAD | CLOCAL;  /* 8n1, enable receiver */
+    tio->c_cflag = CS8   | CREAD | CLOCAL;/* 8n1, enable receiver */
     tio->c_iflag = ICRNL | IXON;          /* CR->NL, enable flow control */
-    tio->c_oflag = OPOST | ONLCR;         /* Post-process output, NL->CR-NL */
-    tio->c_lflag = ISIG | ICANON | ECHO | ECHONL | ECHOE | ECHOK | IEXTEN;
+    tio->c_oflag = OPOST | ONLCR | ONLRET;/* Post-process output, NL->CR-NL */
+    tio->c_lflag = ISIG  | ICANON| ECHO | ECHONL | ECHOE | ECHOK | IEXTEN;
 
     /* Control characters */
     tio->c_cc[VINTR]    = CTRL('C');     /* Ctrl-C */
@@ -145,8 +145,8 @@ int tty_create(const char *name, devno_t minor, tty_ops_t *ops, ldisc_t *ldisc, 
         return -ENOSYS; // need to provide tty operations.
     }
 
-    tty_t *tp;
     int err;
+    tty_t *tp;
     if ((err = tty_alloc(&tp))) {
         return err;
     }
@@ -154,16 +154,16 @@ int tty_create(const char *name, devno_t minor, tty_ops_t *ops, ldisc_t *ldisc, 
     dev_t dev = DEV_T(TTY_DEV_MAJOR, minor);
 
     err = kdevice_create(name, CHRDEV, dev, &ttydev_ops, &tp->t_dev);
-    if (err) {
+    if (err != 0) {
         tty_free(tp);
         return err;
     }
 
     tty_init_termios(&tp->t_termios);
 
-    tp->t_tabsize = 8;
-    tp->t_dev->private = tp;
-    tp->t_ops   = ops ? *ops : (tty_ops_t){0};
+    tp->t_tabsize       = 8;
+    tp->t_dev->private  = tp;
+    tp->t_ops   = ops   ? *ops  : (tty_ops_t){0};
     tp->t_ldisc = ldisc ? ldisc : &ldisc_X_TTY;
 
     *ptp = tp;
@@ -176,12 +176,10 @@ int tty_register(int minor, tty_t *tp) {
     }
 
     ttys[minor] = tp;
-
     return 0;
 }
 
 static int tty_init(void) {
-
     memset(ttys, 0, sizeof ttys);
 
     int err = ldisc_init();
@@ -236,15 +234,15 @@ static int get_tty(devid_t *dd, tty_t **ptp) {
     return 0;
 }
 
-static int tty_probe(struct devid *) {
+static int tty_probe(devid_t *) {
     return 0;
 }
 
-static int tty_fini(struct devid *) {
+static int tty_fini(devid_t *) {
     return 0;
 }
 
-static int tty_close(struct devid *dd) {
+static int tty_close(devid_t *dd) {
     tty_t *tp;
 
     int err = get_tty(dd, &tp);
@@ -270,7 +268,7 @@ static int tty_close(struct devid *dd) {
     return 0;
 }
 
-static int tty_open(struct devid *dd, inode_t **) {
+static int tty_open(devid_t *dd, inode_t **) {
     tty_t *tp;
     int err = get_tty(dd, &tp);
     if (err != 0) {
@@ -291,19 +289,19 @@ static int tty_open(struct devid *dd, inode_t **) {
     return 0;
 }
 
-static int tty_mmap(struct devid *, vmr_t *) {
+static int tty_mmap(devid_t *, vmr_t *) {
     return -EINVAL;
 }
 
-static int tty_getinfo(struct devid *, void *) {
+static int tty_getinfo(devid_t *, void *) {
     return -ENOSYS;
 }
 
-static off_t tty_lseek(struct devid *, off_t, int) {
+static off_t tty_lseek(devid_t *, off_t, int) {
     return -EOPNOTSUPP;
 }
 
-static int tty_ioctl(struct devid *dd, int request, void *arg) {
+static int tty_ioctl(devid_t *dd, int request, void *arg) {
     tty_t *tp;
     int err = get_tty(dd, &tp);
 
@@ -326,7 +324,7 @@ static int tty_ioctl(struct devid *dd, int request, void *arg) {
     return err;
 }
 
-static ssize_t tty_read(struct devid *dd, off_t, void *buf, size_t nbyte) {
+static ssize_t tty_read(devid_t *dd, off_t, void *buf, size_t nbyte) {
     tty_t *tp;
     ssize_t ret = get_tty(dd, &tp);
 
@@ -349,7 +347,7 @@ static ssize_t tty_read(struct devid *dd, off_t, void *buf, size_t nbyte) {
     return ret;
 }
 
-static ssize_t tty_write(struct devid *dd, off_t, void *buf, size_t nbyte) {
+static ssize_t tty_write(devid_t *dd, off_t, void *buf, size_t nbyte) {
     tty_t *tp;
     ssize_t ret = get_tty(dd, &tp);
 

@@ -31,7 +31,7 @@ static const vt_key_t e0_scode_map[128] = {
 };
 
 static const vt_key_t scode_map[128] = {
-    [0x00] = VT_KEY_NONE,
+    [0x00] = VT_KEY_UNDEF,
     [0x01] = VT_KEY_ESC,
     [0x02] = VT_KEY_1,
     [0x03] = VT_KEY_2,
@@ -89,7 +89,7 @@ static const vt_key_t scode_map[128] = {
     [0x34] = VT_KEY_PERIOD,
     [0x35] = VT_KEY_SLASH,
     [0x36] = VT_KEY_RSHIFT,
-    [0x37] = VT_KEY_NONE,         // PrintScreen (needs E0)
+    [0x37] = VT_KEY_UNDEF,         // PrintScreen (needs E0)
     [0x38] = VT_KEY_LALT,
     [0x39] = VT_KEY_SPACE,
     [0x3A] = VT_KEY_CAPSLOCK,
@@ -113,7 +113,7 @@ static const vt_key_t scode_map[128] = {
     [0x4B] = VT_KEY_KP_4,
     [0x4C] = VT_KEY_KP_5,
     [0x4D] = VT_KEY_KP_6,
-    [0x4E] = VT_KEY_NONE,         // KP +
+    [0x4E] = VT_KEY_UNDEF,         // KP +
     [0x4F] = VT_KEY_KP_1,
 
     [0x50] = VT_KEY_KP_2,
@@ -139,7 +139,7 @@ void ps2kbd_intr(void) {
     bool        is_brk;
 
     flags   = EV_NONE;
-    vt_key  = VT_KEY_NONE;
+    vt_key  = VT_KEY_UNDEF;
 
     scode   = inb(PS2_DATA_PORT);
     code    = scode & 0x7F;
@@ -232,7 +232,7 @@ void ps2kbd_intr(void) {
         flags   = !is_brk ? EV_MAKE : 0;
     }
 
-    if (vt_key == VT_KEY_NONE) {
+    if (vt_key == VT_KEY_UNDEF) {
         return;
     }
 

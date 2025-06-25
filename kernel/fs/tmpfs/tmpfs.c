@@ -1,13 +1,14 @@
 #include <bits/errno.h>
+#include <core/debug.h>
 #include <dev/dev.h>
 #include <ds/btree.h>
-#include <ds/hash.h>
 #include <ds/stack.h>
 #include <fs/devtmpfs.h>
 #include <fs/fs.h>
 #include <fs/stat.h>
 #include <fs/tmpfs.h>
 #include <mm/kalloc.h>
+#include <ds/hashMap.h>
 
 typedef struct tmpfs_inode_t {
     uid_t       uid;
@@ -15,7 +16,7 @@ typedef struct tmpfs_inode_t {
     mode_t      mode;
     uintptr_t   ino;
     itype_t     type;
-    dev_t     rdev;
+    dev_t       rdev;
     size_t      size;
     long        hlink;
     void        *data;
@@ -27,10 +28,8 @@ typedef struct tmpfs_dirent_t {
 } tmpfs_dirent_t;
 
 int tmpfs_init(void);
-static size_t tmpfs_hash(const char *str);
 int tmpfs_new_inode(itype_t type, inode_t **pip);
 static int tmpfs_ialloc(itype_t type, tmpfs_inode_t **pip);
-static int tmpfs_hash_verify(const char *fname, tmpfs_dirent_t *dirent);
 
 #define tmpfs_data(ip) ({       \
     void *data = NULL;          \
@@ -40,12 +39,7 @@ static int tmpfs_hash_verify(const char *fname, tmpfs_dirent_t *dirent);
     data;                       \
 })
 
-static filesystem_t *tmpfs = NULL;
-
-static hash_ctx_t tmpfs_hash_ctx = {
-    .hash_func = tmpfs_hash,
-    .hash_verify_obj = tmpfs_hash_verify,
-};
+static fs_t *tmpfs = NULL;
 
 static iops_t tmpfs_iops = {
     .iopen      = tmpfs_iopen,
@@ -70,27 +64,39 @@ static iops_t tmpfs_iops = {
     .itruncate  = tmpfs_itruncate,
 };
 
-static size_t tmpfs_hash(const char *str) {
-    int c = 0;
-    size_t hash = 5381;
+static hashKey tmpfs_hash(hashMap *, const void *key) {
+    int     c   = 0;
+    char    *str= (char *)key;
+    hashKey hash= 5381;
     while ((c = *str++)) {
         hash = ((hash << 5) + hash) + c;
     }
     return hash;
 }
 
-static int tmpfs_hash_verify( const char *fname, tmpfs_dirent_t *dirent) {
-    if (dirent == NULL || fname == NULL) {
+static int tmpfs_dump_hash(hashMap *, hashEntry *entry, void *) {
+    if (entry == NULL) {
         return -EINVAL;
     }
-    return !string_eq(fname, dirent->name);
+
+    tmpfs_dirent_t *dirent = (tmpfs_dirent_t *)entry->value;
+    printk("File Name: %s\n", dirent->name);
+
+    return 0;
 }
 
-static int tmpfs_fill_sb(filesystem_t *fs __unused, const char *target,
-    struct devid *devid __unused, superblock_t *sb) {
-    int err = 0;
-    inode_t *iroot = NULL;
-    dentry_t *droot = NULL;
+static hashMapContext tmpfs_hashctx = {
+    .compare    = NULL,
+    .copy       = NULL,
+    .destroy    = NULL,
+    .hash       = tmpfs_hash,
+    .dump       = tmpfs_dump_hash,
+};
+
+static int tmpfs_fill_sb(fs_t *, const char *target, struct devid *, sblock_t *sb) {
+    int         err    = 0;
+    inode_t     *iroot = NULL;
+    dentry_t    *droot = NULL;
 
     if ((err = tmpfs_new_inode(FS_DIR, &iroot))) {
         return err;
@@ -100,17 +106,17 @@ static int tmpfs_fill_sb(filesystem_t *fs __unused, const char *target,
         irelease(iroot);
         return err;
     }
-    
+
     if ((err = iadd_alias(iroot, droot))) {
         dclose(droot);
         irelease(iroot);
         return err;
     }
-
+    
     sb->sb_blocksize = -1;
     strncpy(sb->sb_magic0, "virtual FS", 10);
     sb->sb_size = -1;
-    sb->sb_uio = (cred_t){
+    sb->sb_uio  = (cred_t){
         .c_gid  = 0,
         .c_uid  = 0,
         .c_umask= 0555,
@@ -126,8 +132,7 @@ static int tmpfs_fill_sb(filesystem_t *fs __unused, const char *target,
     return 0;
 }
 
-static int tmpfs_getsb(filesystem_t *fs, const char *src __unused, const char *target,
-                        unsigned long flags, void *data, superblock_t **psbp) {
+static int tmpfs_getsb(fs_t *fs, const char *, const char *target, ulong flags, void *data, sblock_t **psbp) {
     return getsb_nodev(fs, target, flags, data, psbp, tmpfs_fill_sb);
 }
 
@@ -151,7 +156,7 @@ static inline int tmpfs_dirent_type(tmpfs_dirent_t *dirent) {
     case FS_RGL:  d_type = DT_REG;  break;
     case FS_BLK:  d_type = DT_BLK;  break;
     case FS_CHR:  d_type = DT_CHR;  break;
-    case FS_FIFO: d_type = DT_FIFO;  break;
+    case FS_FIFO: d_type = DT_FIFO; break;
     case FS_INV:
     default:      d_type = 0;       break;
     }
@@ -161,8 +166,9 @@ static inline int tmpfs_dirent_type(tmpfs_dirent_t *dirent) {
 int tmpfs_init(void) {
     int err = 0;
 
-    if ((err = fs_create("tmpfs", &tmpfs_iops, &tmpfs)))
+    if ((err = fs_create("tmpfs", &tmpfs_iops, &tmpfs))) {
         return err;
+    }
 
     tmpfs->get_sb = tmpfs_getsb;
     tmpfs->mount = NULL;
@@ -175,15 +181,16 @@ int tmpfs_init(void) {
     fsunlock(tmpfs);
     return 0;
 error:
-    if (tmpfs)
+    if (tmpfs) {
         fs_free(tmpfs);
+    }
     return err;
 }
 
 static int tmpfs_ialloc(itype_t type, tmpfs_inode_t **pipp) {
     int             err         = 0;
     tmpfs_inode_t   *ip         = NULL;
-    hash_table_t    *htable     = NULL;
+    hashMap         *hmap       = NULL;
     static long     tmpfs_inos  = 0;
 
     if (pipp == NULL) {
@@ -195,7 +202,7 @@ static int tmpfs_ialloc(itype_t type, tmpfs_inode_t **pipp) {
     }
 
     if (type == FS_DIR) {
-        if ((err = hash_alloc(&tmpfs_hash_ctx, &htable))) {
+        if ((err = hashMap_alloc(&tmpfs_hashctx, &hmap))) {
             goto error;
         }
     }
@@ -204,7 +211,7 @@ static int tmpfs_ialloc(itype_t type, tmpfs_inode_t **pipp) {
 
     ip->hlink   = 1;
     ip->type    = type;
-    ip->data    = htable;
+    ip->data    = hmap;
     ip->ino     = atomic_fetch_inc(&tmpfs_inos);
 
     *pipp = ip;
@@ -213,32 +220,25 @@ static int tmpfs_ialloc(itype_t type, tmpfs_inode_t **pipp) {
 error:
     if (ip)
         kfree(ip);
-    if (htable)
-        hash_destroy(htable);
+    if (hmap)
+        hashMap_free(hmap);
     return err;
 }
 
 static int tmpfs_ifree(tmpfs_inode_t *ip) {
-    int err = 0;
-    
     if (ip == NULL) {
         return -EINVAL;
     }
 
     if (--ip->hlink <= 0) {
         if (ip->type == FS_DIR) {
-            hash_table_t *htable = ip->data;
+            hashMap *hmap = ip->data;
 
-            if (!htable) {
+            if (!hmap) {
                 return -EINVAL;
             }
 
-            hash_lock(htable);
-            if ((err = hash_free(htable))) {
-                hash_unlock(htable);
-                ip->hlink++;
-                return err;
-            }
+            hashMap_free(hmap);
         } else if (ip->data) {
             kfree(ip->data);
         }
@@ -285,7 +285,7 @@ static int tmpfs_dirent_alloc(const char *fname, tmpfs_inode_t *ip, tmpfs_dirent
     }
 
     tmpfs_dirent_t *tde = (tmpfs_dirent_t *)kmalloc(sizeof (tmpfs_dirent_t));
-    if (!tde) {
+    if (tde == NULL) {
         kfree(name);
         return -ENOMEM;
     }
@@ -334,11 +334,11 @@ static int tmpfs_create_node(inode_t *dir, const char *fname, mode_t mode, itype
         return err;
     }
 
-    hash_table_t *htable = (hash_table_t *)tmpfs_data(dir);
+    hashMap *hmap = (hashMap *)tmpfs_data(dir);
 
-    hash_lock(htable);
-    err = hash_insert(htable, (void *)fname, dirent);
-    hash_unlock(htable);
+    hashMap_lock(hmap);
+    err = hashMap_insert(hmap, fname, dirent);
+    hashMap_unlock(hmap);
 
     if (err != 0) {
         tmpfs_dirent_free(dirent);
@@ -381,13 +381,13 @@ int tmpfs_ilookup(inode_t *dir, const char *fname, inode_t **pipp) {
         return -EINVAL;
     }
     
-    hash_table_t *htable = (hash_table_t *)tmpfs_data(dir);
+    hashMap *hmap = (hashMap *)tmpfs_data(dir);
 
     // printk("tmpfs looking-up file(\e[0;013m%s\e[0m).\n", fname);
  
-    hash_lock(htable);
-    err = hash_search(htable, (void *)fname, -1, (void **)&dirent);
-    hash_unlock(htable);
+    hashMap_lock(hmap);
+    err = hashMap_lookup(hmap, fname, (void **)&dirent);
+    hashMap_unlock(hmap);
 
     if (err != 0) {
         return err;
@@ -454,11 +454,8 @@ int tmpfs_itruncate(inode_t *ip) {
 }
 
 ssize_t tmpfs_iread(inode_t *ip, off_t off, void *buf, size_t sz) {
-    void *data = NULL;
-    tmpfs_inode_t *tino = NULL;
-
     iassert_locked(ip);
-
+    
     if (ip == NULL || buf == NULL) {
         return -EINVAL;
     }
@@ -466,9 +463,13 @@ ssize_t tmpfs_iread(inode_t *ip, off_t off, void *buf, size_t sz) {
     if (IISDIR(ip)) {
         return -EISDIR;
     }
+    
+    void *data = tmpfs_data(ip);
+    tmpfs_inode_t *tino = ip->i_priv;
 
-    data = tmpfs_data(ip);
-    tino = ip->i_priv;
+    if (tino == NULL) {
+        return -EINVAL;
+    }
 
     if ((off >= tino->size) || data == NULL) {
         return -1;
@@ -583,47 +584,34 @@ ssize_t tmpfs_ireaddir(inode_t *dir, off_t off, struct dirent *buf, size_t count
         return -EINVAL;
     }
 
-    // Temporary queue for directory entry collection
-    queue_t queue;
-    queue_init(&queue);
-
     // Get directory's hash table of entries
-    hash_table_t  *htable = (hash_table_t *)tmpfs_data(dir);
+    hashMap  *hmap = (hashMap *)tmpfs_data(dir);
 
-    // Begin critical section for queue access
-    queue_lock(&queue);
-
-    // Lock hash table while traversing entries
-    hash_lock(htable);
-    // Collect all directory entries into queue
-    err = hash_traverse(htable, &queue);
-    hash_unlock(htable);
-
-    // Handle hash traversal errors
-    if (err != 0) {
-        queue_flush(&queue);
-        queue_unlock(&queue);
-        return err;
+    if (hmap == NULL) {
+        return 0; // EOF
     }
 
+    // Lock hash table while traversing entries
+    hashMap_lock(hmap);
+
     // Get total number of directory entries
-    const usize queue_len = queue_length(&queue);
+    const usize hmap_size = hashMap_size(hmap);
     // Validate requested offset against actual entries
-    if (off >= queue_len) {
-        queue_flush(&queue);
-        queue_unlock(&queue);
+    if (off >= hmap_size) {
+        hashMap_unlock(hmap);
         return -EFAULT;
     }
 
+    ITER(iter);
+
     size_t pos = 0, ncount = 0;
+
     // Iterate through entries with count-limited loop
-    forlinked_take(node, queue.head, node->next, count) {
+    tmpfs_dirent_t *dirent;
+    hashMap_foreach_item(hmap, dirent, iter) {
         // Skip entries until we reach requested offset
         if (pos++ < off) continue;
 
-        // Get directory entry data
-        tmpfs_dirent_t *dirent  = (tmpfs_dirent_t *)node->data;
-        
         // Prepare destination buffer entry
         struct dirent  *dbuf    = &buf[ncount];
         // Populate directory entry structure
@@ -636,17 +624,15 @@ ssize_t tmpfs_ireaddir(inode_t *dir, off_t off, struct dirent *buf, size_t count
         };
 
         /* Copy filename with safety measures:
-         * 1. strncpy prevents buffer overflow
-         * 2. Explicit null termination ensures valid C string */
+            * 1. strncpy prevents buffer overflow
+            * 2. Explicit null termination ensures valid C string */
         safestrncpy(dbuf->d_name, dirent->name, sizeof(dbuf->d_name) - 1);
         // dbuf->d_name[sizeof(dbuf->d_name) - 1] = '\0';
 
         ncount++;  // Track number of successfully copied entries
     }
 
-    // Cleanup queue resources
-    queue_flush(&queue);
-    queue_unlock(&queue);
+    hashMap_unlock(hmap);
 
     // Return actual number of entries copied to user buffer
     return ncount;

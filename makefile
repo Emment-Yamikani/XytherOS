@@ -3,13 +3,14 @@ TARGET      := boot/xyther.elf
 ISO_DIR     := iso
 ISO_IMAGE   := xytheros.iso
 KERNEL_DIR  := kernel
+RAMFS_DIR	:= ramfs
 KERNEL_LINKER_SCRIPT:= kernel.ld
 
 KERNEL_FLAGS:= -DDEBUG_BUILD -D__x86_64__ #-DUSE_SPINLOCK_FUNCTIONS
 
 # Toolchain Configuration
-CC          := x86_64-elf-gcc
 AS          := nasm
+CC          := x86_64-elf-gcc
 LD          := x86_64-elf-ld
 GRUBMKRESCUE:= grub-mkrescue
 
@@ -29,14 +30,19 @@ ASFLAGS     := -f elf64
 C_SRCS      := $(shell find $(KERNEL_DIR) -name '*.c')
 ASM_SRCS    := $(shell find $(KERNEL_DIR) -name '*.s')
 NASM_SRCS   := $(shell find $(KERNEL_DIR) -name '*.asm')
+FONT_SRCS	:= $(shell find . -name '*.tf')
 
-OBJS        := $(C_SRCS:.c=.c.o) $(ASM_SRCS:.s=.s.o) $(NASM_SRCS:.asm=.o)
+OBJS        := $(C_SRCS:.c=.c.o) $(ASM_SRCS:.s=.s.o) $(NASM_SRCS:.asm=.o) $(FONT_SRCS:.tf=.tf.o)
 
 # Phony Targets
-.PHONY: all clean iso run debug
+.PHONY: all clean iso run debug module
 
 # Default Target
-all: $(ISO_DIR)/$(TARGET)
+all: $(ISO_DIR)/$(TARGET) module
+
+# Common rules
+module:
+	./mkdisk -o $(ISO_DIR)/modules/ramfs -d $(RAMFS_DIR)
 
 # Link the Kernel
 $(ISO_DIR)/$(TARGET): $(OBJS)
@@ -44,6 +50,12 @@ $(ISO_DIR)/$(TARGET): $(OBJS)
 	@mkdir -p $(ISO_DIR)/boot
 	$(LD) $(LDFLAGS) -o $@ $^
 	@echo "Kernel linked: $@"
+
+# Additional rule
+%.tf.o: font.tf
+	@echo "Building font file..."
+	$(LD) -r -b binary -o $@ $^
+	@echo "Font file built: $@"
 
 # Compile C Sources
 %.c.o: %.c
@@ -76,6 +88,7 @@ iso: all
 	@echo 'set default=0' >> $(ISO_DIR)/boot/grub/grub.cfg
 	@echo 'menuentry "xytherOS" {' >> $(ISO_DIR)/boot/grub/grub.cfg
 	@echo '	multiboot --quirk-modules-after-kernel /$(TARGET) 0x1000000' >> $(ISO_DIR)/boot/grub/grub.cfg
+	@echo '	module /modules/ramfs' >> $(ISO_DIR)/boot/grub/grub.cfg
 	@echo '	boot' >> $(ISO_DIR)/boot/grub/grub.cfg
 	@echo '}' >> $(ISO_DIR)/boot/grub/grub.cfg
 	$(GRUBMKRESCUE) -o $(ISO_IMAGE) $(ISO_DIR)
@@ -91,6 +104,7 @@ run: iso
 	qemu-system-x86_64 -cdrom $(ISO_IMAGE) -monitor stdio \
     $(QUEUE_FLAGS) -smp $(CPU_COUNT) -m size=$(RAM_SIZE) -vga std \
     -chardev file,id=char0,path=serial.log -serial chardev:char0
+	@cat serial.log
 
 run_serial: iso
 	@echo "Starting QEMU..."

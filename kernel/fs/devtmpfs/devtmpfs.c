@@ -3,7 +3,7 @@
 #include <lib/printk.h>
 #include <string.h>
 
-static filesystem_t *devtmpfs = NULL;
+static fs_t *devtmpfs = NULL;
 
 static iops_t devtmpfs_iops = {
     .iopen      = tmpfs_iopen,
@@ -28,14 +28,14 @@ static iops_t devtmpfs_iops = {
     .itruncate  = tmpfs_itruncate,
 };
 
-static int devtmpfs_fill_sb(filesystem_t *fs __unused, const char *target,
-                         struct devid *devid __unused, superblock_t *sb) {
+static int devtmpfs_fill_sb(fs_t *, const char *target, devid_t *, sblock_t *sb) {
     int         err     = 0;
     inode_t     *iroot  = NULL;
     dentry_t    *droot  = NULL;
 
-    if ((err = tmpfs_new_inode(FS_DIR, &iroot)))
+    if ((err = tmpfs_new_inode(FS_DIR, &iroot))) {
         return err;
+    }
 
     if ((err = dalloc(target, &droot))) {
         irelease(iroot);
@@ -49,10 +49,10 @@ static int devtmpfs_fill_sb(filesystem_t *fs __unused, const char *target,
     }
 
     strncpy(sb->sb_magic0, "devtmpfs", 10);
-    sb->sb_blocksize = -1;
-    sb->sb_size      = -1;
-    sb->sb_root      = droot;
-    sb->sb_uio = (cred_t){
+    sb->sb_blocksize= -1;
+    sb->sb_size     = -1;
+    sb->sb_root     = droot;
+    sb->sb_uio      = (cred_t) {
         .c_gid      = 0,
         .c_uid      = 0,
         .c_umask    = 0555,
@@ -68,16 +68,17 @@ static int devtmpfs_fill_sb(filesystem_t *fs __unused, const char *target,
     return 0;
 }
 
-static int devtmpfs_getsb(filesystem_t *fs, const char *src __unused, const char *target,
-                       unsigned long flags, void *data, superblock_t **psbp) {
+static int devtmpfs_getsb(fs_t *fs, const char *src __unused, const char *target,
+    ulong flags, void *data, sblock_t **psbp) {
     return getsb_nodev(fs, target, flags, data, psbp, devtmpfs_fill_sb);
 }
 
 int devtmpfs_init(void) {
     int err = 0;
 
-    if ((err = fs_create("devtmpfs", &devtmpfs_iops, &devtmpfs)))
+    if ((err = fs_create("devtmpfs", &devtmpfs_iops, &devtmpfs))) {
         return err;
+    }
 
     devtmpfs->get_sb = devtmpfs_getsb;
     devtmpfs->mount = NULL;
@@ -90,7 +91,8 @@ int devtmpfs_init(void) {
     fsunlock(devtmpfs);
     return 0;
 error:
-    if (devtmpfs)
+    if (devtmpfs) {
         fs_free(devtmpfs);
+    }
     return err;
 }
