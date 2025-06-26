@@ -8,6 +8,7 @@
 
 typedef size_t hashKey;
 typedef struct hashMap hashMap;
+
 /**
  * @brief Function type for computing a hash key from a given input key.
  *
@@ -94,7 +95,7 @@ typedef struct hashMapContext {
 
 #define HASHMAPCTX_INIT()   ((hashMapContext){0})
 
-#define HASHMAPCTX(name)   hashMapContext *name = &HASHMAPCTX_INIT()
+#define HASHMAPCTX(name)    hashMapContext *name = &HASHMAPCTX_INIT()
 
 
 /**
@@ -117,11 +118,11 @@ typedef struct hashMapContext {
  * @brief Thread-safe hash map using a btree for bucket management.
  */
 typedef struct hashMap {
-    size_t      size;       /**< Number of entries currently in the map. */
-    size_t      capacity;   /**< Maximum number of buckets available. */
-    btree_t     bucket_tree;/**< Binary search tree mapping hash indices to entries. */
-    hashMapContext  context;/**< HashMap key context. */
-    spinlock_t  lock;       /**< Lock to ensure thread-safe operations. */
+    size_t          size;       /**< Number of entries currently in the map. */
+    size_t          capacity;   /**< Maximum number of buckets available. */
+    btree_t         bucket_tree;/**< Binary search tree mapping hash indices to entries. */
+    hashMapContext  context;    /**< HashMap key context. */
+    spinlock_t      lock;       /**< Lock to ensure thread-safe operations. */
 } hashMap;
 
 #define HASHMAP(name) hashMap *name = &(hashMap) { \
@@ -255,12 +256,20 @@ extern void hashMap_flush(hashMap *map);
 extern int hashMap_remove(hashMap *map, const void *key);
 
 /**
- * @brief Removes a specific hash entry from the map without freeing it's memory.
+ * @brief Removes a specific hash entry from the map without freeing it's resources.
  * @param map The hash map.
  * @param target The entry to remove.
  * @return 0 on success, -ENOENT if not found.
  */
-extern int hashMap_remove_entry(hashMap *map, hashEntry *target);
+extern int hashMap_detach_entry(hashMap *map, hashEntry *target);
+
+/**
+ * @brief Removes a specific hashEntry from the hashMap and frees it's resources.
+ * @param map The hash map.
+ * @param target The entry to remove.
+ * @return 0 on success, -ENOENT if not found.
+ */
+extern int hashMap_remove_entry(hashMap *map, hashEntry *entry);
 
 /**
  * @brief Looks up a value by key in the map.
@@ -294,7 +303,7 @@ extern size_t hashMap_size(hashMap *map);
  */
 extern size_t hashMap_capacity(hashMap *map);
 
-#include <ds/iter.h>
+#include <ds/iter.h> // Generic iterator API.
 
 /**
  * @brief Initializes an iterator of entries for traversing the hash map.

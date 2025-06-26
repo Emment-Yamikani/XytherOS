@@ -233,7 +233,7 @@ int hashMap_migrate_entry(hashMap *dst_map, hashMap *src_map, void *key) {
     }
 
     // Remove the entry from the source map
-    err = hashMap_remove_entry(src_map, entry);
+    err = hashMap_detach_entry(src_map, entry);
     if (err != 0) {
         return err;
     }
@@ -270,7 +270,7 @@ int hashMap_update(hashMap *map, const void *key, void *new_value) {
  * @brief Clones a single hash entry and inserts it into a destination hash map.
  *
  * @param src_map Source hash map (must be locked).
- * @param entry The hash entry to clone.
+ * @param entry   The hash entry to clone.
  * @param dst_map Destination hash map (must be locked).
  * @return 0 on success, or a negative error code.
  */
@@ -384,11 +384,19 @@ static int hashMap_remove_internal_entry(hashMap *map, btree_key_t btkey, hashMa
     return 0;
 }
 
-int hashMap_remove_entry(hashMap *map, hashEntry *target) {
+int hashMap_detach_entry(hashMap *map, hashEntry *target) {
     if (!map || !target) return -EINVAL;
 
     const hashKey hash_key = HASHCTX_GET_FUNC(&map->context, hash, default_hash)(map, target->key);
     return hashMap_remove_internal_entry(map, hash_key, hashMap_match_by_ptr, target, false);
+}
+
+int hashMap_remove_entry(hashMap *map, hashEntry *entry) {
+    if (!map || !entry)
+        return -EINVAL;
+
+    const hashKey hash_key = HASHCTX_GET_FUNC(&map->context, hash, default_hash)(map, entry->key);
+    return hashMap_remove_internal_entry(map, hash_key, hashMap_match_by_ptr, entry, true);
 }
 
 int hashMap_remove(hashMap *map, const void *key) {
