@@ -2,8 +2,11 @@
 TARGET      := boot/xyther.elf
 ISO_DIR     := iso
 ISO_IMAGE   := xytheros.iso
-KERNEL_DIR  := kernel
+SRC_DIR		:= src
+KERNEL_DIR  := $(SRC_DIR)/kernel
+ROOT_DIR	:= .
 RAMFS_DIR	:= ramfs
+USR_DIR		:= $(SRC_DIR)/usr
 KERNEL_LINKER_SCRIPT:= kernel.ld
 
 KERNEL_FLAGS:= -DDEBUG_BUILD -D__x86_64__ #-DUSE_SPINLOCK_FUNCTIONS
@@ -30,12 +33,12 @@ ASFLAGS     := -f elf64
 C_SRCS      := $(shell find $(KERNEL_DIR) -name '*.c')
 ASM_SRCS    := $(shell find $(KERNEL_DIR) -name '*.s')
 NASM_SRCS   := $(shell find $(KERNEL_DIR) -name '*.asm')
-FONT_SRCS	:= $(shell find . -name '*.tf')
+FONT_SRCS	:= $(shell find $(ROOT_DIR)   -name '*.tf')
 
-OBJS        := $(C_SRCS:.c=.c.o) $(ASM_SRCS:.s=.s.o) $(NASM_SRCS:.asm=.o) $(FONT_SRCS:.tf=.tf.o)
+OBJS        := $(C_SRCS:.c=.c.o) $(ASM_SRCS:.s=.s.o) $(NASM_SRCS:.asm=.o) $(FONT_SRCS:.tf=.o)
 
 # Phony Targets
-.PHONY: all clean iso run debug module
+.PHONY: all clean iso help run debug module
 
 # Default Target
 all: $(ISO_DIR)/$(TARGET) module
@@ -52,9 +55,9 @@ $(ISO_DIR)/$(TARGET): $(OBJS)
 	@echo "Kernel linked: $@"
 
 # Additional rule
-%.tf.o: font.tf
-	@echo "Building font file..."
-	$(LD) -r -b binary -o $@ $^
+%.o: %.tf
+	@echo "Building $<..."
+	$(LD) -r -b binary -o $@ $<
 	@echo "Font file built: $@"
 
 # Compile C Sources
@@ -71,6 +74,14 @@ $(ISO_DIR)/$(TARGET): $(OBJS)
 %.o: %.asm
 	@echo "Assembling $<..."
 	$(AS) $(ASFLAGS) $< -o $@
+
+help:
+	@echo "Usage:"
+	@echo "  make            - Build kernel and modules"
+	@echo "  make iso        - Build bootable ISO"
+	@echo "  make run        - Run OS in QEMU"
+	@echo "  make debug      - Run QEMU with GDB stub"
+	@echo "  make clean      - Clean build artifacts"
 
 # Clean Build Artifacts
 clean:
@@ -94,37 +105,38 @@ iso: all
 	$(GRUBMKRESCUE) -o $(ISO_IMAGE) $(ISO_DIR)
 	@echo "ISO image created: $(ISO_IMAGE)"
 
-CPU_COUNT 	:= 1
+CPU_COUNT 	:= 2
 RAM_SIZE	:= 2048M
-QUEUE_FLAGS := -no-reboot -no-shutdown -parallel none
+QEMU_FLAGS 	:= -no-reboot -no-shutdown -parallel none
 
 # Run in QEMU
 run: iso
 	@echo "Starting QEMU..."
 	qemu-system-x86_64 -cdrom $(ISO_IMAGE) -monitor stdio \
-    $(QUEUE_FLAGS) -smp $(CPU_COUNT) -m size=$(RAM_SIZE) -vga std \
+    $(QEMU_FLAGS) -smp $(CPU_COUNT) -m size=$(RAM_SIZE) -vga std \
     -chardev file,id=char0,path=serial.log -serial chardev:char0
 	@cat serial.log
 
 run_serial: iso
 	@echo "Starting QEMU..."
 	qemu-system-x86_64 -cdrom $(ISO_IMAGE) \
-    $(QUEUE_FLAGS) -smp $(CPU_COUNT) -m size=$(RAM_SIZE) -vga std \
+    $(QEMU_FLAGS) -smp $(CPU_COUNT) -m size=$(RAM_SIZE) -vga std \
     -chardev stdio,id=char0,logfile=serial.log -serial chardev:char0
 
 # Debug in QEMU with GDB
 debug: iso
 	@echo "Starting QEMU in debug mode..."
 	qemu-system-x86_64 -cdrom $(ISO_IMAGE) -monitor stdio -s -S -d in_asm \
-	-D qemu_gdb.log $(QUEUE_FLAGS) -smp $(CPU_COUNT) -m size=$(RAM_SIZE) -vga std \
+	-D qemu_gdb.log $(QEMU_FLAGS) -smp $(CPU_COUNT) -m size=$(RAM_SIZE) -vga std \
     -chardev file,id=char0,path=serial.log -serial chardev:char0
 
 debug_log: iso
 	@echo "Starting QEMU in debug mode..."
 	qemu-system-x86_64 -cdrom $(ISO_IMAGE) -monitor stdio -d in_asm \
-	-D qemu.log $(QUEUE_FLAGS) -smp $(CPU_COUNT) -m size=$(RAM_SIZE) -vga std \
+	-D qemu.log $(QEMU_FLAGS) -smp $(CPU_COUNT) -m size=$(RAM_SIZE) -vga std \
     -chardev file,id=char0,path=serial.log -serial chardev:char0
 
 dump: $(ISO_DIR)/$(TARGET)
 	objdump -d $< -M intel | less > xyther.asm
 
+include $(USR_DIR)/makefile

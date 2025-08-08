@@ -45,6 +45,8 @@
         "tuple": "c",
         "typeinfo": "c",
         "valarray": "c",
-        "variant": "c"
+        "variant": "c",
+        "initializer_list": "c",
+        "span": "c"
     }
 }

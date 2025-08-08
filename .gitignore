@@ -3,9 +3,13 @@ iso
 *.patch
 *.d
 *.o
+*.a
 */*.log
 */*.patch
 */*.d
 */*.o
+root/
+util/
+ramfs/
 *.iso
 xyther.asm
