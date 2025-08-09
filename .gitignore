@@ -8,7 +8,7 @@ iso
 */*.patch
 */*.d
 */*.o
-root/
+rootfs/
 util/
 ramfs/
 *.iso

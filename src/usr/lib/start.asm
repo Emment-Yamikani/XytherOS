@@ -2,7 +2,6 @@ bits 64
 
 section .text
 
-
 extern main
 extern exit
 

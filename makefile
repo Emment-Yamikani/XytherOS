@@ -7,6 +7,7 @@ KERNEL_DIR  := $(SRC_DIR)/kernel
 ROOT_DIR	:= .
 RAMFS_DIR	:= ramfs
 USR_DIR		:= $(SRC_DIR)/usr
+UTIL_DIR	:= util
 KERNEL_LINKER_SCRIPT:= kernel.ld
 
 KERNEL_FLAGS:= -DDEBUG_BUILD -D__x86_64__ #-DUSE_SPINLOCK_FUNCTIONS
@@ -33,7 +34,7 @@ ASFLAGS     := -f elf64
 C_SRCS      := $(shell find $(KERNEL_DIR) -name '*.c')
 ASM_SRCS    := $(shell find $(KERNEL_DIR) -name '*.s')
 NASM_SRCS   := $(shell find $(KERNEL_DIR) -name '*.asm')
-FONT_SRCS	:= $(shell find $(ROOT_DIR)   -name '*.tf')
+FONT_SRCS	:= $(shell find $(SRC_DIR_DIR)   -name '*.tf')
 
 OBJS        := $(C_SRCS:.c=.c.o) $(ASM_SRCS:.s=.s.o) $(NASM_SRCS:.asm=.o) $(FONT_SRCS:.tf=.o)
 
@@ -45,7 +46,7 @@ all: $(ISO_DIR)/$(TARGET) module
 
 # Common rules
 module:
-	./mkdisk -o $(ISO_DIR)/modules/ramfs -d $(RAMFS_DIR)
+	$(UTIL_DIR)/mkdisk -o $(ISO_DIR)/modules/ramfs -d $(RAMFS_DIR)
 
 # Link the Kernel
 $(ISO_DIR)/$(TARGET): $(OBJS)
