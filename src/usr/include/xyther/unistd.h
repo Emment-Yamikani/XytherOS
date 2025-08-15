@@ -56,7 +56,7 @@ extern int setpgid(pid_t pid, pid_t pgid);
 extern pid_t fork(void);
 extern pid_t getpid(void);
 extern pid_t getppid(void);
-extern void exit(int exit_code);
+extern void exit(int status);
 extern pid_t waitpid(pid_t __pid, int *__stat_loc, int __options);
 extern long ptrace(enum __ptrace_request op, pid_t pid, void *addr, void *data);
 extern int execve(const char *pathname, char *const argv[], char *const envp[]);
@@ -65,7 +65,7 @@ extern pid_t wait4(pid_t pid, int *wstatus, int options, void /*struct rusage*/ 
 extern int park(void);
 extern int unpark(tid_t);
 extern tid_t gettid(void);
-extern void thread_exit(int exit_code);
+extern void thread_exit(int status);
 extern int thread_create(tid_t *ptidp, void *attr, thread_entry_t entry, void *arg);
 extern int thread_join(tid_t tid, void **retval);
 extern int set_thread_area(void *addr);

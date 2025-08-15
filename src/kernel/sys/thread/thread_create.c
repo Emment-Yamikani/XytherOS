@@ -172,6 +172,7 @@ static int create_user_thread(thread_attr_t *attr, thread_entry_t entry, void *a
     }
 
     *ptp = thread;
+
     return 0;
 error:
     if (thread) {

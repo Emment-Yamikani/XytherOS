@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct {
+typedef struct mem_stats {
     unsigned long used;
     unsigned long free; 
     unsigned long usable;

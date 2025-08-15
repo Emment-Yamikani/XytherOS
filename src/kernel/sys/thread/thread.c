@@ -45,6 +45,14 @@ tid_t thread_self(void) {
     return gettid();
 }
 
+int thread_get_uc_stack(thread_t *thread, uc_stack_t *puc_stack) {
+    if (!thread || !puc_stack) return -EINVAL;
+
+    *puc_stack = thread_is_user(thread) ? thread->t_arch.t_ustack : thread->t_arch.t_kstack;
+
+    return 0;
+}
+
 int thread_get_prio(thread_t *thread) {
     if (thread == NULL)
         return -EINVAL;

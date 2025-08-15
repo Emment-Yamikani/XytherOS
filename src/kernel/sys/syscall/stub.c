@@ -60,7 +60,7 @@ size_t (*syscall[])() = {
     [SYS_exit]              = (void *)sys_exit,
     [SYS_getpid]            = (void *)sys_getpid,
     [SYS_getppid]           = (void *)sys_getppid,
-    // [SYS_fork]              = (void *)sys_fork,
+    [SYS_fork]              = (void *)sys_fork,
     // [SYS_waitpid]           = (void *)sys_waitpid,
     // [SYS_ptrace]            = (void *)sys_ptrace,
     // [SYS_execve]            = (void *)sys_execve,
@@ -151,7 +151,7 @@ size_t (*syscall[])() = {
         
     /** Time and Clocks syscalls */
         
-    // [SYS_nanosleep]         = (void *)sys_nanosleep,
+    [SYS_nanosleep]            = (void *)sys_nanosleep,
     // [SYS_gettimeofday]      = (void *)sys_gettimeofday,
     // [SYS_settimeofday]      = (void *)sys_settimeofday,
     // [SYS_clock_gettime]     = (void *)sys_clock_gettime,
@@ -179,12 +179,15 @@ void do_syscall(ucontext_t *uctx) {
     if (uctx == NULL) {
         return;
     }
-
+    
     if (mctx->rax >= NELEM(syscall)) {
         mctx->rax = sys_syscall_ni(uctx);
     } else if ((long)mctx->rax < 0 || !syscall[mctx->rax]) {
         mctx->rax = sys_syscall_ni(uctx);
     } else {
+        pushcli();
         mctx->rax = (syscall[mctx->rax])(mctx->rdi, mctx->rsi, mctx->rdx, mctx->rcx, mctx->r8, mctx->r9);
+        popcli();
     }
+
 }

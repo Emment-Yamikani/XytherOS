@@ -189,8 +189,8 @@ pid_t getppid(void) {
     return sys_getppid();
 }
 
-void exit(int exit_code) {
-    return sys_exit(exit_code);
+void exit(int status) {
+    return sys_exit(status);
 }
 
 pid_t waitpid(pid_t __pid, int *__stat_loc, int __options) {
@@ -222,8 +222,8 @@ tid_t gettid(void) {
     return sys_gettid();
 }
 
-void thread_exit(int exit_code) {
-    return sys_thread_exit(exit_code);
+void thread_exit(int status) {
+    return sys_thread_exit(status);
 }
 
 int thread_create(tid_t *ptidp, void *attr, thread_entry_t entry, void *arg) {
@@ -460,7 +460,7 @@ int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *rest
     return sys_getsockopt(sockfd, level, optname, optval, optlen);
 }
 
-int sleep(const timespec_t *duration, timespec_t *rem) {
+int nanosleep(const timespec_t *duration, timespec_t *rem) {
     return sys_nanosleep(duration, rem);
 }
 

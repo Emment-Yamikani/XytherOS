@@ -120,6 +120,23 @@ void signal_reset(signal_t *signals) {
 
     // reset the global signal mask.
     sigsetempty(&signals->sig_mask);
+
+    sigsetempty(&signals->sigpending);
+}
+
+void thread_reset_signal(thread_t *thread) {
+    if (thread == NULL) {
+        return;
+    }
+
+    thread_assert_locked(thread);
+
+    for (int sig = 0; sig < NSIG; ++sig) {
+        sigqueue_flush(&thread->t_sigqueue[sig]);
+    }
+
+    sigsetempty(&thread->t_sigmask);
+    sigsetempty(&thread->t_sigpending);
 }
 
 int signal_alloc(signal_t **psp) {
@@ -201,6 +218,23 @@ int siginfo_alloc(siginfo_t **psiginfo) {
     return 0;
 }
 
+int siginfo_create(signo_t signo, union sigval sigval, siginfo_t **psiginfo) {
+    siginfo_t *siginfo;
+
+    if (psiginfo == NULL) return -EINVAL;
+
+    int err = siginfo_alloc(&siginfo);
+    if (err) return err;
+
+    if ((err = siginfo_init(siginfo, signo, sigval))) {
+        siginfo_free(siginfo);
+        return err;
+    }
+
+    *psiginfo = siginfo;
+    return 0;
+}
+
 void siginfo_dump(siginfo_t *siginfo) {
     assert(siginfo, "Invalid siginfo.\n");
 
@@ -268,7 +302,7 @@ static int try_dequeue_signal(thread_t *thread, bool proc_level, sigaction_t *oa
     sigsetempty(&pending);
 
     // get the pending set of signals.
-    sigmask(&pending, SIG_SETMASK, src_pending, NULL);
+    copy_sigmask(&pending, src_pending);
 
     // mask out blocked signals from the set.
     sigmask(&pending, SIG_UNBLOCK, &thread->t_sigmask, NULL);
@@ -307,26 +341,29 @@ static int try_dequeue_signal(thread_t *thread, bool proc_level, sigaction_t *oa
  *
  * @return 0 on success, or an error code (e.g., -ENOENT if no signal is found).
  */
-int signal_dequeue(thread_t *thread, sigaction_t *oact, siginfo_t **psiginfo) {
-    siginfo_t   *siginfo = NULL;
-    
-    if (!thread || !psiginfo) {
+int signal_dequeue(thread_t *thread, sigaction_t *oact, siginfo_t **psiginfo, signal_target_t *ptarget) {
+    if (!thread || !psiginfo || !ptarget) {
         return -EINVAL;
     }
     
     thread_assert_locked(thread);
-    
+
     signal_lock(thread->t_signals);
-    
-    int err = try_dequeue_signal(thread, false, oact, &siginfo);
+
+    siginfo_t   *siginfo;
+    bool target_proc = false;
+    int err = try_dequeue_signal(thread, target_proc, oact, &siginfo);
     if (err != -ENOENT) {
+        *ptarget = signalTargetThread;
         *psiginfo = siginfo;
         signal_unlock(thread->t_signals);
         return err;
     }
 
-    err = try_dequeue_signal(thread, true, oact, &siginfo);
+    target_proc = true;
+    err = try_dequeue_signal(thread, target_proc, oact, &siginfo);
     if (err != -ENOENT) {
+        *ptarget = signalTargetProcess;
         *psiginfo = siginfo;
         signal_unlock(thread->t_signals);
         return err;

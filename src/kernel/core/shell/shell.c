@@ -147,30 +147,34 @@ static void cmd_show(char **args) {
             
             char buf[256];
             snprintf(buf, sizeof(buf),
-                "Memory Stats:\n"
-                "  Total: %zu MiB\n"
-                "  Used:  %zu MiB\n"
-                "  Free:  %zu MiB\n",
+                "Memory Stats: Total: %zu MiB | Used:  %zu MiB | Free:  %zu MiB\n",
                 stats.total / 1024, stats.used / 1024, stats.free / 1024);
             tty_write(buf);
         } else if (xytherOs_string_eq("threads", args[i])) {
             thread_t *thread;
 
+            tty_write("/------------------------------------------------------\\\n"
+                      "| PID | TID | TGID | KTID |  FLAGS  |  STATUS  |  EXIT |\n"
+                      "|------------------------------------------------------|\n");
+            bool sgr = false;
             queue_lock(global_thread_queue);
             foreach_thread(global_thread_queue, thread, t_global_qnode) {
-                thread_info_t *ti = &thread->t_info;
                 char out[2048] = {0};
+                thread_info_t *ti = &thread->t_info;
+                const char *color = (sgr ^= true) ? "\e[47;100m" : "\e[40;37m";
 
                 thread_lock(thread);
                 size_t len = snprintf(out, sizeof out - 1,
-                    " %3d | %3d | %3d | %3d | %8x | %8s | %8x\n",
-                    thread_getpid(thread), ti->ti_tid, ti->ti_tgid, ti->ti_ktid,
-                    ti->ti_flags, tget_state(ti->ti_state), ti->ti_exit
+                    "|%s %3.3d \e[0m|%s %3.3d \e[0m|%s %4.3d \e[0m|%s %4.3d \e[0m|%s %7.7x \e[0m|%s %8s \e[0m|%s %6.4x\e[0m|\n",
+                    color, thread_getpid(thread), color, ti->ti_tid, color, ti->ti_tgid, color, ti->ti_ktid,
+                    color, ti->ti_flags, color, tget_state(ti->ti_state), color, ti->ti_exit
                 );
                 thread_unlock(thread);
                 device_write(tty, 0, out, len);
             }
             queue_unlock(global_thread_queue);
+
+            tty_write(" \\-----------------------------------------------------/\n");
         } else if (xytherOs_string_eq("thread", args[i]) || xytherOs_string_eq("t", args[i])) {
             tid_t tid = __xytherOs_atoi(args[i + 1]);
             if (tid > 0) {

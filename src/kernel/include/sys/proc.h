@@ -33,7 +33,7 @@ typedef struct __proc_t {
 
     proc_state_t    state;          // process' status.
     proc_flags_t    flags;          // process' flags.
-    long            exit_code;      // process' exit status
+    long            status;      // process' exit status
     thread_entry_t  entry;          // process' entry point.
 
     long            refcnt;         // process' reference count.
@@ -193,7 +193,7 @@ extern int procQ_search_bypgid(pid_t pgid, proc_t **ref);
 
 extern void proc_free(proc_t *proc);
 extern int proc_init(const char *initpath);
-extern int proc_copy(proc_t *child, proc_t *parent);
+extern int do_fork(proc_t *child, proc_t *parent);
 extern int proc_alloc(const char *name, proc_t **pref);
 extern int proc_load(const char *pathname, mmap_t *mmap, thread_entry_t *entry);
 
@@ -238,3 +238,5 @@ extern int proc_abandon_children(proc_t *new_parent, proc_t *old_parent);
 
 #define foreach_process(queue, item) \
     queue_foreach_entry(queue, item, proc_qnode)
+
+extern int procQ_insert(proc_t *proc);

@@ -92,7 +92,7 @@ typedef struct __mcontext_t {
 #endif // #if defined (__x86_64__)
 } __packed mcontext_t/*Machine context*/;
 
-typedef struct __ucontext_t {
+typedef struct ucontext_t {
     ucontext_t *uc_link;    /* pointer to context resumed when this context returns */
     sigset_t    uc_sigmask; /* signals blocked when this context is active */
     uc_stack_t  uc_stack;   /* stack used by this context */

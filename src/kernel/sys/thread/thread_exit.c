@@ -2,9 +2,9 @@
 #include <sys/schedule.h>
 #include <sys/thread.h>
 
-void thread_exit(uintptr_t exit_code) {
+void thread_exit(uintptr_t status) {
     current_assert();
-    arch_thread_exit(exit_code);
+    arch_thread_exit(status);
 }
 
 int thread_reap(thread_t *thread, thread_info_t *info, void **retval) {
@@ -20,15 +20,18 @@ int thread_reap(thread_t *thread, thread_info_t *info, void **retval) {
     }
 
     if (info != NULL) { // copy the thread info.
-        info->ti_tid    = thread->t_info.ti_tid;
-        info->ti_ktid   = thread->t_info.ti_ktid;
-        info->ti_tgid   = thread->t_info.ti_tgid;
-        info->ti_entry  = thread->t_info.ti_entry;
-        info->ti_state  = thread->t_info.ti_state;
-        info->ti_sched  = thread->t_info.ti_sched;
-        info->ti_errno  = thread->t_info.ti_errno;
-        info->ti_flags  = thread->t_info.ti_flags;
         info->ti_exit   = thread->t_info.ti_exit;
+        info->ti_errno  = thread->t_info.ti_errno;
+        info->ti_entry  = thread->t_info.ti_entry;
+
+        info->ti_flags  = thread->t_info.ti_flags;
+        
+        info->ti_sched  = thread->t_info.ti_sched;
+        info->ti_state  = thread->t_info.ti_state;
+        
+        info->ti_ktid   = thread->t_info.ti_ktid;
+        info->ti_tid    = thread->t_info.ti_tid;
+        info->ti_tgid   = thread->t_info.ti_tgid;
     }
 
     //get the return value.
@@ -50,7 +53,7 @@ int thread_kill(thread_t *thread, thread_info_t *info, void **retval) {
         return -EINVAL;
     }
 
-    thread_set_kill(thread);
+    // thread_set_kill(thread);
 
     int err;
     if ((err = thread_send_signal(thread, SIGKILL, (sigval_t){0}))) {
@@ -58,6 +61,34 @@ int thread_kill(thread_t *thread, thread_info_t *info, void **retval) {
     }
 
     return thread_reap(thread, info, retval);
+}
+
+int thread_kill_others(void) {
+    if (current == NULL) {
+        return -EINVAL;
+    }
+
+    int err = 0;
+    thread_t *thread;
+    queue_lock(current->t_group);
+    foreach_thread(current->t_group, thread, t_group_qnode) {
+        if (current == thread) {
+            continue;
+        }
+
+        thread_lock(thread);
+        queue_unlock(current->t_group);
+        err = thread_kill(thread, NULL, NULL);
+        queue_lock(current->t_group);
+        if (err) { // break if an error occurs.
+            thread_unlock(thread);
+            break;
+        }
+
+    }
+    queue_unlock(current->t_group);
+
+    return err;
 }
 
 int thread_cancel(tid_t tid) {

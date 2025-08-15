@@ -11,7 +11,7 @@
 
 DECL_DEVOPS(static, fb);
 
-static int fb_vmr_fault(vmr_t *region, vm_fault_t *fault);
+static int fb_vmr_fault_handler(vmr_t *region, pagefault_desc_t *fault);
 
 static device_t            fbdev;
 fb_fixinfo_t            fix_info       = {0};
@@ -19,8 +19,8 @@ fb_varinfo_t            var_info       = {0};
 static framebuffer_t    fbs[NFBDEV]    = {0};
 
 static vmr_ops_t fb_vmrops = {
-    .io = NULL,
-    .fault = fb_vmr_fault,
+    .io_handler = NULL,
+    .fault_handler = fb_vmr_fault_handler,
 };
 
 #define fblock(fb)      ({ spin_lock(&(fb)->lock); })
@@ -212,7 +212,7 @@ static ssize_t fb_write(devid_t *dd, off_t off, void *buf, size_t sz) {
     return size;
 }
 
-static int fb_vmr_fault(vmr_t *region, vm_fault_t *fault) {
+static int fb_vmr_fault_handler(vmr_t *region, pagefault_desc_t *fault) {
     uintptr_t   fbaddr = 0;
     framebuffer_t *fb  = NULL;
 

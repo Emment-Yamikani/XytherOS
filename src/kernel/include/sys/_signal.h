@@ -134,6 +134,8 @@ extern void signal_free(signal_t *sigdesc);
 
 extern void signal_reset(signal_t *sigdesc);
 
+extern void thread_reset_signal(thread_t *thread);
+
 /**
  * @brief Frees memory allocated for a signal information structure.
  *
@@ -159,6 +161,8 @@ extern int siginfo_init(siginfo_t *siginfo, int signo, union sigval val);
  */
 extern int siginfo_alloc(siginfo_t **psiginfo);
 
+extern int siginfo_create(signo_t signo, union sigval sigval, siginfo_t **psiginfo);
+
 /**
  * @brief Prints the contents of a siginfo structure.
  *
@@ -175,6 +179,14 @@ extern void siginfo_dump(siginfo_t *siginfo);
  */
 extern int signal_enqueue(signal_t *sigdesc, siginfo_t *siginfo);
 
+extern int signal_desc_send_signal(signal_t *signals, signo_t signo, union sigval sigval);
+extern int proc_send_signal(proc_t *proc, signo_t signo, sigval_t sigval);
+
+typedef enum {
+    signalTargetThread,
+    signalTargetProcess,
+} signal_target_t;
+
 /**
  * @brief Dequeues the next pending signal from the process's signal queue.
  *
@@ -182,7 +194,7 @@ extern int signal_enqueue(signal_t *sigdesc, siginfo_t *siginfo);
  * @param psiginfo Pointer to store the dequeued signal information.
  * @return 0 on success, -ENOENT if no signals are pending.
  */
-extern int signal_dequeue(thread_t *thread, sigaction_t *oact, siginfo_t **psiginfo);
+extern int signal_dequeue(thread_t *thread, sigaction_t *oact, siginfo_t **psiginfo, signal_target_t *ptarget);
 
 /**
  * @brief Enqueues a signal into a queue.
@@ -216,6 +228,7 @@ extern int  signal_getpending(thread_t *thread, siginfo_t **psiginfo);
 extern int signal_check_pending(void);
 extern int  signal_dispatch(void);
 
+extern int  copy_sigmask(sigset_t *dst, const sigset_t *src);
 extern int  sigmask(sigset_t *sigset, int how, const sigset_t *set, sigset_t *oset);
 
 extern int  thread_send_siginfo(thread_t *thread, siginfo_t *siginfo);

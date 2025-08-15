@@ -18,6 +18,10 @@ static int do_sigmask(sigset_t *sigset, int how, const sigset_t *set) {
     return 0;
 }
 
+int copy_sigmask(sigset_t *dst, const sigset_t *src) {
+    return do_sigmask(dst, SIG_SETMASK, src);
+}
+
 int sigmask(sigset_t *sigset, int how, const sigset_t *set, sigset_t *oset) {
     if (!sigset) return -EINVAL;
 

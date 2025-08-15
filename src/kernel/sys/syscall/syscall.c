@@ -1,5 +1,6 @@
 #include <bits/errno.h>
 #include <core/misc.h>
+#include <core/debug.h>
 #include <fs/cred.h>
 #include <mm/kalloc.h>
 #include <sys/thread.h>
@@ -187,67 +188,6 @@ pid_t sys_getpgid(pid_t pid) {
 int sys_setpgid(pid_t pid, pid_t pgid) {
     return setpgid(pid, pgid);
 }
-
-
-/* Process management syscalls */
-
-void sys_exit(int exit_code) {
-    exit(exit_code);
-}
-
-pid_t sys_getpid(void) {
-    return getpid();
-}
-
-pid_t sys_getppid(void) {
-    return getppid();
-}
-
-
-pid_t sys_fork(void);
-pid_t sys_waitpid(pid_t __pid, int *__stat_loc, int __options);
-long sys_ptrace(enum __ptrace_request op, pid_t pid, void *addr, void *data);
-int sys_execve(const char *pathname, char *const argv[], char *const envp[]);
-pid_t sys_wait4(pid_t pid, int *wstatus, int options, void /*struct rusage*/ *rusage);
-
-/* Thread management syscalls */
-
-int sys_park(void);
-int sys_unpark(tid_t);
-
-tid_t sys_gettid(void) {
-    return gettid();
-}
-
-tid_t sys_thread_self(void) {
-    return thread_self();
-}
-
-void sys_thread_yield(void) {
-    sched_yield();
-}
-
-void sys_thread_exit(int exit_code) {
-    thread_exit(exit_code);
-}
-
-int sys_thread_join(tid_t tid, void **retval) {
-    return thread_join(tid, NULL, retval);
-}
-
-int sys_thread_create(tid_t *ptidp, void *attr, thread_entry_t entry, void *arg) {
-    thread_t *thread;
-    const int cflags = THREAD_CREATE_USER | THREAD_CREATE_SCHED;
-    int err = thread_create(attr, entry, arg, (int)cflags, &thread);
-    if (thread && ptidp) {
-        *ptidp = thread_gettid(thread);
-        thread_unlock(thread);
-    }
-    return err;
-}
-
-int sys_set_thread_area(void *addr);
-int sys_get_thread_area(void *addr);
 
 /* Signal Management syscalls */
 

@@ -56,9 +56,8 @@ int cond_wait(cond_t *cond) {
 }
 
 int cond_wait_releasing(cond_t *cond, spinlock_t *lk) {
-    int err = 0;
     if (lk) spin_unlock(lk);
-    err = cond_wait(cond);
+    int err = cond_wait(cond);
     if (lk) spin_lock(lk);
     return err;
 }

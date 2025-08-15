@@ -58,7 +58,7 @@ extern int sys_setpgid(pid_t pid, pid_t pgid);
 extern pid_t sys_fork(void);
 extern pid_t sys_getpid(void);
 extern pid_t sys_getppid(void);
-extern void sys_exit(int exit_code);
+extern void sys_exit(int status);
 extern pid_t sys_waitpid(pid_t __pid, int *__stat_loc, int __options);
 extern long sys_ptrace(enum __ptrace_request op, pid_t pid, void *addr, void *data);
 extern int sys_execve(const char *pathname, char *const argv[], char *const envp[]);
@@ -67,7 +67,7 @@ extern pid_t sys_wait4(pid_t pid, int *wstatus, int options, void /*struct rusag
 extern int sys_park(void);
 extern int sys_unpark(tid_t);
 extern tid_t sys_gettid(void);
-extern void sys_thread_exit(int exit_code);
+extern void sys_thread_exit(int status);
 extern int sys_thread_create(tid_t *ptidp, void *attr, thread_entry_t entry, void *arg);
 extern int sys_thread_join(tid_t tid, void **retval);
 extern int sys_set_thread_area(void *addr);

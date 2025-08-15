@@ -65,7 +65,7 @@ void fctx_free(file_ctx_t *fctx) {
     kfree(fctx);
 }
 
-int     falloc(file_t **pfp) {
+int falloc(file_t **pfp) {
     file_t *file = NULL;
 
     if ((file = kcalloc(1, sizeof *file)) == NULL)
@@ -78,7 +78,7 @@ int     falloc(file_t **pfp) {
     return 0;
 }
 
-void    fdestroy(file_t *file) {
+void fdestroy(file_t *file) {
     if (file == NULL)
         return;
     if (!fislocked(file))
@@ -87,7 +87,7 @@ void    fdestroy(file_t *file) {
     kfree(file);
 }
 
-int     fdup(file_t *file) {
+int fdup(file_t *file) {
     if (file == NULL)
         return -EINVAL;
     fassert_locked(file);
@@ -95,7 +95,7 @@ int     fdup(file_t *file) {
     return 0;
 }
 
-int     fput(file_t *file) {
+int fput(file_t *file) {
     if (file == NULL)
         return -EINVAL;
     fassert_locked(file);
@@ -103,7 +103,7 @@ int     fput(file_t *file) {
     return 0;
 }
 
-int     feof(file_t *file) {
+int feof(file_t *file) {
     int err = 0;
     inode_t *inode = NULL;
 
@@ -135,7 +135,7 @@ int     feof(file_t *file) {
     return err;
 }
 
-int     fclose(file_t *file) {
+int fclose(file_t *file) {
     int err = 0;
     fassert_locked(file);
 
@@ -158,7 +158,7 @@ done:
     return 0;
 }
 
-int     fsync(file_t *file) {
+int fsync(file_t *file) {
     int err = 0;
     inode_t *inode = NULL;
 
@@ -190,7 +190,7 @@ int     fsync(file_t *file) {
     return err;
 }
 
-int     funlink(file_t *file) {
+int funlink(file_t *file) {
     int err = 0;
     inode_t *inode = NULL;
 
@@ -223,7 +223,7 @@ int     funlink(file_t *file) {
     return err;
 }
 
-int     fgetattr(file_t *file, void *attr) {
+int fgetattr(file_t *file, void *attr) {
     int err = 0;
     inode_t *inode = NULL;
 
@@ -255,7 +255,7 @@ int     fgetattr(file_t *file, void *attr) {
     return err;
 }
 
-int     fsetattr(file_t *file, void *attr) {
+int fsetattr(file_t *file, void *attr) {
     int err = 0;
     inode_t *inode = NULL;
 
@@ -287,7 +287,7 @@ int     fsetattr(file_t *file, void *attr) {
     return err;
 }
 
-int     ftruncate(file_t *file, off_t length) {
+int ftruncate(file_t *file, off_t length) {
     int err = 0;
     inode_t *inode = NULL;
 
@@ -319,7 +319,7 @@ int     ftruncate(file_t *file, off_t length) {
     return err;
 }
 
-int     ffcntl(file_t *file, int cmd, void *argp) {
+int ffcntl(file_t *file, int cmd, void *argp) {
     int err = 0;
     inode_t *inode = NULL;
 
@@ -351,7 +351,7 @@ int     ffcntl(file_t *file, int cmd, void *argp) {
     return err;
 }
 
-int     fioctl(file_t *file, int req, void *argp) {
+int fioctl(file_t *file, int req, void *argp) {
     int err = 0;
     inode_t *inode = NULL;
 
@@ -383,7 +383,7 @@ int     fioctl(file_t *file, int req, void *argp) {
     return err;
 }
 
-off_t   flseek(file_t *file, off_t off, int whence) {
+off_t flseek(file_t *file, off_t off, int whence) {
     inode_t *inode = NULL;
 
     fassert_locked(file);
@@ -566,7 +566,7 @@ ssize_t fwrite(file_t *file, const void *buf, size_t size) {
     return retval;
 }
 
-int     fcreate(file_t *dir, const char *pathname, mode_t mode) {
+int fcreate(file_t *dir, const char *pathname, mode_t mode) {
     int err = 0;
     inode_t *inode = NULL;
 
@@ -598,7 +598,7 @@ int     fcreate(file_t *dir, const char *pathname, mode_t mode) {
     return err;
 }
 
-int     fmkdirat(file_t *dir, const char *pathname, mode_t mode) {
+int fmkdirat(file_t *dir, const char *pathname, mode_t mode) {
     int err = 0;
     inode_t *inode = NULL;
     __unused char *path = NULL, *filename = NULL;
@@ -666,7 +666,7 @@ ssize_t freaddir(file_t *dir, off_t off, void *buf, size_t count) {
     return err;
 }
 
-int     flinkat(file_t *dir, const char *oldname, const char *newname) {
+int flinkat(file_t *dir, const char *oldname, const char *newname) {
     int err = 0;
     inode_t *inode = NULL;
 
@@ -698,7 +698,7 @@ int     flinkat(file_t *dir, const char *oldname, const char *newname) {
     return err;
 }
 
-int     fmknodat(file_t *dir, const char *pathname, mode_t mode, int devid) {
+int fmknodat(file_t *dir, const char *pathname, mode_t mode, int devid) {
     int err = 0;
     inode_t *inode = NULL;
     char *filename = NULL;

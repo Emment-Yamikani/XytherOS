@@ -1,4 +1,5 @@
 #include <bits/errno.h>
+#include <core/debug.h>
 #include <sys/schedule.h>
 #include <sys/thread.h>
 

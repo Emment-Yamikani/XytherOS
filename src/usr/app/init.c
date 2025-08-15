@@ -5,7 +5,7 @@
 extern long write_tty(const char *str, size_t len);
 
 void clear_tty(void) {
-    write_tty("\e[2J", 5);
+    write_tty("\e[?25l\e[2J", 11);
 }
 
 int open_tty(void) {
@@ -50,29 +50,44 @@ size_t __strlen(const char *str) {
     return s - str;
 }
 
-long print(const char *str) {
-    size_t len = __strlen(str);
-    return write_tty(str, len);
-}
-
 long println(char *a) {
-    long len = print(a);
-    len += print("\n");
-    return len;
-}
-
-void print_char(int ch) {
-    write_tty((const char *)&ch, 1);
+    return printf("%s\n", a);
 }
 
 void get_input(char *buf, size_t len) {
     read_tty(buf, len);
 }
 
+void *hello(void *) {
+
+    printf("Hello thread.\n");
+
+    return NULL;
+}
+
+void print_status(int retval) {
+    printf("%s\n", !retval ? "Success" : "Failure");
+}
+
 int main(void) {
     open_tty();
     
-    printf("Hello %d.%d.%d\n", 1, 9, 1);
+    pid_t pid = fork();
+
+    if (pid < 0) {
+        printf("Error forking new process\n");
+        return 1;
+    } else if (pid == 0) { // Child process executes this.
+        printf("pid[%d]: I am the child\n", getpid());
+    } else { // Parent process executed this.
+        const timespec_t ts = (const timespec_t) {1, 0};
+        nanosleep(&ts, NULL);
+
+        printf("pid[%d]: I am the parent\n", getpid());
+    }
+
+    while (1) {
+    }
 
     return 0;
 }

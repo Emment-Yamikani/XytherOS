@@ -106,7 +106,7 @@ iso: all
 	$(GRUBMKRESCUE) -o $(ISO_IMAGE) $(ISO_DIR)
 	@echo "ISO image created: $(ISO_IMAGE)"
 
-CPU_COUNT 	:= 2
+CPU_COUNT 	:= 1
 RAM_SIZE	:= 2048M
 QEMU_FLAGS 	:= -no-reboot -no-shutdown -parallel none
 

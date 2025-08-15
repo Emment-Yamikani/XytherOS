@@ -13,17 +13,17 @@
           __func__, __FILE__, __LINE__, fault->addr, fault->err_code, type, fault->user ? "user" : "kernel"); \
 })
 
-int map_anonymous_page(vmr_t *vmr, vm_fault_t *fault) {
+int map_anonymous_page(vmr_t *vmr, pagefault_desc_t *fault) {
     int vflags = vmr->vflags | (__vmr_zero(vmr) ? PTE_ZERO : 0);
     /// Map an anonymous page (not backed by a file) into memory
     /// Map the anonymous page into the process's address space
     return arch_map_n(fault->addr, PGSZ, vflags);
 }
 
-int copy_page_on_write(vmr_t *vmr, vm_fault_t *fault, uintptr_t srcpaddr) {
+int copy_page_on_write(vmr_t *vmr, pagefault_desc_t *fault, uintptr_t srcpaddr) {
     int err = 0;
     // virtual flags for vmr, maskout PTE_ALLOC??
-    int vflags = vmr->vflags | (PGOFF(fault->COW->raw) & ~PTE_ALLOC);
+    int vflags = vmr->vflags | (PGOFF(fault->cow->raw) & ~PTE_ALLOC);
 
     /// remap the page to a new location for COW
     /// vflags OR'ed with PTE_REMAPPG to force page remap.
@@ -36,7 +36,7 @@ int copy_page_on_write(vmr_t *vmr, vm_fault_t *fault, uintptr_t srcpaddr) {
         // If the copy fails, unmap the destination and restore the original COW mapping
         arch_unmap_n(fault->addr, PGSZ);
 #if defined(__x86_64__)
-        fault->COW->raw = srcpaddr; // Restore COW mapping
+        fault->cow->raw = srcpaddr; // Restore COW mapping
         invlpg(fault->addr);
         arch_tlbshootdown(rdcr3(), fault->addr);
         return err;
@@ -48,7 +48,7 @@ int copy_page_on_write(vmr_t *vmr, vm_fault_t *fault, uintptr_t srcpaddr) {
         // If the drop the ref on page fials, unmap the destination and restore the original COW mapping
         arch_unmap_n(fault->addr, PGSZ);
 #if defined(__x86_64__)
-        fault->COW->raw = srcpaddr; // Restore COW mapping
+        fault->cow->raw = srcpaddr; // Restore COW mapping
         invlpg(fault->addr);
         arch_tlbshootdown(rdcr3(), fault->addr);
         return err;
@@ -57,17 +57,17 @@ int copy_page_on_write(vmr_t *vmr, vm_fault_t *fault, uintptr_t srcpaddr) {
     return 0;
 }
 
-int enable_write_access(vm_fault_t *fault) {
+int enable_write_access(pagefault_desc_t *fault) {
     // Enable write access to a COW page without copying
 #if defined(__x86_64__)
-    fault->COW->raw |= PTE_W;
+    fault->cow->raw |= PTE_W;
     invlpg(fault->addr);
     arch_tlbshootdown(rdcr3(), fault->addr);
 #endif
     return 0;
 }
 
-int load_page_from_file(vmr_t *vmr, vm_fault_t *fault, size_t offset, usize size) {
+int load_page_from_file(vmr_t *vmr, pagefault_desc_t *fault, size_t offset, usize size) {
     int         err       = 0;
     uintptr_t   paddr     = 0;
     uint8_t     buf[PGSZ] = {0};
@@ -134,10 +134,10 @@ int load_page_from_file(vmr_t *vmr, vm_fault_t *fault, size_t offset, usize size
 }
 
 // Handle a Copy-On-Write (COW) page fault
-int handle_cow_fault(vmr_t *vmr, vm_fault_t *fault) {
+int handle_cow_fault(vmr_t *vmr, pagefault_desc_t *fault) {
     int         err         = 0;
     usize       pgref       = 0;
-    uintptr_t   srcpaddr    = fault->COW->raw;
+    uintptr_t   srcpaddr    = fault->cow->raw;
     
     if ((err = __page_getcount(PGROUND(srcpaddr), &pgref)))
         return err;
@@ -154,7 +154,7 @@ int handle_cow_fault(vmr_t *vmr, vm_fault_t *fault) {
     }
 }
 
-int handle_writable_page_fault(vmr_t *vmr, vm_fault_t *fault, size_t offset, usize size) {
+int handle_writable_page_fault(vmr_t *vmr, pagefault_desc_t *fault, size_t offset, usize size) {
     int         err         = 0;
     uintptr_t   paddr       = 0;
     uint8_t     buf[PGSZ]   = {0};
@@ -224,14 +224,14 @@ int handle_writable_page_fault(vmr_t *vmr, vm_fault_t *fault, size_t offset, usi
     return map_anonymous_page(vmr, fault);
 }
 
-int handle_write_fault(vmr_t *vmr, vm_fault_t *fault, size_t offset, usize sz) {
+int handle_write_fault(vmr_t *vmr, pagefault_desc_t *fault, size_t offset, usize sz) {
     // Handle a write fault
     if (!__vmr_write(vmr)) {
         return -EACCES;  // Return error if the VMR is not writable
     }
 
     // Handle Copy-On-Write (COW) faults
-    if (fault->COW && !__vmr_shared(vmr)) {
+    if (fault->cow && !__vmr_shared(vmr)) {
         return handle_cow_fault(vmr, fault);
     }
 
@@ -239,7 +239,7 @@ int handle_write_fault(vmr_t *vmr, vm_fault_t *fault, size_t offset, usize sz) {
     return handle_writable_page_fault(vmr, fault, offset, sz);
 }
 
-int handle_read_exec_fault(vmr_t *vmr, vm_fault_t *fault, size_t offset, usize sz) {
+int handle_read_exec_fault(vmr_t *vmr, pagefault_desc_t *fault, size_t offset, usize sz) {
     // Handle a read or execute fault
     if ((!__vmr_read(vmr) && !__vmr_exec(vmr))) {
         // Invalid access: neither read nor execute is allowed, or the page is already present
@@ -257,7 +257,7 @@ int handle_read_exec_fault(vmr_t *vmr, vm_fault_t *fault, size_t offset, usize s
     return load_page_from_file(vmr, fault, offset, sz);
 }
 
-int default_pgf_handler(vmr_t *vmr, vm_fault_t *fault) {
+int default_pgf_handler(vmr_t *vmr, pagefault_desc_t *fault) {
     usize offset = 0;
     usize size   = 0;
 
@@ -291,7 +291,7 @@ void handle_signal_or_thread_exit(mcontext_t *trapframe) {
     }
 }
 
-void send_sigsegv(mcontext_t *trapframe, vm_fault_t *fault) {
+void send_sigsegv(mcontext_t *trapframe, pagefault_desc_t *fault) {
     // Handle a SIGSEGV signal by dumping the trapframe and panicking
     dump_tf(trapframe, 0);
     /// For now just panic here,
@@ -299,7 +299,7 @@ void send_sigsegv(mcontext_t *trapframe, vm_fault_t *fault) {
     panic_page_fault(trapframe, fault, "SIGSEGV");
 }
 
-void send_sigbus(mcontext_t *trapframe, vm_fault_t *fault) {
+void send_sigbus(mcontext_t *trapframe, pagefault_desc_t *fault) {
     // Handle a SIGBUS signal by dumping the trapframe and panicking
     dump_tf(trapframe, 0);
     /// For now just panic here,
@@ -307,7 +307,7 @@ void send_sigbus(mcontext_t *trapframe, vm_fault_t *fault) {
     panic_page_fault(trapframe, fault, "SIGBUS");
 }
 
-void handle_kernel_fault(mcontext_t *trapframe, vm_fault_t *fault) {
+void handle_kernel_fault(mcontext_t *trapframe, pagefault_desc_t *fault) {
     // Handle page faults occurring in kernel mode
     if (fault->user) {
         // If the fault occurred in user space, send a SIGSEGV signal
@@ -319,12 +319,12 @@ void handle_kernel_fault(mcontext_t *trapframe, vm_fault_t *fault) {
     }
 }
 
-int handle_vmr_fault(vmr_t *vmr, vm_fault_t *fault) {
+int handle_vmr_fault(vmr_t *vmr, pagefault_desc_t *fault) {
     int err = 0;
 
     // If the VMR has a custom page fault handler, invoke it
-    if (vmr->vmops && vmr->vmops->fault) {
-        err = vmr->vmops->fault(vmr, fault);
+    if (vmr->vmops && vmr->vmops->fault_handler) {
+        err = vmr->vmops->fault_handler(vmr, fault);
     } else {
         // Otherwise, use the default page fault handler
         err = default_pgf_handler(vmr, fault);
@@ -335,7 +335,7 @@ int handle_vmr_fault(vmr_t *vmr, vm_fault_t *fault) {
 
 void arch_do_page_fault(mcontext_t *trapframe) {
     int         err     = 0;
-    vm_fault_t  fault   = {0};
+    pagefault_desc_t  fault   = {0};
     vmr_t       *vmr    = NULL;
     mmap_t      *mmap   = NULL;
 
@@ -347,7 +347,7 @@ void arch_do_page_fault(mcontext_t *trapframe) {
     fault.user = x86_64_tf_isuser(trapframe);
 #endif
     // Check if the faulting address is a Copy-On-Write (COW) page
-    err = arch_getmapping(fault.addr, &fault.COW);
+    err = arch_getmapping(fault.addr, &fault.cow);
 
     if (current) {
         // Handle special cases where the trapframe's instruction pointer (RIP) indicates

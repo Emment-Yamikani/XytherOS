@@ -7,9 +7,9 @@
 #include <sys/_signal.h>
 #include <sys/thread.h>
 
-void arch_thread_exit(uintptr_t exit_code) {
+void arch_thread_exit(uintptr_t status) {
 #if defined (__x86_64__)
-    x86_64_thread_exit(exit_code);
+    x86_64_thread_exit(status);
 #endif
 }
 

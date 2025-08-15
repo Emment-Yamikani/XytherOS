@@ -129,9 +129,9 @@ int sched_enqueue(thread_t *thread) {
 }
 
 static thread_t *MLFQ_get_next_thread(void) {
-    int     err   = 0;
-    thread_t *thread;
-    MLFQ_t  *mlfq = MLFQ_get();
+    int         err     = 0;
+    thread_t    *thread = NULL;
+    MLFQ_t      *mlfq   = MLFQ_get();
 
     foreach_level(mlfq) {
         /// Acquire level resources.

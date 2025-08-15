@@ -257,8 +257,8 @@ typedef struct __mcontext_t {
 } mcontext_t /*Machine context*/;
 
 
-typedef struct __ucontext_t {
-    struct __ucontext_t *uc_link;    /* pointer to context resumed when */
+typedef struct ucontext_t {
+    struct ucontext_t *uc_link;    /* pointer to context resumed when */
                             /* this context returns */
     sigset_t    uc_sigmask; /* signals blocked when this context */
                             /* is active */

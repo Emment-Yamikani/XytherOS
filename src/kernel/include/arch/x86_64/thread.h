@@ -2,7 +2,7 @@
 
 #include <core/types.h>
 
-extern void x86_64_thread_exit(uintptr_t exit_code);
+extern void x86_64_thread_exit(uintptr_t status);
 extern int x86_64_uthread_init(arch_thread_t *arch, thread_entry_t entry, void *arg);
 extern int x86_64_kthread_init(arch_thread_t *arch, thread_entry_t entry, void *arg);
 extern int x86_64_thread_execve(arch_thread_t *arch, thread_entry_t entry,

@@ -19,7 +19,7 @@ extern const ulong ARCH_NSIG_NESTED;   // Maximum allowed nested signals per-thr
  * t_ucontext: is the execution context at the time of
  * interrupts, exceptions, and system calls.
  */
-typedef struct __arch_thread_t {
+typedef struct arch_thread_t {
     thread_t    *t_thread;      // pointer to thread control block.
     context_t   *t_context;     // caller-callee context.
     ucontext_t  *t_uctx;        // execution context status.
@@ -34,9 +34,9 @@ typedef struct __arch_thread_t {
 
 /**
  * \brief exit execution of thread.
- * \param exit_code exit code from thread.
+ * \param status exit code from thread.
  */
-extern void arch_thread_exit(uintptr_t exit_code);
+extern void arch_thread_exit(uintptr_t status);
 
 /**
  * \brief Initialize architecture-specific thread data.

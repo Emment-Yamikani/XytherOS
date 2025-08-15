@@ -384,64 +384,6 @@ error:
     return err;
 }
 
-int proc_copy(proc_t *child, proc_t *parent) {
-    int         err     = 0;
-    file_ctx_t *fctx    = NULL;
-    cred_t      *cred   = NULL;
-
-    if (child == NULL || parent == NULL) {
-        return -EINVAL;
-    }
-    
-    proc_assert_locked(child);
-    proc_assert_locked(parent);
-
-    if ((err = procQ_insert(child))) {
-        return err;
-    }
-
-    if ((err = mmap_copy(child->mmap, parent->mmap))) {
-        goto error;
-    }
-
-    fctx = current->t_fctx;
-    cred = current->t_cred;
-
-    fctx_lock(fctx);
-    fctx_lock(child->fctx);
-
-    if ((err = file_copy(child->fctx, fctx))) {
-        fctx_unlock(child->fctx);
-        fctx_unlock(fctx);
-        goto error;
-    }
-
-    fctx_unlock(child->fctx);
-    fctx_unlock(fctx);
-
-    cred_lock(cred);
-    cred_lock(child->cred);
-    if ((err = cred_copy(child->cred, cred))) {
-        cred_unlock(child->cred);
-        cred_unlock(cred);
-        return err;
-    }
-    cred_unlock(child->cred);
-    cred_unlock(cred);
-
-    child->entry    = parent->entry;
-    child->pgid     = parent->pgid;
-    child->sid      = parent->sid;
-    child->exit_code= parent->exit_code;
-    child->parent   = proc_getref(curproc);
-
-    return 0;
-error:
-    /// TODO: Reverse mmap_clone(),
-    /// but i think it will be handled by proc_free().
-    return err;
-}
-
 /********************************************************************************/
 /***********************    PROCESS QUEUE HELPERS    ****************************/
 /********************************************************************************/

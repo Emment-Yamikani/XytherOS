@@ -3,7 +3,7 @@
 #include <core/types.h>
 
 pid_t fork(void);
-void exit(int exit_code);
+void exit(int status);
 pid_t getpid(void);
 pid_t getppid(void);
 

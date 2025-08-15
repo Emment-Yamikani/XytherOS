@@ -8,10 +8,10 @@
 #include <sys/schedule.h>
 #include <sys/thread.h>
 
-__noreturn void x86_64_thread_exit(u64 exit_code) {
+__noreturn void x86_64_thread_exit(u64 status) {
     current_recursive_lock();
     current_enter_state(T_ZOMBIE);
-    current->t_info.ti_exit = exit_code;
+    current->t_info.ti_exit = status;
     sched();
     loop();
 }

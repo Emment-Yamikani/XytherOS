@@ -154,9 +154,13 @@ extern void thread_info_dump(thread_info_t *info);
 typedef struct thread_t {
     arch_thread_t   t_arch;         /**< Architecture-specific thread context */
     thread_info_t   t_info;         /**< General thread information */
+
     wakeup_t        t_wakeup;       /**< Reason for waking up. */
+
     timer_t         t_alarm;        /**< Per-proess alarm */
+
     cond_t          t_event;        /**< Condition variable for thread events */
+
     sigset_t        t_sigmask;      /**< Signal mask for the thread */
     sigset_t        t_sigpending;   /**< Set of pending signals: this is a sticky set a signal is only reset if all pending instances are delivered. */
     queue_t         t_sigqueue[NSIG];/**< Per-thread signal queues */
@@ -417,8 +421,10 @@ extern int      thread_bump_priority(thread_t *thread, int how, int by, int *old
 extern int      thread_wait(thread_t *thread);
 extern int      thread_reap(thread_t *thread, thread_info_t *info, void **retval);
 extern int      thread_kill(thread_t *thread, thread_info_t *info, void **retval);
+extern int      thread_get_uc_stack(thread_t *thread, uc_stack_t *puc_stack);
+extern int      thread_fork(thread_t *dst_thread, thread_t *src_thread);
 
-extern int      thread_kill_all(void);
+extern int      thread_kill_others(void);
 extern void     thread_dump_all(void);
 extern int      thread_sleep(wakeup_t *preason);
 extern int      thread_create_group(thread_t *thread);

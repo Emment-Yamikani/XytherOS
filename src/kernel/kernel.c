@@ -22,6 +22,7 @@ __noreturn void kthread_main(void) {
     assert_eq(err, 0, "%s: Failed to initialize some or all builtin threads.", strerror(err));
 
     jiffies_timed_wait(1000);
+    printk("\e[2J");
 
     err = init_kernel_logger();
     assert_eq(err, 0, "%s: Failed to initialize kernel logger.", strerror(err));

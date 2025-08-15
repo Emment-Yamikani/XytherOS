@@ -60,13 +60,15 @@ static void isr_ne(int trapno) {
 }
 
 void thread_handle_event(void) {
-    if (!current)
+    if (current == NULL) {
         return;
+    }
 
     signal_dispatch();
 
-    if (current_gettimeslice() == 0)
+    if (current_gettimeslice() == 0) {
         sched_yield();
+    }
 
     current->t_arch.t_uctx = current->t_arch.t_uctx->uc_link;
 }
@@ -84,16 +86,24 @@ static inline void eointr(mcontext_t *mctx) {
     lapic_eoi();
 }
 
+static inline void do_link_ucontext(ucontext_t *uctx) {
+    if (current == NULL) {
+        return;
+    }
+
+    thread_get_uc_stack(current, &uctx->uc_stack);
+
+    uctx->uc_link = current->t_arch.t_uctx;
+
+    current->t_arch.t_uctx = uctx;
+
+    uctx->uc_flags = 0;
+}
+
 void trap(ucontext_t *uctx) {
     mcontext_t *mctx = &uctx->uc_mcontext;
 
-    if (current) {
-        uctx->uc_stack = current_is_user() ?
-            current->t_arch.t_kstack : current->t_arch.t_ustack;
-        uctx->uc_link  = current->t_arch.t_uctx;
-        current->t_arch.t_uctx = uctx;
-        uctx->uc_flags = 0;
-    }
+    do_link_ucontext(uctx);
 
     switch (mctx->trapno) {
         case T_LEG_SYSCALL: do_syscall(uctx); break;

@@ -2,6 +2,7 @@
 #include <core/debug.h>
 #include <sys/_signal.h>
 #include <sys/schedule.h>
+#include <sys/proc.h>
 #include <sys/thread.h>
 
 int thread_send_siginfo(thread_t *thread, siginfo_t *siginfo) {
@@ -23,26 +24,20 @@ int thread_send_siginfo(thread_t *thread, siginfo_t *siginfo) {
         return err;
     }
 
-    sigsetadd(&thread->t_sigpending, siginfo->si_signo);
-    return 0;
+    return sigsetadd(&thread->t_sigpending, siginfo->si_signo);
 }
 
 int thread_send_signal(thread_t *thread, int signo, union sigval value) {
-    int         err;
-    siginfo_t   *siginfo = NULL;
-
     if (!thread || SIGBAD(signo)) {
         return -EINVAL;
     }
 
     thread_assert_locked(thread);
 
-    if ((err = siginfo_alloc(&siginfo))) {
+    int  err;
+    siginfo_t   *siginfo;
+    if ((err = siginfo_create(signo, value, &siginfo))) {
         return err;
-    }
-
-    if ((err = siginfo_init(siginfo, signo, value))) {
-        goto error;
     }
 
     if ((err = thread_send_siginfo(thread, siginfo))) {
@@ -77,6 +72,42 @@ int pthread_sigqueue(tid_t tid, int signo, union sigval sigval) {
 
 int pthread_kill(tid_t tid, int signo) {
     return pthread_sigqueue(tid, signo, (union sigval){0});
+}
+
+int signal_desc_send_signal(signal_t *signals, signo_t signo, union sigval sigval) {
+    if (!signals || SIGBAD(signo)) {
+        return -EINVAL;
+    }
+
+    signal_assert_locked(signals);
+
+    siginfo_t *siginfo;
+    int err = siginfo_create(signo, sigval, &siginfo);
+    if (err) {
+        return err;
+    }
+
+    err = signal_enqueue(signals, siginfo);
+
+    if (err) {
+        siginfo_free(siginfo);
+    }
+
+    return err;
+}
+
+int proc_send_signal(proc_t *proc, signo_t signo, sigval_t sigval) {
+    if (!proc || SIGBAD(signo)) {
+        return -EINVAL;
+    }
+
+    proc_assert_locked(proc);
+
+    signal_lock(proc->signals);
+    int err = signal_desc_send_signal(proc->signals, signo, sigval);
+    signal_unlock(proc->signals);
+
+    return err;
 }
 
 int kill(pid_t pid __unused, int signo __unused) {

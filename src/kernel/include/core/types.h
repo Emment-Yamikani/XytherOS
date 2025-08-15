@@ -83,20 +83,18 @@ typedef     struct thread_t         thread_t;
  * @brief Process information structure */
 typedef     struct __proc_t         proc_t;
 
-typedef     struct vmr              vmr_t;
-typedef     struct page             page_t;
-typedef     struct vm_fault_t       vm_fault_t;
+#include <mm/types.h>
 
 typedef     struct queue            queue_t;
 
 typedef     enum   tstate_t         tstate_t;
 typedef     void*                   (*thread_entry_t)();
-typedef     struct __arch_thread_t  arch_thread_t;
+typedef     struct arch_thread_t    arch_thread_t;
 
 /*          Signal related          */
 
-typedef     struct __ucontext_t     ucontext_t;
-typedef     struct __sig_stack_t    sig_stack_t;
+typedef     struct ucontext_t       ucontext_t;
+typedef     struct sig_stack_t      sig_stack_t;
 
 typedef     struct meminfo_t        meminfo_t;
 

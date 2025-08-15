@@ -70,7 +70,7 @@ extern int      sys_setegid(gid_t egid);
 extern int      sys_setgid(gid_t gid);
 
 extern tid_t    sys_gettid(void);
-extern void     sys_thread_exit(int exit_code);
+extern void     sys_thread_exit(int status);
 extern int      sys_thread_create(tid_t *ptidp, void *attr, thread_entry_t entry, void *arg);
 extern int      sys_thread_join(tid_t tid, void **retval);
 extern tid_t    sys_thread_self(void);
@@ -80,7 +80,7 @@ extern int      sys_unpark(tid_t);
 extern pid_t    sys_fork(void);
 extern pid_t    sys_getpid(void);
 extern pid_t    sys_getppid(void);
-extern void     sys_exit(int exit_code);
+extern void     sys_exit(int status);
 extern pid_t    sys_waitpid(pid_t __pid, int *__stat_loc, int __options);
 extern int      sys_execve(const char *pathname, char *const argv[], char *const envp[]);
 extern long     sys_ptrace(enum __ptrace_request op, pid_t pid, void *addr, void *data);
@@ -143,7 +143,7 @@ extern isize    sys_recvfrom(int sockfd, void *buf, size_t len, int flags, struc
 extern int      sys_set_thread_area(void *addr);
 extern int      sys_get_thread_area(void *addr);
 
-
+extern int      sys_nanosleep(const timespec_t *duration, timespec_t *rem);
 extern int      sys_gettimeofday(struct timeval *restrict tp, void *restrict tzp);
 extern int      sys_settimeofday(const struct timeval *tv, const struct timezone *tz);
 extern int      sys_clock_getres(clockid_t clockid, struct timespec *res);

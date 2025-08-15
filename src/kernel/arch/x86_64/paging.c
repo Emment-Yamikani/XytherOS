@@ -304,8 +304,9 @@ done:
 }
 
 void x86_64_unmap_n(uintptr_t va, usize sz) {
-    for (usize nr = NPAGE(sz); nr; --nr, va += PGSZ)
+    for (usize nr = NPAGE(sz); nr; --nr, va += PGSZ) {
         x86_64_unmap(PML4I(va), PDPTI(va), PDI(va), PTI(va));
+    }
 }
 
 int x86_64_map_i(uintptr_t va, uintptr_t pa, usize sz, int flags) {

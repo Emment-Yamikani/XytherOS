@@ -4,6 +4,14 @@
 #include <arch/x86_64/paging.h>
 #include <core/types.h>
 
+typedef struct pagefault_desc {
+    uintptr_t   addr;
+    pte_t       *cow;
+    pte_t       *page;
+    uint8_t     user : 1;
+    uintptr_t   err_code;
+} pagefault_desc_t;
+
 void arch_dumptable(pte_t *table);
 
 /**
@@ -24,7 +32,7 @@ extern void dump_tf(mcontext_t *tf, int halt);
  *
  * @return 0 on success and otherwise on error. 
  */
-int default_pgf_handler(vmr_t *vmr, vm_fault_t *fault);
+int default_pgf_handler(vmr_t *vmr, pagefault_desc_t *fault);
 
 /**
  * @brief unmap the entire address space of current;y active PDBR.

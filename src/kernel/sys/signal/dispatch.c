@@ -6,13 +6,24 @@ static void do_ignore(siginfo_t *siginfo) {
     debug("Ignoring: %s\n", signal_str[siginfo->si_signo - 1]);
 }
 
-static void do_default_action(siginfo_t *siginfo) {
+static void do_terminate(siginfo_t *siginfo, signal_target_t target) {
+    int status = siginfo->si_value.sigval_int;
+    siginfo_free(siginfo);
+    current_unlock();
+    if (target == signalTargetThread) {
+        thread_exit(status);
+    }
+}
+
+static void do_default_action(siginfo_t *siginfo, signal_target_t target) {
     assert(siginfo, "Invalid siginfo.\n");
 
     if (sig_abort(siginfo->si_signo)) {
         debug("abort: %s\n", signal_str[siginfo->si_signo - 1]);
     } else if (sig_terminate(siginfo->si_signo)) {
         debug("terminate: %s\n", signal_str[siginfo->si_signo - 1]);
+        do_terminate(siginfo, target);
+        debug("Terminated\n");
     } else if (sig_term_dumpcore(siginfo->si_signo)) {
         debug("term_dumpcore: %s\n", signal_str[siginfo->si_signo - 1]);
     } else if (sig_stop(siginfo->si_signo)) {
@@ -54,7 +65,8 @@ int signal_check_pending(void) {
         return -EINVAL;
     }
 
-    if (signal_dequeue(current, &oact, &siginfo)) {
+    signal_target_t target;
+    if (signal_dequeue(current, &oact, &siginfo, &target)) {
         return -1;
     }
 
@@ -72,7 +84,7 @@ int signal_check_pending(void) {
         do_ignore(siginfo);
         goto done;
     } else if (handler == SIG_DFL) { // Take default action?
-        do_default_action(siginfo);
+        do_default_action(siginfo, target);
         goto done;
     }
 
