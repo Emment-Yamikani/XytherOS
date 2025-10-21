@@ -59,7 +59,7 @@ int await_event_timed(await_event_t *ev, const timespec_t *timeout, spinlock_t *
     if (timeout == NULL) {
         while (!ev->ev_triggered) {
             spin_unlock(&ev->ev_lock);
-            err = sched_wait(&ev->ev_waitqueue, T_SLEEP, spinlock);
+            err = sched_wait(&ev->ev_waitqueue, T_SLEEP, NULL, spinlock);
             spin_lock(&ev->ev_lock);
             if (err) goto error;
         }
@@ -67,7 +67,7 @@ int await_event_timed(await_event_t *ev, const timespec_t *timeout, spinlock_t *
         jiffies_t deadline = jiffies_get() + jiffies_from_timespec(timeout);
         while (!ev->ev_triggered && !time_after_eq(jiffies_get(), deadline)) {
             spin_unlock(&ev->ev_lock);
-            err = sched_wait(&ev->ev_waitqueue, T_SLEEP, spinlock);
+            err = sched_wait(&ev->ev_waitqueue, T_SLEEP, NULL, spinlock);
             spin_lock(&ev->ev_lock);
             if (err) goto error;
         }

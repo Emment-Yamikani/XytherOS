@@ -10,29 +10,32 @@
 
 void *mmap(void *addr, size_t len, int prot, int flags, int fd, off_t off) {
     long    err     = 0;
-    mmap_t  *mmap   = NULL;
     file_t  *file   = NULL;
-    vmr_t   *region = NULL;
+    
+    if (!curproc || !curproc->mmap) {
+        return (void *)-EINVAL;
+    }
 
     // printk("[%d:%d:%d]: mmap(%p, %d, %d, %d, %d, %d)\n",
         // thread_self(), getpid(), getppid(),
         // addr, len, prot, flags, fd, off
     // );
-
+    
     // MAP_ANON can only be passed with fd == -1, return error otherwise.
     if (__flags_anon(flags) && (fd != -1)) {
         return (void *)-EINVAL;
     }
 
     // get the address space(mmap) struct of the current process.
-    mmap = curproc->mmap;
+    mmap_t *mmap = curproc->mmap;
     mmap_lock(mmap);
-
-    if ((err = mmap_map_region(mmap, (uintptr_t)addr, len, prot, flags, &region))) {
+    
+    vmr_t *vmr = NULL;
+    if ((err = mmap_map_region(mmap, (uintptr_t)addr, len, prot, flags, &vmr))) {
         goto error;
     }
 
-    addr = (void *)__vmr_start(region);
+    addr = (void *)__vmr_start(vmr);
 
     if (__flags_anon(flags)) {
         goto anon;
@@ -47,12 +50,12 @@ void *mmap(void *addr, size_t len, int prot, int flags, int fd, off_t off) {
         goto error;
     }
 
-    region->filesz  = len;
-    region->file_pos= off;
-    region->flags  |= VM_FILE;
-    region->memsz   = __vmr_size(region);
+    vmr->filesz  = len;
+    vmr->file_pos= off;
+    vmr->flags  |= VM_FILE;
+    vmr->memsz   = __vmr_size(vmr);
 
-    if ((err = fmmap(file, region))) {
+    if ((err = fmmap(file, vmr))) {
         goto error;
         funlock(file);
     }
@@ -64,11 +67,11 @@ void *mmap(void *addr, size_t len, int prot, int flags, int fd, off_t off) {
 anon:
     // if (__flags_mapin(flags)) {
     //     if ((err = paging_mappages(PGROUND(addr),
-    //         ALIGN4KUP(__vmr_size(region)), region->vflags)))
+    //         ALIGN4KUP(__vmr_size(vmr)), vmr->vflags)))
     //         goto error;
     //     if (__flags_zero(flags))
     //         memset((void *)PGROUND(addr), 0,
-    //             ALIGN4KUP(__vmr_size(region)));
+    //             ALIGN4KUP(__vmr_size(vmr)));
     // }
 
     // mmap() operation is done.
@@ -76,8 +79,8 @@ done:
     mmap_unlock(mmap);
     return addr;
 error:
-    if (mmap && region) {
-        mmap_remove(mmap, region);
+    if (mmap && vmr) {
+        mmap_remove(mmap, vmr);
     }
 
     if (mmap) {
@@ -94,22 +97,20 @@ error:
 
 int munmap(void *addr, size_t len) {
     int err = -EINVAL;
-    mmap_t *mmap = NULL;
-    vmr_t *region = NULL;
-
-    mmap = curproc->mmap;
-
-    if (mmap == NULL) {
+    
+    if (!curproc || !curproc->mmap) {
         return -EINVAL;
     }
-
-    if (!__isaligned((uintptr_t)addr)) {
+    
+    if (!__isaligned(addr)) {
         return -EINVAL;
     }
-
+    
+    mmap_t *mmap = curproc->mmap;
     mmap_lock(mmap);
 
-    if ((region = mmap_find(mmap, (uintptr_t)addr)) == NULL) {
+    vmr_t *vmr  = mmap_find(mmap, (uintptr_t)addr);
+    if (vmr == NULL) {
         goto error;
     }
 
@@ -123,13 +124,11 @@ error:
 }
 
 int mprotect(void *addr, size_t len, int prot) {
-    mmap_t *mmap = NULL;
-
-    mmap = curproc->mmap;
-
-    if (mmap == NULL) {
+    if (!curproc || !curproc->mmap) {
         return -EINVAL;
     }
+
+    mmap_t *mmap = curproc->mmap;
 
     mmap_lock(mmap);
     int err = mmap_protect(mmap, (uintptr_t)addr, len, prot);

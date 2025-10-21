@@ -59,7 +59,7 @@ int thread_get_prio(thread_t *thread) {
     
     thread_assert_locked(thread);
 
-    return thread->t_info.ti_sched.ts_prio;
+    return thread->t_info.ti_sched.ts_priority;
 }
 
 int thread_bump_priority(thread_t *thread, int how, int by, int *old, int *new) {
@@ -70,23 +70,23 @@ int thread_bump_priority(thread_t *thread, int how, int by, int *old, int *new) 
     thread_assert_locked(thread);
 
     // get the old priority.
-    if (old) { *old = thread->t_info.ti_sched.ts_prio; }
+    if (old) { *old = thread->t_info.ti_sched.ts_priority; }
 
     switch (how) {
         case THREAD_PRIO_INC:
-            thread->t_info.ti_sched.ts_prio += by;
+            thread->t_info.ti_sched.ts_priority += by;
             break;
         case THREAD_PRIO_DEC:
-            thread->t_info.ti_sched.ts_prio -= by;
-            if (thread->t_info.ti_sched.ts_prio < 0) {
-                thread->t_info.ti_sched.ts_prio = 0;
+            thread->t_info.ti_sched.ts_priority -= by;
+            if (thread->t_info.ti_sched.ts_priority < 0) {
+                thread->t_info.ti_sched.ts_priority = 0;
             }
             break;
         default:
             return -EINVAL;
     }
 
-    if (new) { *new = thread->t_info.ti_sched.ts_prio; }
+    if (new) { *new = thread->t_info.ti_sched.ts_priority; }
 
     return 0;
 }
@@ -96,7 +96,7 @@ int thread_set_prio(thread_t *thread, int prio) {
         return -EINVAL;
 
     thread_assert_locked(thread);
-    thread->t_info.ti_sched.ts_prio = prio;
+    thread->t_info.ti_sched.ts_priority = prio;
     return 0;
 }
 
@@ -216,7 +216,7 @@ error:
 int thread_join_group(thread_t *peer, thread_t *thread) {
     int err = 0;
 
-    if (thread == NULL || peer == NULL) {
+    if (thread == NULL || peer == NULL || thread == peer) {
         return -EINVAL;
     }
     
@@ -229,6 +229,8 @@ int thread_join_group(thread_t *peer, thread_t *thread) {
     }
     queue_unlock(peer->t_group);
 
+    bool locked = current_recursive_lock();
+
     thread->t_alarm       = peer->t_alarm;
     thread->t_proc        = peer->t_proc;
     thread->t_mmap        = peer->t_mmap;
@@ -237,6 +239,11 @@ int thread_join_group(thread_t *peer, thread_t *thread) {
     thread->t_group       = peer->t_group;
     thread->t_signals     = peer->t_signals;
     thread->t_info.ti_tgid= peer->t_info.ti_tgid;
+
+    if (locked) {
+        current_unlock();
+    }
+
     return 0;
 }
 

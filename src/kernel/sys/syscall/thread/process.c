@@ -7,6 +7,7 @@
 #include <sys/sysproc.h>
 #include <sys/sysprot.h>
 #include <sys/_syscall.h>
+#include <sys/_wait.h>
 
 /* Process management syscalls */
 
@@ -27,7 +28,13 @@ pid_t sys_fork(void) {
     return fork();
 }
 
-pid_t sys_waitpid(pid_t __pid, int *__stat_loc, int __options);
+pid_t sys_waitpid(pid_t __pid, int *__stat_loc, int __options) {
+    return waitpid(__pid, __stat_loc, __options);
+}
+
+int sys_execve(const char *pathname, char *const argv[], char *const envp[]) {
+    return execve(pathname, argv, envp);
+}
+
 long sys_ptrace(enum __ptrace_request op, pid_t pid, void *addr, void *data);
-int sys_execve(const char *pathname, char *const argv[], char *const envp[]);
 pid_t sys_wait4(pid_t pid, int *wstatus, int options, void /*struct rusage*/ *rusage);

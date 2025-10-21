@@ -2,6 +2,7 @@
 #include <core/debug.h>
 #include <sys/proc.h>
 #include <sys/thread.h>
+#include <sys/_wait.h>
 
 int abandon_children(proc_t *target) {
     if (!curproc || !target || curproc == target) {
@@ -54,23 +55,28 @@ void signal_parent(void) {
     }
 }
 
-__noreturn
-void exit(int status) {
+__noreturn void exit(int status) {
+    assert_ne(curproc, initproc, "'init process' must not exit, (atleast for now).\n");
+
     // First all threads except 'current' MUST be killed.
     int err = thread_kill_others();
-    assert_eq(err, 0, "Errror: %s: failed to kill other threads.\n", strerror(err));
+    assert_eq(err, 0, "Error: %s: failed to kill other threads.\n", strerror(err));
 
     // discard all signals.
     discard_signals();
 
     file_close_all();
 
+    proc_lock(initproc);
     proc_lock(curproc);
-    err = abandon_children(initproc);
-    // assert_eq(err, 0, "Error[%s]: Failed to abandon children.\n", strerror(err));
 
-    curproc->status  = status;
-    curproc->state      = P_TERMINATED;
+    err = abandon_children(initproc);
+    assert_eq(err, 0, "Error[%s]: Failed to abandon children.\n", strerror(err));
+
+    proc_unlock(initproc);
+
+    curproc->state  = P_TERMINATED;
+    curproc->status = __W_EXITCODE(status, 0);
 
     // TODO: Maybe this should be done by the parent.
     mmap_lock(curproc->mmap);
@@ -79,7 +85,7 @@ void exit(int status) {
     assert_eq(err, 0, "Error[%s]: Failed to clean memory map.\n", strerror(err));
 
     signal_parent();
-    
+
     proc_unlock(curproc);
 
     thread_exit(status);

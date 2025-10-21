@@ -25,7 +25,7 @@ static void do_default_action(siginfo_t *siginfo, signal_target_t target) {
         do_terminate(siginfo, target);
         debug("Terminated\n");
     } else if (sig_term_dumpcore(siginfo->si_signo)) {
-        debug("term_dumpcore: %s\n", signal_str[siginfo->si_signo - 1]);
+        debug("Terminate and dump core: %s\n", signal_str[siginfo->si_signo - 1]);
     } else if (sig_stop(siginfo->si_signo)) {
         debug("stop: %s\n", signal_str[siginfo->si_signo - 1]);
     } else if (sig_continue(siginfo->si_signo)) {

@@ -4,7 +4,7 @@
 #include <mm/mem_stats.h>
 #include <mm/mem.h>
 
-int mem_get_stats(mem_stats_t *stats) {
+int getmemstats(mem_stats_t *stats) {
     if (stats == NULL) {
         return -EINVAL;
     }

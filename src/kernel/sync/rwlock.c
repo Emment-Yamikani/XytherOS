@@ -28,7 +28,7 @@ void rw_readlock_acquire(rwlock_t *rw) {
     // Wait if a writer is active or if there are writers waiting.
     while (atomic_read(&rw->writer) || sched_wait_queue_length(&rw->writersq)) {
         // Sleep and add ourselves to the readers queue.
-        sched_wait_whence(&rw->readersq, T_SLEEP, QUEUE_TAIL, &rw->guard);
+        sched_wait_whence(&rw->readersq, T_SLEEP, QUEUE_TAIL, NULL, &rw->guard);
     }
 
     // Once safe, increment the readers counter.
@@ -89,7 +89,7 @@ void rw_writelock_acquire(rwlock_t *rw) {
     while (atomic_read(&rw->readers) || atomic_read(&rw->writer) ||
            sched_wait_queue_length(&rw->writersq)) {
         // Wait and add ourselves to the writer queue.
-        sched_wait_whence(&rw->writersq, T_SLEEP, QUEUE_TAIL, &rw->guard);
+        sched_wait_whence(&rw->writersq, T_SLEEP, QUEUE_TAIL, NULL, &rw->guard);
     }
 
     // Mark writer active.

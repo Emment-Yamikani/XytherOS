@@ -196,6 +196,6 @@ enum RtT_Types {
 #include <sys/thread.h>
 
 int elf_check(inode_t *);
-int elf_loader(inode_t *, mmap_t *mmap, thread_entry_t *entry);
+int elf_loader(inode_t *, mmap_t *mmap);
 
 #endif // ELF_ELF__H

@@ -21,7 +21,7 @@ int sigsuspend(const sigset_t *mask) {
 
     
     while (signal_dispatch()) {
-        if ((err = sched_wait_whence(sigwaiters_queue, T_SLEEP, QUEUE_TAIL, NULL))) {
+        if ((err = sched_wait_whence(sigwaiters_queue, T_SLEEP, QUEUE_TAIL, NULL, NULL))) {
             break;
         }
     }

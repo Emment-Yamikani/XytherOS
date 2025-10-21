@@ -20,11 +20,11 @@ static bool wakeup_interrupt(wakeup_t reason) {
  * @param preason 
  * @return int 
  */
-int current_interrupted(wakeup_t *preason) {
+int current_check_interrupted(wakeup_t *preason) {
     wakeup_t reason = WAKEUP_NONE;
 
     current_assert_locked();
-    
+
     if (current->t_wakeup != WAKEUP_NONE) {
         reason = current->t_wakeup;
         current->t_wakeup = WAKEUP_NONE;
@@ -33,8 +33,10 @@ int current_interrupted(wakeup_t *preason) {
             signal_check_pending();
         }
     }
-    
-    if (preason) *preason = reason;
+
+    if (preason) {
+        *preason = reason;
+    }
 
     if (current_is_canceled() || wakeup_interrupt(reason)) {
         return reason == WAKEUP_TIMEOUT ? -ETIMEDOUT : -EINTR;
@@ -69,24 +71,23 @@ int thread_wakeup(thread_t *thread, wakeup_t reason) {
 }
 
 int thread_sleep(wakeup_t *preason) {
-    int err;
 
     current_assert_locked();
 
-    if ((err = current_interrupted(preason))) {
+    int err;
+    if ((err = current_check_interrupted(preason))) {
         return err;
     }
-    
+
     current_enter_state(T_SLEEP);
     sched();
-    
-    if ((err = current_interrupted(preason))) {
+
+    if ((err = current_check_interrupted(preason))) {
         return err;
     }
 
     return err;
 }
-
 
 int thread_wait(thread_t *thread) {
     if (thread == NULL) {
@@ -102,7 +103,7 @@ int thread_wait(thread_t *thread) {
     }
 
     while (!thread_in_state(thread, T_ZOMBIE)) {
-        int err = cond_wait_releasing(&thread->t_event, &thread->t_lock);
+        int err = cond_wait(&thread->t_event, NULL, &thread->t_lock);
         if (err != 0) {
             return err;
         }
@@ -113,12 +114,12 @@ int thread_wait(thread_t *thread) {
 
 int thread_join(tid_t tid, thread_info_t *info, void **prp) {
     int         err;
-    thread_t    *thread = NULL;
 
     if (tid == gettid()) {
         return -EDEADLK;
     }
 
+    thread_t    *thread;
     if ((err = thread_group_get_by_tid(tid, &thread))) {
         return err;
     }

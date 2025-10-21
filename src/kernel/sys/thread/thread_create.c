@@ -102,8 +102,8 @@ int thread_alloc(usize kstack_size, int flags, thread_t **ptp) {
     sched->ts_affin.type    = SOFT_AFFINITY;
 
     /* Initialize thread qnodes */
-    thread->t_wait_qnode.data   = (void *)thread;
     thread->t_run_qnode.data    = (void *)thread;
+    thread->t_wait_qnode.data   = (void *)thread;
     thread->t_group_qnode.data  = (void *)thread;
     thread->t_global_qnode.data = (void *)thread;
 
@@ -121,11 +121,6 @@ int thread_alloc(usize kstack_size, int flags, thread_t **ptp) {
 }
 
 static int create_user_thread(thread_attr_t *attr, thread_entry_t entry, void *arg, int cflags, thread_t **ptp) {
-    int         err;
-    vmr_t       *ustack = NULL;
-    thread_t    *thread = NULL;
-    uc_stack_t  uc_stack = {0};
-
     if (!current || !current_is_user()) {
         return -EINVAL;
     }
@@ -134,27 +129,35 @@ static int create_user_thread(thread_attr_t *attr, thread_entry_t entry, void *a
         return -EINVAL;
     }
 
+    int      err;
+    thread_t *thread;
     if ((err = thread_alloc(KSTACK_SIZE, cflags, &thread))) {
         return err;
     }
 
-    mmap_lock(current->t_mmap);
+    mmap_t *mmap = current->t_mmap;
+    mmap_lock(mmap);
 
-    err = !attr->stackaddr ? mmap_alloc_stack(current->t_mmap, attr->stacksz, &ustack)
-                           : mmap_find_stack(current->t_mmap, attr->stackaddr, &ustack);
+    int (*get_stack)(mmap_t *, uintptr_t, vmr_t **);
 
-    if (err) {
-        mmap_unlock(current->t_mmap);
+    get_stack = !attr->stackaddr ? mmap_alloc_stack : mmap_find_stack;
+    uintptr_t addr_or_sz = !attr->stackaddr ? attr->stacksz : attr->stackaddr;
+    addr_or_sz = !addr_or_sz ? USTACK_SIZE : addr_or_sz;
+
+    vmr_t *ustack_vmr;
+    if ((err = get_stack(current->t_mmap, addr_or_sz, &ustack_vmr))) {
+        mmap_unlock(mmap);
         goto error;
     }
 
-    uc_stack.ss_size    = __vmr_size(ustack);
-    uc_stack.ss_flags   = __vmr_vflags(ustack);
-    uc_stack.ss_sp      = (void *)__vmr_upper_bound(ustack);
+    uc_stack_t uc_stack = {0};
+    uc_stack.ss_size    = __vmr_size(ustack_vmr);
+    uc_stack.ss_flags   = __vmr_vflags(ustack_vmr);
+    uc_stack.ss_sp      = (void *)__vmr_upper_bound(ustack_vmr);
 
-    mmap_unlock(current->t_mmap);
+    mmap_unlock(mmap);
 
-    /// TODO: Optmize size of ustack according to attr;
+    /// TODO: Optmize size of ustack_vmr according to attr;
     /// TODO: maybe perform a split? But then this will mean
     /// free() and unmap() calls to reverse malloc() and mmap() respectively
     /// for this region may fail. ???
@@ -162,7 +165,7 @@ static int create_user_thread(thread_attr_t *attr, thread_entry_t entry, void *a
 
     thread->t_proc = current->t_proc;
 
-    if ((err = arch_uthread_init(&thread->t_arch, entry, arg))) {
+    if ((err = arch_thread_init(&thread->t_arch, entry, arg, NULL, NULL, NULL))) {
         goto error;
     }
 

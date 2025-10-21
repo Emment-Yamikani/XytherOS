@@ -1,9 +1,9 @@
 #include <bits/errno.h>
+#include <core/debug.h>
 #include <sys/proc.h>
 #include <sys/thread.h>
 
-
-int do_proc_fork(proc_t *child, proc_t *parent) {
+int copy_proc(proc_t *child, proc_t *parent) {
     int         err     = 0;
     file_ctx_t *fctx    = NULL;
     cred_t      *cred   = NULL;
@@ -50,13 +50,23 @@ int do_proc_fork(proc_t *child, proc_t *parent) {
     cred_unlock(child->cred);
     cred_unlock(cred);
 
-    if (err) return err;
+    if (err) {
+        goto error;
+    }
+
+    queue_lock(&parent->children);
+    err = embedded_enqueue(&parent->children, &child->child_qnode, QUEUE_UNIQUE);
+    queue_unlock(&parent->children);
+
+    if (err) {
+        goto error;
+    }
 
     child->sid      = parent->sid;
     child->pgid     = parent->pgid;
     child->entry    = parent->entry;
     child->status   = parent->status;
-    child->parent   = proc_getref(curproc);
+    child->parent   = proc_getref(parent);
 
     return 0;
 error:
@@ -78,16 +88,25 @@ pid_t fork(void) {
         return err;
     }
 
-    if ((err = do_proc_fork(child, curproc))) {
+    if ((err = copy_proc(child, curproc))) {
         goto error;
     }
 
     current_lock();
     thread_lock(child->main_thread);
 
-    err = thread_fork(child->main_thread, current);
+    if ((err = thread_fork(child->main_thread, current))) {
+        thread_unlock(child->main_thread);
+        current_unlock();
+        goto error;
+    }
 
     current_unlock();
+
+    if ((err = enqueue_global_thread(child->main_thread))) {
+        thread_unlock(child->main_thread);
+        goto error;
+    }
 
     pid_t child_pid = child->pid;
 
@@ -100,6 +119,10 @@ pid_t fork(void) {
 
     err = thread_schedule(child->main_thread);
     thread_unlock(child->main_thread);
+
+    debuglog();
+
+    proc_unlock(child);
     if (err) {
         goto error;
     }

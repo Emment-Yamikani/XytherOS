@@ -250,12 +250,11 @@ void thread_yield(void) {
     return sys_thread_yield();
 }
 
-
 void sigreturn() {
     return sys_sigreturn();
 }
 
-int  pause(void) {
+int pause(void) {
     return sys_pause();
 }
 
@@ -263,48 +262,47 @@ unsigned alarm(unsigned int sec) {
     return sys_alarm(sec);
 }
 
-int  sigpending(sigset_t *set) {
+int sigpending(sigset_t *set) {
     return sys_sigpending(set);
 }
 
-int  kill(pid_t pid, int signo) {
+int kill(pid_t pid, int signo) {
     return sys_kill(pid, signo);
 }
 
-int  sigaction(int signo, const sigaction_t *act, sigaction_t *oact) {
+int sigaction(int signo, const sigaction_t *act, sigaction_t *oact) {
     return sys_sigaction(signo, act, oact);
 }
 
-int  sigaltstack(const uc_stack_t *ss, uc_stack_t *oss) {
+int sigaltstack(const uc_stack_t *ss, uc_stack_t *oss) {
     return sys_sigaltstack(ss, oss);
 }
 
-int  sigprocmask(int how, const sigset_t *set, sigset_t *oset) {
+int sigprocmask(int how, const sigset_t *set, sigset_t *oset) {
     return sys_sigprocmask(how, set, oset);
 }
 
-int  sigsuspend(const sigset_t *mask) {
+int sigsuspend(const sigset_t *mask) {
     return sys_sigsuspend(mask);
 }
 
-int  sigwaitinfo(const sigset_t *set, siginfo_t *info) {
+int sigwaitinfo(const sigset_t *set, siginfo_t *info) {
     return sys_sigwaitinfo(set, info);
 }
 
-int  sigtimedwait(const sigset_t *set, siginfo_t *info, const struct timespec *timeout) {
+int sigtimedwait(const sigset_t *set, siginfo_t *info, const struct timespec *timeout) {
     return sys_sigtimedwait(set, info, timeout);
 }
 
-
-int  pthread_kill(tid_t thread, int signo) {
+int pthread_kill(tid_t thread, int signo) {
     return sys_pthread_kill(thread, signo);
 }
 
-int  pthread_sigmask(int how, const sigset_t *set, sigset_t *oset) {
+int pthread_sigmask(int how, const sigset_t *set, sigset_t *oset) {
     return sys_pthread_sigmask(how, set, oset);
 }
 
-int  pthread_sigqueue(tid_t tid, int signo, union sigval sigval) {
+int pthread_sigqueue(tid_t tid, int signo, union sigval sigval) {
     return sys_pthread_sigqueue(tid, signo, sigval);
 }
 
@@ -312,8 +310,8 @@ int getpagesize(void) {
     return sys_getpagesize();
 }
 
-void getmemusage(meminfo_t *info) {
-    return sys_getmemusage(info);
+int getmemstats(mem_stats_t *info) {
+    return sys_getmemstats(info);
 }
 
 void *mmap(void *addr, size_t len, int prot, int flags, int fd, off_t off) {

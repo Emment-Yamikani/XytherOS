@@ -95,8 +95,8 @@ int sys_rename(const char *oldpath __unused, const char *newpath __unused) {
     return -ENOSYS;
 }
 
-int sys_chroot(const char *path __unused) {
-    return -ENOSYS;
+int sys_chroot(const char *path) {
+    return chroot(path);
 }
 
 int sys_utimes(const char *filename __unused, const struct timeval times[2] __unused) {
@@ -255,7 +255,7 @@ int  sys_pthread_sigqueue(tid_t tid, int signo, union sigval sigval) {
 /** Memory management syscalls */
 
 int sys_getpagesize(void);
-void sys_getmemusage(meminfo_t *info);
+int sys_getmemstats(mem_stats_t *info);
 void *sys_mmap(void *addr, size_t len, int prot, int flags, int fd, off_t off);
 int sys_munmap(void *addr, size_t len);
 int sys_mprotect(void *addr, size_t len, int prot);

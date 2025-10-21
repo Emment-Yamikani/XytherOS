@@ -96,7 +96,7 @@ sys_%2:
 
 
 %define SYS_getpagesize         130  ; int sys_getpagesize(void);
-%define SYS_getmemusage         131  ; void sys_getmemusage(meminfo_t *info);
+%define SYS_getmemstats         131  ; void sys_getmemstats(meminfo_t *info);
 %define SYS_mmap                132  ; void *sys_mmap(void *addr, size_t len, int prot, int flags, int fd, off_t off);
 %define SYS_munmap              133  ; int sys_munmap(void *addr, size_t len);
 %define SYS_mprotect            134  ; int sys_mprotect(void *addr, size_t len, int prot);
@@ -234,7 +234,7 @@ stub SYS_pthread_sigqueue,  pthread_sigqueue
 
 
 stub SYS_getpagesize,       getpagesize
-stub SYS_getmemusage,       getmemusage
+stub SYS_getmemstats,       getmemstats
 stub SYS_mmap,              mmap
 stub SYS_munmap,            munmap
 stub SYS_mprotect,          mprotect

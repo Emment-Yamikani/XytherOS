@@ -1,4 +1,5 @@
 #include <bits/errno.h>
+#include <core/debug.h>
 #include <lib/printk.h>
 #include <sys/_syscall.h>
 #include <arch/ucontext.h>
@@ -61,9 +62,9 @@ size_t (*syscall[])() = {
     [SYS_getpid]            = (void *)sys_getpid,
     [SYS_getppid]           = (void *)sys_getppid,
     [SYS_fork]              = (void *)sys_fork,
-    // [SYS_waitpid]           = (void *)sys_waitpid,
+    [SYS_waitpid]           = (void *)sys_waitpid,
+    [SYS_execve]            = (void *)sys_execve,
     // [SYS_ptrace]            = (void *)sys_ptrace,
-    // [SYS_execve]            = (void *)sys_execve,
     // [SYS_wait4]             = (void *)sys_wait4,
         
     /* Thread management syscalls */
@@ -101,11 +102,11 @@ size_t (*syscall[])() = {
         
     /** Memory management syscalls */
         
-    // [SYS_getpagesize]       = (void *)sys_getpagesize,
-    // [SYS_getmemusage]       = (void *)sys_getmemusage,
-    // [SYS_mmap]              = (void *)sys_mmap,
-    // [SYS_munmap]            = (void *)sys_munmap,
-    // [SYS_mprotect]          = (void *)sys_mprotect,
+    [SYS_getpagesize]       = (void *)sys_getpagesize,
+    [SYS_getmemstats]       = (void *)sys_getmemstats,
+    [SYS_mmap]              = (void *)sys_mmap,
+    [SYS_munmap]            = (void *)sys_munmap,
+    [SYS_mprotect]          = (void *)sys_mprotect,
     // [SYS_mlock]             = (void *)sys_mlock,
     // [SYS_mlock2]            = (void *)sys_mlock2,
     // [SYS_munlock]           = (void *)sys_munlock,
@@ -114,7 +115,7 @@ size_t (*syscall[])() = {
     // [SYS_msync]             = (void *)sys_msync,
     // [SYS_mremap]            = (void *)sys_mremap,
     // [SYS_madvise]           = (void *)sys_madvise,
-    // [SYS_sbrk]              = (void *)sys_sbrk,
+    [SYS_sbrk]              = (void *)sys_sbrk,
         
     /** Miscelleneous syscalls */
         

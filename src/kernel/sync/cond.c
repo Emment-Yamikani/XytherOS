@@ -8,8 +8,10 @@
 #include <sys/thread.h>
 
 int cond_init(cond_t *cond) {
-    if (cond == NULL)
+    if (cond == NULL) {
         return -EINVAL;
+    }
+
     cond->count = 0;
     spinlock_init(&cond->lock);
     return queue_init(&cond->waiters);
@@ -19,8 +21,9 @@ int cond_alloc(cond_t **ref) {
     int     err = 0;
     cond_t  *cond = NULL;
 
-    if (NULL == (cond = kmalloc(sizeof *cond)))
+    if (NULL == (cond = kmalloc(sizeof *cond))) {
         return -ENOMEM;
+    }
 
     if ((err = cond_init(cond))) {
         kfree(cond);
@@ -41,24 +44,28 @@ void cond_free(cond_t *c) {
     kfree(c);
 }
 
-int cond_wait(cond_t *cond) {
+int cond_wait(cond_t *cond, wakeup_t *preason, spinlock_t *lk) {
     int err = 0;
 
-    if (cond == NULL)
+    if (cond == NULL) {
         return -EINVAL;
+    }
+
+    if (lk) {
+        spin_unlock(lk);
+    }
 
     cond_lock(cond);
     if ((int)atomic_inc(&cond->count) >= 0) {
-        err = sched_wait_whence(&cond->waiters, T_SLEEP, QUEUE_TAIL, &cond->lock);
+        err = sched_wait_whence(&cond->waiters, T_SLEEP, QUEUE_TAIL, preason, &cond->lock);
     }
-    cond_unlock(cond);
-    return err;
-}
 
-int cond_wait_releasing(cond_t *cond, spinlock_t *lk) {
-    if (lk) spin_unlock(lk);
-    int err = cond_wait(cond);
-    if (lk) spin_lock(lk);
+    cond_unlock(cond);
+
+    if (lk) {
+        spin_lock(lk);
+    }
+
     return err;
 }
 
@@ -76,10 +83,11 @@ void cond_signal(cond_t *cond) {
 static void cond_wakeall(cond_t *cond) {
     size_t waiters = 0;
     sched_wakeup_all(&cond->waiters, WAKEUP_NORMAL, &waiters);
-    if (waiters == 0)
+    if (waiters == 0) {
         atomic_write(&cond->count, -1);
-    else
+    } else {
         atomic_write(&cond->count, 0);
+    }
 }
 
 void cond_broadcast(cond_t *cond) {

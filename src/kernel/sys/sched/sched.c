@@ -8,10 +8,10 @@ static QUEUE(global_sleep_queue);
 
 
 void sched_promote_thread(thread_sched_t *tsched) {
-    int pr = tsched->ts_prio; // current priority level.
+    int priority = tsched->ts_priority; // current priority level.
 
-    if ((pr < MLFQ_HIGH) && (tsched->ts_short_holds >= TH_SHORTHOLD_THRESHOLD(pr))) {
-        tsched->ts_prio += 1;
+    if ((priority < MLFQ_HIGH) && (tsched->ts_short_holds >= TH_SHORTHOLD_THRESHOLD(priority))) {
+        tsched->ts_priority   += 1;
         tsched->ts_short_holds = 0; // decay over time.
         tsched->ts_long_holds  = 0; // decay over time.
     } else {
@@ -20,10 +20,10 @@ void sched_promote_thread(thread_sched_t *tsched) {
 }
 
 void sched_demote_thread(thread_sched_t *tsched) {
-    int pr = tsched->ts_prio; // current priority level.
+    int priority = tsched->ts_priority; // current priority level.
 
-    if ((pr > MLFQ_LOW) && (tsched->ts_long_holds >= TH_LONGHOLD_THRESHOLD)) {
-        tsched->ts_prio -= 1;
+    if ((priority > MLFQ_LOW) && (tsched->ts_long_holds >= TH_LONGHOLD_THRESHOLD)) {
+        tsched->ts_priority   -= 1;
         tsched->ts_short_holds = 0; // decay over time.
         tsched->ts_long_holds  = 0; // decay over time.
     } else {
@@ -34,18 +34,18 @@ void sched_demote_thread(thread_sched_t *tsched) {
 void sched_set_highest_prior(thread_sched_t *tsched) {
     tsched->ts_long_holds   = 0;
     tsched->ts_short_holds  = 0;
-    tsched->ts_prio         = MLFQ_HIGH;
+    tsched->ts_priority     = MLFQ_HIGH;
 }
 
 void sched(void) {
     isize ncli  = 1; // Don't change this, must always be == 1.
     bool intena = 0;
-    
+
     current_assert_locked();
-    
+
     pushcli();
     cpu_swap_preempt(&ncli, &intena);
-    
+
     thread_sched_t *ts = &current->t_info.ti_sched;
     if (ts->ts_flags & TS_SCHEDULER) { // scheduler thread always runs at highest priority.
         sched_set_highest_prior(ts);
@@ -107,13 +107,13 @@ static inline void sched_block(spinlock_t *lock) {
 /**
  * @brief 
  * 
- * @param wait_queue 
- * @param state 
- * @param whence 
- * @param lock 
- * @return int 
+ * @param   wait_queue 
+ * @param   state 
+ * @param   whence 
+ * @param   lock 
+ * @return  int 
  */
-int sched_wait_whence(queue_t *wait_queue, tstate_t state, queue_relloc_t whence, spinlock_t *lock) {
+int sched_wait_whence(queue_t *wait_queue, tstate_t state, queue_relloc_t whence, wakeup_t *preason, spinlock_t *lock) {
     int err;
 
     if (wait_queue == NULL) {
@@ -127,7 +127,7 @@ int sched_wait_whence(queue_t *wait_queue, tstate_t state, queue_relloc_t whence
     queue_lock(wait_queue);
     current_lock();
 
-    if ((err = current_interrupted(NULL))) {
+    if ((err = current_check_interrupted(preason))) {
         queue_unlock(wait_queue);
         current_unlock();
         return err;
@@ -149,14 +149,14 @@ int sched_wait_whence(queue_t *wait_queue, tstate_t state, queue_relloc_t whence
 
     sched_block(lock);
 
-    err = current_interrupted(NULL);
-    
+    err = current_check_interrupted(preason);
+
     current_unlock();
     return err;
 }
 
-int sched_wait(queue_t *wait_queue, tstate_t state, spinlock_t *lock) {
-    return sched_wait_whence(wait_queue, state, QUEUE_TAIL, lock);
+int sched_wait(queue_t *wait_queue, tstate_t state, wakeup_t *preason, spinlock_t *lock) {
+    return sched_wait_whence(wait_queue, state, QUEUE_TAIL, preason, lock);
 }
 
 static int sched_wake_thread(thread_t *thread, wakeup_t reason) {
@@ -224,7 +224,6 @@ int sched_wakeup_whence(queue_t *wait_queue, wakeup_t reason, queue_relloc_t whe
             }
 
             break;
-
         case QUEUE_HEAD: // retrieve a thread from the front of the queue.
             foreach_thread(wait_queue, thread, t_wait_qnode) {
                 thread_lock(thread);
@@ -236,7 +235,6 @@ int sched_wakeup_whence(queue_t *wait_queue, wakeup_t reason, queue_relloc_t whe
             }
 
             break;
-
         default:
             queue_unlock(wait_queue);
             return -EINVAL;
@@ -292,7 +290,9 @@ int sched_wakeup_all(queue_t *wait_queue, wakeup_t reason, size_t *pnt) {
         if ((err = sched_detach_and_wakeup(wait_queue, thread, reason))) {
             thread_unlock(thread);
             queue_unlock(wait_queue);
-             if (pnt) *pnt = count;
+             if (pnt) {
+                *pnt = count;
+            }
             return err;
         }
 
@@ -302,7 +302,9 @@ int sched_wakeup_all(queue_t *wait_queue, wakeup_t reason, size_t *pnt) {
 
     queue_unlock(wait_queue);
 
-    if (pnt) *pnt = count;
+    if (pnt) {
+        *pnt = count;
+    }
 
     return count > 0 ? 0 : -ESRCH;
 }

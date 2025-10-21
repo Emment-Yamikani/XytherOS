@@ -14,7 +14,7 @@ int thread_fork(thread_t *dst_thread, thread_t *src_thread) {
     uintptr_t sp = mctx->rsp;
 
     dst_thread->t_info.ti_sched = (thread_sched_t) {
-        .ts_prio        = src_thread->t_info.ti_sched.ts_prio,
+        .ts_priority        = src_thread->t_info.ti_sched.ts_priority,
         .ts_proc        = src_thread->t_info.ti_sched.ts_proc,
         .ts_timeslice   = src_thread->t_info.ti_sched.ts_timeslice,
         .ts_affin.type  = src_thread->t_info.ti_sched.ts_affin.type,

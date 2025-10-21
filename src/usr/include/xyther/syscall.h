@@ -91,7 +91,7 @@ extern int  sys_pthread_sigmask(int how, const sigset_t *set, sigset_t *oset);
 extern int  sys_pthread_sigqueue(tid_t tid, int signo, union sigval sigval);
 
 extern int sys_getpagesize(void);
-extern void sys_getmemusage(meminfo_t *info);
+extern int sys_getmemstats(mem_stats_t *info);
 extern void *sys_mmap(void *addr, size_t len, int prot, int flags, int fd, off_t off);
 extern int sys_munmap(void *addr, size_t len);
 extern int sys_mprotect(void *addr, size_t len, int prot);

@@ -102,7 +102,7 @@ int procQ_search_bypid(pid_t pid, proc_t **ref) {
 
 int procQ_search_bypgid(pid_t pgid, proc_t **ref) {
     queue_lock(procQ);
-    
+
     proc_t *proc;
     foreach_process(procQ, proc) {
         proc_lock(proc);
@@ -198,6 +198,7 @@ error:
     if (proc) {
         kfree(proc);
     }
+
     return err;
 }
 
@@ -249,116 +250,51 @@ void proc_free(proc_t *proc) {
     proc_unlock(proc);
 }
 
-int proc_load(const char *pathname, mmap_t *mmap, thread_entry_t *entry) {
-    int         err     = 0;
-    uintptr_t   pdbr    = 0;
-    inode_t     *binary = NULL;
-    dentry_t    *dentry = NULL;
-
-    if (mmap == NULL || entry == NULL) {
-        return -EINVAL;
-    }
-
-    if ((err = vfs_lookup(pathname, NULL,  O_EXEC, &dentry))) {
-        goto error;
-    }
-
-    binary = dentry->d_inode;
-
-    err = -ENOENT;
-    if (binary == NULL) {
-        goto error;
-    }
-
-    /// check file  type and only execute an appropriate file type.
-    ilock(binary);
-    if (IISDEV(binary)) {
-        err = -ENOEXEC;
-        iunlock(binary);
-        goto error;
-    } else if (IISDIR(binary)) {
-        err = -EISDIR;
-        iunlock(binary);
-        goto error;
-    } else if (IISFIFO(binary)) {
-        err = -ENOEXEC;
-        iunlock(binary);
-        goto error;
-    } else if (IISSYM(binary)) {
-        err = -ENOEXEC;
-        iunlock(binary);
-        goto error; 
-    }
-
-    foreach_binary_loader() {
-        /// check the binary image to make sure it is a valid program file.
-        if ((err = loader->check(binary))) {
-            iunlock(binary);
-            goto error;
-        }
-    
-        /// load the binary image into memory in readiness for execution.
-        if ((err = loader->load(binary, mmap, entry)) == 0) {
-            goto commit;
-        }
-    }
-
-    /// binary file not loaded ???.
-    iunlock(binary);
-    goto error;
-commit:
-    iunlock(binary);
-    /**
-     * @brief close this dentry.
-     * dentry->d_inode must have been opened.
-     * To remain persistent.
-     */
-    dclose(dentry);
-    return 0;
-error:
-    if (pdbr) {
-        arch_switch_pgdir(pdbr, NULL);
-    }
-
-    if (dentry) {
-        dclose(dentry);
-    }
-
-    return err;
-}
-
 int proc_init(const char *initpath) {
-    int         err     = 0;
-    uintptr_t   pdbr    = 0;
-    proc_t      *proc   = NULL;
-    const char  *envp[] = { NULL, NULL };
-    const char  *argp[] = { initpath, NULL };
+    int    err   = 0;
+    proc_t *proc = NULL;
 
     if ((err = proc_alloc(initpath, &proc))) {
         goto error;
     }
 
+    uintptr_t pdbr = 0;
     proc_mmap_lock(proc);
     if ((err = mmap_set_focus(proc_mmap(proc), &pdbr))) {
         proc_mmap_unlock(proc);
         goto error;
     }
 
-    if ((err = proc_load(initpath, proc_mmap(proc), &proc->entry))) {
+    if ((err = exec_load_image(initpath, proc_mmap(proc)))) {
         proc_mmap_unlock(proc);
         goto error;
     }
 
     thread_lock(proc->main_thread);
-    
+
+    proc->entry = proc_mmap(proc)->entry;
+
     proc->main_thread->t_info.ti_entry = proc->entry;
 
+    char  *const argp[] = {
+        (char *const )initpath, "--root-fs=/ramfs/",
+        "--script=/init.rc", "--shell=/shell",
+        "--default-user=root", "--load-daemons=no", NULL
+    };
+
+    char  *const envp[] = { NULL };
+    
     if ((err = thread_execve(proc->main_thread, argp, envp))) {
         thread_unlock(proc->main_thread);
         goto error;
     }
 
     proc_mmap_unlock(proc);
+
+    if ((err = enqueue_global_thread(proc->main_thread))) {
+        thread_unlock(proc->main_thread);
+        goto error;
+    }
 
     if ((err = thread_schedule(proc->main_thread))) {
         thread_unlock(proc->main_thread);

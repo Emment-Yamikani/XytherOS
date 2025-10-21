@@ -1,4 +1,5 @@
 #include <arch/paging.h>
+#include <core/debug.h>
 #include <lib/printk.h>
 #include <mm/kalloc.h>
 #include <mm/mem.h>
@@ -103,7 +104,7 @@ int mmap_alloc(mmap_t **ref) {
 
     mmap->pgdir     = pgdir;
     mmap->flags     = MMAP_USER;
-    mmap->guard_len = PAGESZ;
+    mmap->guard     = PAGESZ;
     mmap->lock      = SPINLOCK_INIT();
     mmap->limit     = __mmap_limit;
 
@@ -725,7 +726,7 @@ int mmap_map_region(mmap_t *mmap, uintptr_t addr, size_t len, int prot, int flag
         return -EINVAL;
     }
 
-    len     = __flags_stack(flags) ? len + mmap->guard_len : len;
+    len     = __flags_stack(flags) ? len + mmap->guard : len;
     whence  = __flags_stack(flags) ? __whence_end : __whence_start;
 
     if (!__flags_fixed(flags)) {
@@ -783,6 +784,34 @@ int mmap_alloc_vmr(mmap_t *mmap, size_t size, int prot, int flags, vmr_t **pvmr)
     }
 
     return mmap_map_region(mmap, 0, size, prot, flags, pvmr);
+}
+
+int mmap_alloc_mapped_vmr(mmap_t *mmap, uintptr_t addr, size_t len, int prot, int flags, vmr_t **pvmr) {
+    if (mmap == NULL || pvmr == NULL) {
+        return -EINVAL;
+    }
+
+    mmap_assert_locked(mmap);
+
+    // allocate space for the vmr in the mmap.
+    if (__flags_fixed(flags)) {
+        return -EINVAL;
+    }
+
+    vmr_t *vmr;
+
+    int err = mmap_map_region(mmap, addr, len, prot, flags, &vmr);
+    if (err) return err;
+
+    // Page the region in
+    if ((err = arch_map_n(vmr->start, len, vmr->vflags))) {
+        mmap_remove(mmap, vmr);
+        return err;
+    }
+
+    *pvmr = vmr;
+
+    return 0;
 }
 
 int mmap_alloc_stack(mmap_t *mmap, size_t size, vmr_t **pstack) {
@@ -1020,7 +1049,15 @@ int mmap_clean(mmap_t *mmap) {
     
     mmap_assert_locked(mmap);
 
+    uintptr_t oldpgdir = 0;
+    if (!arch_active_pdbr(mmap->pgdir)) {
+        mmap_set_focus(mmap, &oldpgdir);
+    }
+
     if ((err = mmap_unmap(mmap, 0, (mmap->limit) + 1))) {
+        if (oldpgdir) {
+            arch_switch_pgdir(oldpgdir, NULL);
+        }
         return err;
     }
 
@@ -1041,9 +1078,12 @@ int mmap_clean(mmap_t *mmap) {
 
     mmap->pgdir         = pgdir;
     mmap->flags         = MMAP_USER;
-    mmap->guard_len     = PAGESZ;
+    mmap->guard         = PAGESZ;
     mmap->limit         = __mmap_limit;
 
+    if (oldpgdir) {
+        arch_switch_pgdir(oldpgdir, NULL);
+    }
     return 0;
 }
 
@@ -1055,6 +1095,7 @@ void mmap_free(mmap_t *mmap) {
     mmap_recursive_lock(mmap);
 
     mmap_clean(mmap);
+
     if (mmap->refs <= 0) {
         if (mmap->pgdir) {
             pmman.free(mmap->pgdir);
@@ -1080,7 +1121,7 @@ int mmap_copy(mmap_t *dst, mmap_t *src) {
 
     dst->flags      = src->flags;
     dst->limit      = src->limit;
-    dst->guard_len  = src->guard_len;
+    dst->guard  = src->guard;
     
     dst->refs       = 0;
     dst->used_space = 0;
@@ -1154,173 +1195,89 @@ int mmap_set_focus(mmap_t *mmap, uintptr_t *ref) {
     return 0;
 }
 
-int mmap_argenvcpy(mmap_t *mmap, const char *argv[], const char *envv[], char **pargv[], int *pargc, char **penvv[]) {
-    int argc        = 0,    envc     = 0;
-    int err         = 0,    index    = 0;
-    size_t argslen  = 0,    envslen  = 0;
-    char **argp     = NULL, **envp   = NULL;
-    vmr_t *argvmr   = NULL, *envvmr  = NULL;
-    char *arglist   = NULL, *envlist = NULL;
-
-    if (mmap == NULL) {
+static int mmap_copy_list(mmap_t *mmap, char *svec[], int *pcnt, char *const *pvec[], vmr_t **pvmr) {
+    if (!mmap || pvmr == NULL) {
         return -EINVAL;
     }
 
-    if ((argv && !pargv) || (envv && !penvv)) {
-        return -EINVAL;
+    /** POSIX says, argv[argc] MUST be null-terminated,
+     * so incase of 'argc == 0',
+     * starting at argc = 1 here is comformant to POSIX.
+     **/
+    int count = 1;
+
+    size_t region_size = 0, strbuf_size = 0;
+
+    /** Count the number of arguments in the argv array. */
+    foreach(arg, svec) {
+        count    += 1;
+        strbuf_size += strlen(arg) + 1;
     }
 
-    mmap_assert_locked(mmap);
+    /// Add size required to hold the actual array of (char *) pointers.
+    /// Ensure the size is page aligned at 4KiB.
+    region_size = ALIGN4KUP(strbuf_size + (count * (sizeof (char *))));
 
-    if (pargc) {
-        *pargc = 0;
+    /** Allocate a private vmr that is non-expandable.
+     * This region must be read/write.
+     * This region is meant to hold the argument's list.
+    */
+    vm_region_t *vec_vmr;
+    int flags = MAP_PRIVATE | MAP_DONTEXPAND;
+    int err = mmap_alloc_mapped_vmr(mmap, 0, region_size, PROT_RW, flags, &vec_vmr);
+    if (err) {
+        return err;
     }
 
-    if (argv) {
-        /**Count the command-line arguments.
-         * Also keep the size memory region
-         * needed to hold the argumments.
-         */
-        foreach (arg, argv) {
-            argc++;
-            argslen += strlen(arg) + 1 + sizeof(char *);
-        }
+    *pvmr = vec_vmr;
+
+    char **vec = (char **)ALIGN_UP(__vmr_start(vec_vmr) + strbuf_size, 16);
+    assert(&vec[count] < (char **)__vmr_end(vec_vmr),
+           "Space allocated for argv array too small\n");
+
+    char *buf = (char *)__vmr_start(vec_vmr);
+
+    int index = 0;
+    foreach (arg, svec) {
+        size_t arglen = strlen(arg) + 1;
+        safestrncpy(buf, arg, arglen);
+        vec[index++] = buf;
+        buf += arglen;
     }
 
-    // align the size to PAGE alignment
-    argslen = PGROUNDUP(argslen);
+    vec[count] = NULL; // In the case of argv, POSIX says argv[argc] == NULL.
 
-    // If region ength is 0 then jump to setting 'arg_array'
-    if (argslen == 0) {
-        goto arg_array;
-    }
+    if (pcnt) *pcnt = count - 1;
 
-    argc++;
-    // allocate space for the arg_array and args
-    int __flags = MAP_PRIVATE | MAP_DONTEXPAND;
-    if ((err = mmap_alloc_vmr(mmap, argslen, PROT_RW, __flags, &argvmr))) {
-        goto error;
-    }
+    *pvec = vec;
 
-    // Page the region in
-    if ((err = arch_map_n(argvmr->start, argslen, argvmr->vflags))) {
-        goto error;
-    }
+    // foreach(arg, vec) printk("arg: %p, arg: %s\n", arg, arg);
 
-    mmap->arg = argvmr;
-    arglist = (char *)argvmr->start;
-
-    // allocate temoporal array to hold pointers to args
-    if ((argp = kcalloc(argc, sizeof(char *))) == NULL) {
-        err = -ENOMEM;
-        goto error;
-    }
-
-    if (argv) {
-        // Do actual copyout of args
-        foreach (arg, argv) {
-            ssize_t arglen = strlen(arg) + 1;
-            safestrncpy(arglist, arg, arglen);
-            argp[index++] = arglist;
-            arglist += arglen;
-        }
-    }
-
-    // copyout the array of arg pointers
-    memcpy(arglist, argp, argc * sizeof(char *));
-    // free temporal memory
-    kfree(argp);
-
-arg_array:
-    if (pargv) {
-        *pargv = (char **)arglist;
-    }
-
-    if (envv) {
-        /**Count the Environments.
-         * Also keep the size memory region
-         * needed to hold the Environments.
-         */
-        foreach (env, envv) {
-            envc++;
-            envslen += strlen(env) + 1 + sizeof(char *);
-        }
-    }
-
-    // align the size to PAGE alignment
-    envslen = PGROUNDUP(envslen);
-
-    // If region ength is 0 then jump to setting 'env_array'
-    if (envslen == 0) {
-        goto env_array;
-    }
-
-    envc++;
-
-    // allocate space for the env_array and envs
-    __flags = MAP_PRIVATE | MAP_DONTEXPAND;
-    if ((err = mmap_alloc_vmr(mmap, envslen, PROT_RW, __flags, &envvmr))) {
-        goto error;
-    }
-
-    // Page the region in
-    if ((err = arch_map_n(envvmr->start, envslen, envvmr->vflags))) {
-        goto error;
-    }
-
-    mmap->env = envvmr;
-    envlist = (char *)envvmr->start;
-
-    // allocate temoporal array to hold pointers to envs
-    index = 0;
-    if ((envp = kcalloc(envc, sizeof(char *))) == NULL) {
-        err = -ENOMEM;
-        goto error;
-    }
-
-    if (envv) {
-        //  Do actual copyout of envs
-        foreach (env, envv) {
-            ssize_t envlen = strlen(env) + 1;
-            safestrncpy(envlist, env, envlen);
-            envp[index++] = envlist;
-            envlist += envlen;
-        }
-    }
-
-    // copyout the array of env pointers
-    memcpy(envlist, envp, envc * sizeof(char *));
-    // free temporal memory
-    kfree(envp);
-
-env_array:
-    if (penvv) {
-        *penvv = (char **)envlist;
-    }
-
-    if (pargc) {
-        *pargc = --argc;
-    }
+    // printk("count: %d, vec: %p\n", count - 1, vec);
 
     return 0;
-error:
-    if (envp) {
-        kfree(envp);
+}
+
+int mmap_copy_arglist(mmap_t *mmap, char *const __argv[], char *const __envv[],
+    int *pargc, char *const *pargp[], char *const *penvp[]) {
+
+    vmr_t *argv_vmr = NULL;
+    int err = mmap_copy_list(mmap, (char **)__argv, pargc, pargp, &argv_vmr);
+    if (err) {
+        return err;
     }
 
-    if (envvmr) {
-        mmap_remove(mmap, envvmr);
+    vmr_t *envv_vmr = NULL;
+    err = mmap_copy_list(mmap, (char **)__envv, NULL, penvp, &envv_vmr);
+    if (err) {
+        mmap_remove(mmap, argv_vmr);
+        return err;
     }
 
-    if (argp) {
-        kfree(argp);
-    }
+    mmap->arg = argv_vmr;
+    mmap->env = envv_vmr;
 
-    if (argvmr) {
-        mmap_remove(mmap, argvmr);
-    }
-
-    return err;
+    return 0;
 }
 
 /**

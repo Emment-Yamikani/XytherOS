@@ -70,4 +70,9 @@ typedef     uint16_t            devno_t;
 #define __aligned(n)    __attribute__((align, n))
 #define __unused        __attribute__((unused))
 
-typedef struct meminfo_t { usize free, used; } meminfo_t;
+typedef struct mem_stats {
+    unsigned long used;
+    unsigned long free; 
+    unsigned long usable;
+    unsigned long total;
+} mem_stats_t;

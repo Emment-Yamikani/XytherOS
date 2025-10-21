@@ -6,9 +6,9 @@ void *sbrk(intptr_t increment) {
     long        err     = 0;
     uintptr_t   brk     = 0;
 
-    if (current == NULL || current->t_mmap == NULL)
-        return (void *)-1;
-
+    if (current == NULL || current->t_mmap == NULL) {
+        return (void *)-EINVAL;
+    }
 
     mmap_lock(current->t_mmap);
 
@@ -18,10 +18,10 @@ void *sbrk(intptr_t increment) {
             mmap_unlock(current->t_mmap);
             return (void *)err;
         }
-        
+
         current->t_mmap->brk = __vmr_start(current->t_mmap->heap);
     }
-    
+
     if ((err = mmap_vmr_expand(current->t_mmap, current->t_mmap->heap, increment))) {
         mmap_unlock(current->t_mmap);
         return (void *)err;

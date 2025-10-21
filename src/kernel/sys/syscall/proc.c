@@ -7,7 +7,7 @@ pid_t getppid(void) {
 
     if (curproc->parent == NULL) {
         proc_unlock(curproc);
-        return -1;
+        return -EINVAL;
     }
 
     proc_lock(curproc->parent);

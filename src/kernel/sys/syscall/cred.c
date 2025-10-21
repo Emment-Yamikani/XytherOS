@@ -249,20 +249,43 @@ int getcwd(char *buf, size_t size) {
 }
 
 int chdir(const char *path) {
-    int         err        = 0;
-    dentry_t    *newcwd    = NULL;
-    file_ctx_t  *file_ctx  = NULL;
-
-    if ((err = vfs_lookup(path, NULL, O_EXCL, &newcwd)))
+    int err = 0;
+    dentry_t *newcwd = NULL;
+    if ((err = vfs_lookup(path, NULL, O_EXCL, &newcwd))) {
         return err;
+    }
 
     current_lock();
-    file_ctx = current->t_fctx;
+    file_ctx_t  *file_ctx = current->t_fctx;
     fctx_lock(file_ctx);
 
     dclose(file_ctx->fc_cwd);
     file_ctx->fc_cwd = newcwd;
     dunlock(newcwd);
+
+    fctx_unlock(file_ctx);
+    current_unlock();
+
+    return 0;
+}
+
+int chroot(const char *path) {
+    int         err        = 0;
+    dentry_t    *newrootdir= NULL;
+    file_ctx_t  *file_ctx  = NULL;
+
+    if ((err = vfs_lookup(path, NULL, O_EXCL, &newrootdir))) {
+        return err;
+    }
+
+    current_lock();
+    file_ctx = current->t_fctx;
+    fctx_lock(file_ctx);
+
+    dlock(file_ctx->fc_root);
+    dclose(file_ctx->fc_root);
+    file_ctx->fc_root = newrootdir;
+    dunlock(newrootdir);
 
     fctx_unlock(file_ctx);
     current_unlock();

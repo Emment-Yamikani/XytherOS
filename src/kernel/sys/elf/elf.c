@@ -43,7 +43,6 @@ int elf_check(inode_t *binary) {
     return 0;
 }
 
-
 // Register a symbol in the global symbol table.
 int register_symbol(const char *name, void *addr) {
     if (symb_cnt >= MAX_SYMBOLS) {
@@ -71,7 +70,7 @@ void *resolve_symbol(const char *name) {
 }
 
 // ELF Loader for Executables and Shared Libraries.
-int elf_loader(inode_t *binary, mmap_t *mmap, thread_entry_t *entry) {
+int elf_loader(inode_t *binary, mmap_t *mmap) {
     int         err         = 0;
     u64         memsz       = 0;
     u64         rela_count  = 0;
@@ -82,7 +81,7 @@ int elf_loader(inode_t *binary, mmap_t *mmap, thread_entry_t *entry) {
     Elf64_Sym   *symtab     = NULL;
     char        *strtab     = NULL;
 
-    if (binary == NULL || entry == NULL) {
+    if (binary == NULL) {
         return -EINVAL;
     }
 
@@ -206,7 +205,8 @@ int elf_loader(inode_t *binary, mmap_t *mmap, thread_entry_t *entry) {
 
     kfree(dyn);
     kfree(phdr);
-    *entry = (thread_entry_t)elf.e_entry;
+
+    mmap->entry = (thread_entry_t)elf.e_entry;
 
     return 0;
 error:

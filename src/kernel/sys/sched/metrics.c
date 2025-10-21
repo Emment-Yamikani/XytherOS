@@ -15,10 +15,10 @@ void sched_update_thread_metrics(thread_t *thread) {
     thread_assert_locked(thread);
 
     thread_sched_t *ts = &thread->t_info.ti_sched;
-    int pr = ts->ts_prio;
+    int pr = ts->ts_priority;
 
     // clamp thread priority.
-    ts->ts_prio = pr > MLFQ_HIGH ? MLFQ_HIGH : pr < 0 ? 0 : pr;
+    ts->ts_priority = pr > MLFQ_HIGH ? MLFQ_HIGH : pr < 0 ? 0 : pr;
 
     switch (thread_get_state(thread)) {
     case T_RUNNING:

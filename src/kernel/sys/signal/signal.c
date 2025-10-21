@@ -262,8 +262,9 @@ int signal_enqueue(signal_t *signals, siginfo_t *siginfo) {
     signal_assert_locked(signals);
 
     int err;
-    if ((err = sigsetadd(&signals->sigpending, siginfo->si_signo)))
+    if ((err = sigsetadd(&signals->sigpending, siginfo->si_signo))) {
         return err;
+    }
 
     queue_lock(&signals->sig_queue[siginfo->si_signo - 1]);
     if ((err = sigqueue_enqueue(&signals->sig_queue[siginfo->si_signo - 1], siginfo))) {
