@@ -46,10 +46,12 @@ extern void arch_thread_exit(uintptr_t status);
  * \return 0 if successful and errno on failure.
  */
 extern int arch_kthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg);
-extern int arch_uthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg);
+
+extern int arch_thread_init(arch_thread_t *thread, thread_entry_t entry, void *a0, void *a1, void *a2, void *a3);
+
 extern int x86_64_signal_dispatch(arch_thread_t *thread, sigaction_t *sigact, siginfo_t *info);
 
-extern int arch_thread_execve(arch_thread_t *thread, thread_entry_t entry, int argc, const char *argp[], const char *envp[]);
+extern int arch_thread_execve(arch_thread_t *thread, thread_entry_t entry, int argc, char *const argp[], char *const envp[]);
 
 extern int arch_thread_setkstack(arch_thread_t *arch);
 extern int arch_thread_fork(arch_thread_t *dst, arch_thread_t *src);

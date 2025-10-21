@@ -135,10 +135,18 @@ extern void arch_unmap(int i4, int i3, int i2, int i1);
 /**
  * @brief 
  * 
+ */
+extern bool arch_active_pdbr(uintptr_t pdbr);
+
+/**
+ * @brief 
+ * 
  * @param pdbr 
  * @param old 
  */
 extern void arch_switch_pgdir(uintptr_t pdbr, uintptr_t *old);
+
+extern void arch_switchkvm(void);
 
 /**
  * @brief 

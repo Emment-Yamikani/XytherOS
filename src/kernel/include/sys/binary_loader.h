@@ -4,7 +4,7 @@
 
 typedef struct binary_loader {
     int (*check)(inode_t *binary);
-    int (*load)(inode_t *binary, mmap_t *mmap, thread_entry_t *entry);
+    int (*load)(inode_t *binary, mmap_t *mmap);
 } binary_loader_t;
 
 #define BINARY_LOADER(name, checker, loader)     \

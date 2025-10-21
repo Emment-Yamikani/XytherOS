@@ -187,6 +187,16 @@ extern proc_t *initproc;
 #define proc_mmap_islocked(proc)        ({ mmap_islocked(proc_mmap(proc)); })
 #define proc_mmap_assert_locked(proc)   ({ mmap_assert_locked(proc_mmap(proc)); })
 
+static inline bool __proc_died(proc_t *proc) {
+    proc_assert_locked(proc);
+    return proc->state == P_TERMINATED || proc->state == P_ZOMBIE;
+}
+
+static inline bool __proc_stopped(proc_t *proc) {
+    proc_assert_locked(proc);
+    return proc->state == P_STOPPED;
+}
+
 extern int procQ_remove(proc_t *proc);
 extern int procQ_search_bypid(pid_t pid, proc_t **ref);
 extern int procQ_search_bypgid(pid_t pgid, proc_t **ref);
@@ -195,7 +205,7 @@ extern void proc_free(proc_t *proc);
 extern int proc_init(const char *initpath);
 extern int do_fork(proc_t *child, proc_t *parent);
 extern int proc_alloc(const char *name, proc_t **pref);
-extern int proc_load(const char *pathname, mmap_t *mmap, thread_entry_t *entry);
+extern int exec_load_image(const char *pathname, mmap_t *mmap);
 
 /**
  * @brief Describes flags to search for the child.

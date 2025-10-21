@@ -63,7 +63,7 @@ void iter_destroy(iter_t *iter);
  * @param arg      User-defined context argument for init_cb.
  * @return 0 on success, negative error code on failure.
  */
-int iter_init(iter_t *iter, int (*init_cb)(void *arg, iter_t *iter), void *arg);
+int iter_init(iter_t *iter, iter_init_cb_t init_cb, void *arg);
 
 /**
  * @brief Retrieves the next item from the iterator (FIFO order).
@@ -111,8 +111,7 @@ extern int iter_peek_reverse(iter_t *iter, void **item);
  */
 #define iter_foreach_item(item, iter, init_cb, arg)                      \
     for (int __ok = iter_init((iter), (iter_init_cb_t)(init_cb), (arg)); \
-         __ok == 0 && (iter) && !iter_next((iter), (void **)&(item));    \
-         (item) = NULL)
+         __ok == 0 && (iter) && !iter_next((iter), (void **)&(item)); (item) = NULL)
 
 /**
  * @def iter_foreach_item_reverse(item, iter, init_cb, arg)
@@ -126,7 +125,6 @@ extern int iter_peek_reverse(iter_t *iter, void **item);
  * @param init_cb  Initialization callback of type iter_init_cb_t.
  * @param arg      Argument passed to the init callback.
  */
-#define iter_foreach_item_reverse(item, iter, init_cb, arg)                   \
-    for (int __ok = iter_init((iter), (iter_init_cb_t)(init_cb), (arg));      \
-         __ok == 0 && (iter) && !iter_reverse_next((iter), (void **)&(item)); \
-         (item) = NULL)
+#define iter_foreach_item_reverse(item, iter, init_cb, arg)              \
+    for (int __ok = iter_init((iter), (iter_init_cb_t)(init_cb), (arg)); \
+         __ok == 0 && (iter) && !iter_reverse_next((iter), (void **)&(item)); (item) = NULL)

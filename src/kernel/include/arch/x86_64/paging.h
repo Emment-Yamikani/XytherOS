@@ -113,9 +113,17 @@ typedef union viraddr {
 #define PTE2PHYS(pte)           ((uintptr_t)((pte) ? PGROUND((pte)->raw) : 0))
 
 /**
+ * @brief
+ *
+ */
+extern bool x86_64_active_pdbr(uintptr_t pdbr);
+
+/**
  * 
 */
-void x86_64_swtchvm(uintptr_t pdbr, uintptr_t *old);
+void x86_64_switchvm(uintptr_t pdbr, uintptr_t *old);
+
+extern void x86_64_switchkvm(void);
 
 /**
  * 

@@ -98,8 +98,8 @@
 #define PGSZ2MASK               (PGSZ2M -1)
 
 /* Memory alignment macros */
-#define ALIGN_UP(x, align)      (((x) + ((align) - 1)) & ~((align) - 1))
-#define ALIGN_DOWN(x, align)    ((x) & ~((align) - 1))
+#define ALIGN_UP(x, align)      (((uintptr_t)(x) + ((align) - 1)) & ~((align) - 1))
+#define ALIGN_DOWN(x, align)    ((uintptr_t)(x) & ~((align) - 1))
 
 #define __ALIGN(x, s)           (AND((uintptr_t)(x), NOT((size_t)(s) - 1)))
 #define ALIGN16(x)              (AND((uintptr_t)(x), NOT(0xf)))
@@ -112,6 +112,7 @@
 #define is_aligned16(p)         ((((uint64_t)(p)) & 0x0f) == 0)
 #define is_aligned32(p)         ((((uint64_t)(p)) & 0x1f) == 0)
 #define is_aligned64(p)         ((((uint64_t)(p)) & 0x3f) == 0)
+#define is_aligned4k(p)         ((((uint64_t)(p)) & 0xfff) == 0)
 
 #define MAGIC_RETADDR           (-1ul)
 #define MEMMDEV                 ((uintptr_t)0xFE000000ull)

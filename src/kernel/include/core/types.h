@@ -96,6 +96,4 @@ typedef     struct arch_thread_t    arch_thread_t;
 typedef     struct ucontext_t       ucontext_t;
 typedef     struct sig_stack_t      sig_stack_t;
 
-typedef     struct meminfo_t        meminfo_t;
-
 #endif /* XYTHEROS_TYPES_H */

@@ -65,13 +65,13 @@ typedef struct queue {
     queue_assert_locked(queue);                                                                                 \
     for (queue_node_t *item##_node = (queue)->head, *next_item##_node = item##_node ? item##_node->next : NULL; \
          item##_node ? ((item) = container_of(item##_node, typeof(*(item)), member)) : NULL;                    \
-         (item##_node = next_item##_node, next_item##_node = item##_node ? item##_node->next : NULL))
+         (item##_node = next_item##_node, next_item##_node = item##_node ? item##_node->next : NULL), (item) = NULL)
 
 #define queue_foreach_entry_reverse(queue, item, member)                                                        \
     queue_assert_locked(queue);                                                                                 \
     for (queue_node_t *item##_node = (queue)->head, *prev_item##_node = item##_node ? item##_node->prev : NULL; \
          item##_node ? ((item) = container_of(item##_node, typeof(*(item)), member)) : NULL;                    \
-         (item##_node = prev_item##_node, prev_item##_node = item##_node ? item##_node->prev : NULL))
+         (item##_node = prev_item##_node, prev_item##_node = item##_node ? item##_node->prev : NULL), (item) = NULL)
 
 /**
  * @brief Iterates over a queue's node.

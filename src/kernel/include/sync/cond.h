@@ -2,6 +2,7 @@
 
 #include <ds/queue.h>
 #include <sync/spinlock.h>
+#include <sys/sched/sched_wait.h>
 
 typedef struct cond {
     atomic_t    count;
@@ -21,8 +22,7 @@ typedef struct cond {
 
 extern int     cond_init(cond_t *cond);
 extern int     cond_alloc(cond_t **ref);
-extern int     cond_wait(cond_t *cond);
 extern void    cond_free(cond_t *cond);
 extern void    cond_signal(cond_t *cond);
 extern void    cond_broadcast(cond_t *cond);
-extern int     cond_wait_releasing(cond_t *cond, spinlock_t *lk);
+extern int     cond_wait(cond_t *cond, wakeup_t *preason, spinlock_t *lock);

@@ -27,6 +27,10 @@ extern pid_t getpid(void);
     debug("\n");      \
 })
 
+#ifndef DUMP_PANIC
+#define DUMP_PANIC  0x0001
+#endif
+
 #ifndef dumpf
 #define dumpf(hlt, fmt, ...)                                                                               \
     if (hlt)                                                                                               \
@@ -35,4 +39,13 @@ extern pid_t getpid(void);
     else                                                                                                   \
         printk("DUMP: %s:%d: cpu[%d:%d]: tid[%d:%d]: ret[\e[32m%p\e[0m]\n" fmt,                            \
                __func__, __LINE__, getcpuid(), cpu_get_ncli(), getpid(), gettid(), __retaddr(0), ##__VA_ARGS__)
+#endif
+
+#ifndef dump_if_tid_matches
+#define dump_if_tid_matches(tid, flags, fmt, ...)                                                              \
+    size_t (*func)(const char *restrict format, ...) = (flags & DUMP_PANIC) ? (void *)panic : printk;          \
+    if (tid == gettid()) {                                                                                     \
+        func("\e[35mDEBUG\e[0m: %s:%d: cpu[%d:%d]: tid[%d:%d]: ret[\e[32m%p\e[0m] " fmt,                       \
+             __func__, __LINE__, getcpuid(), cpu_get_ncli(), getpid(), gettid(), __retaddr(0), ##__VA_ARGS__); \
+    }
 #endif

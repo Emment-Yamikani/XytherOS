@@ -53,7 +53,7 @@
 #endif
 
 /*Is the address Page aligned?*/
-#define __isaligned(p)              (((p) & PAGEMASK) == 0)
+#define __isaligned(p)              ((((uintptr_t)p) & PAGEMASK) == 0)
 
 typedef struct mmap {
     int        flags;       // memory map flags.
@@ -65,10 +65,11 @@ typedef struct mmap {
     uintptr_t   brk;        // brk position.
     uintptr_t   pgdir;      // page directory.
     uintptr_t   limit;      // Highest allowed address in this address space.
-    size_t      guard_len;  // Size of the guard space.
+    size_t      guard;  // Size of the guard space.
     size_t      used_space; // Avalable space, may be non-contigous.
     vmr_t      *vmr_head;   // head of list of virtual memory mapping.
     vmr_t      *vmr_tail;   // tail of list of virtual memory mapping.
+    void       *entry; // entry of the image loaded in this mmap.
     spinlock_t  lock;
 } mmap_t;
 
@@ -112,6 +113,8 @@ extern int mmap_forced_mapin(mmap_t *mmap, vmr_t *region);
 
 extern int mmap_unmap(mmap_t *mmap, uintptr_t start, size_t len);
 extern int mmap_map_region(mmap_t *mmap, uintptr_t addr, size_t len, int prot, int flags, vmr_t **pvmr);
+
+extern int mmap_alloc_mapped_vmr(mmap_t *mmap, uintptr_t addr, size_t len, int prot, int flags, vmr_t **pvmr);
 
 extern int mmap_contains(mmap_t *mmap, vmr_t *region);
 
@@ -178,8 +181,8 @@ extern int mmap_set_focus(mmap_t *mmap, uintptr_t *ref);
  * @param penvv 
  * @return int 
  */
-extern int mmap_argenvcpy(mmap_t *mmap, const char *argv[],
-    const char *envv[], char **pargv[], int *pargc, char **penvv[]);
+extern int mmap_copy_arglist(mmap_t *mmap, char *const argv[],
+    char *const envv[], int *pargc, char *const*pargp[], char *const *penvp[]);
 
 extern int mmap_mapin(mmap_t *mm, vmr_t *r);
 

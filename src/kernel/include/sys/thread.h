@@ -100,11 +100,11 @@ typedef struct thread_sched_t {
     unsigned int ts_flags;      /**< Per-thread schedulerflags. */
 
 #define TH_SHORTHOLD_THRESHOLD(level) (usize)((level) + 4)
-    usize       ts_short_holds;  /**< Holding patterns. */
+    usize       ts_short_holds; /**< Holding patterns. */
 #define TH_LONGHOLD_THRESHOLD  8
-    usize       ts_long_holds;   /**< Holding patterns. */
+    usize       ts_long_holds;  /**< Holding patterns. */
 
-    int         ts_prio;        /**< Scheduling priority (can be static or dynamic) */
+    int         ts_priority;    /**< Scheduling priority (can be static or dynamic) */
     cpu_t       *ts_proc;       /**< Pointer to the current processor */
     cpu_affin_t ts_affin;       /**< CPU affinity information */
 
@@ -141,6 +141,12 @@ typedef struct {
 } thread_info_t;
 
 extern void thread_info_dump(thread_info_t *info);
+
+typedef struct {
+    queue_t         *ts_wait_queue;
+    wakeup_t        ts_wakeup_reason;
+    queue_node_t    ts_wait_queue_node;
+}  thread_sleep_desc_t;
 
 /*=====================================================================
  *  Thread Structure and Flags
@@ -395,10 +401,10 @@ extern tid_t    thread_self(void);
 extern int      thread_cancel(tid_t tid);
 extern void     thread_exit(uintptr_t status);
 extern int      thread_join(tid_t tid, thread_info_t *info, void **prp);
-extern int      thread_execve(thread_t *thread, const char *argp[], const char *envp[]);
+extern int      thread_execve(thread_t *thread, char *const argp[], char *const envp[]);
 extern int      thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, int cflags, thread_t **ptp);
 
-extern int      current_interrupted(wakeup_t *preason);
+extern int      current_check_interrupted(wakeup_t *preason);
 
 extern void     thread_free(thread_t *thread);
 extern int      thread_schedule(thread_t *thread);

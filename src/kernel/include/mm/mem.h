@@ -42,11 +42,6 @@ extern void dump_freevmr_list(void);
 extern void dump_usedvmr_list(void);
 extern void dump_all_lists(void);
 
-typedef struct meminfo_t {
-    usize      free;
-    usize      used;
-} meminfo_t;
-
 #include <mm/mem_stats.h>
 
 #include <bits/errno.h>

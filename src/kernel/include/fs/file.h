@@ -126,6 +126,7 @@ extern int  ioctl(int fd, int req, void *argp);
 
 extern off_t    lseek(int fd, off_t off, int whence);
 
+extern int      chroot(const char *path);
 extern int      chdir(const char *path);
 extern int      getcwd(char *buf, size_t size);
 
