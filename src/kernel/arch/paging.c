@@ -8,9 +8,21 @@ void arch_dumptable(pte_t *table) {
     x86_64_dumptable(table);
 }
 
+bool arch_active_pdbr(uintptr_t pdbr) {
+#if defined (__x86_64__)
+    return x86_64_active_pdbr(pdbr);
+#endif
+}
+
 void arch_switch_pgdir(uintptr_t pdbr, uintptr_t *old) {
 #if defined (__x86_64__)
-    x86_64_swtchvm(pdbr, old);
+    x86_64_switchvm(pdbr, old);
+#endif
+}
+
+void arch_switchkvm(void) {
+#if defined (__x86_64__)
+    x86_64_switchkvm();
 #endif
 }
 
@@ -110,9 +122,9 @@ int arch_getpgdir(uintptr_t *ref) {
 #endif
 }
 
-void arch_putpgdir(uintptr_t pgdir) {
+void arch_putpgdir(uintptr_t pdbr) {
 #if defined (__x86_64__)
-    x86_64_pml4free(pgdir);
+    x86_64_pml4free(pdbr);
 #endif
 }
 

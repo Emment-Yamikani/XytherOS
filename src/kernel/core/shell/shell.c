@@ -143,7 +143,7 @@ static void cmd_show(char **args) {
     for (int i = 1; args[i]; i++) {
         if (xytherOs_string_eq("mem", args[i]) || xytherOs_string_eq("m", args[i])) {
             mem_stats_t stats;
-            mem_get_stats(&stats);
+            getmemstats(&stats);
             
             char buf[256];
             snprintf(buf, sizeof(buf),

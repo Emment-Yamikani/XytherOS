@@ -63,7 +63,7 @@ int jiffies_create_clock(jiffies_t jiffy) {
 
 static void jiffies_worker(void) {
     loop_and_yield() {
-        cond_wait(jiffies_condvar);
+        cond_wait(jiffies_condvar, NULL, NULL);
         queue_lock(jiffies_clocks);
         jiffies_clock_t *clock;
         queue_foreach_entry(jiffies_clocks, clock, node) {
@@ -129,7 +129,7 @@ int jiffies_sleep(jiffies_t jiffies, jiffies_t *rem) {
     jiffies_t expr = jiffies + jiffies_get(), now;
     while (time_before(now = jiffies_get(), expr)) {
         if (!jiffies_create_clock(expr)) {
-            if ((err = sched_wait_whence(jiffies_waiters, T_SLEEP, QUEUE_HEAD, NULL))) {
+            if ((err = sched_wait_whence(jiffies_waiters, T_SLEEP, QUEUE_HEAD, NULL, NULL))) {
                 now = jiffies_get();
                 break;
             }

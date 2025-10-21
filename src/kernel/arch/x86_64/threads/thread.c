@@ -68,87 +68,31 @@ int x86_64_kthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) 
     return 0;
 }
 
-int x86_64_uthread_init(arch_thread_t *thread, thread_entry_t entry, void *arg) {
-    int err;
-    u64 *ustack;
+int x86_64_thread_init(arch_thread_t *thread, thread_entry_t entry,
+    void *arg0, void *arg1, void *arg2, void *arg3) {
+    if (!thread || !entry) {
+        return -EINVAL;
+    }
     
-    if (!thread || !thread->t_thread || !entry) {
+    u64 *ustack = (u64 *)ALIGN16(thread->t_ustack.ss_sp);
+    if (ustack == NULL) {
         return -EINVAL;
     }
-
-    thread_assert_locked(thread->t_thread);
-
-    if ((ustack = (u64 *)ALIGN16(thread->t_ustack.ss_sp)) == NULL){
-        return -EINVAL;
-    }
-
+        
+    int err;
     if ((err = arch_map_n(((u64)ustack) - PGSZ, PGSZ, thread->t_ustack.ss_flags))) {
         return err;
     }
 
     u64 *kstack = (u64 *)thread->t_sstack.ss_sp;
-
-    assert(kstack, "Invalid Kernel stack.");
-
-    assert(is_aligned16(kstack), "Kernel stack is not 16bytes aligned!");
-
-    *--kstack   = (u64)x86_64_thread_stop;
-    *--ustack   = MAGIC_RETADDR; // push dummy return address.
-
-    mcontext_t  *mctx = (mcontext_t *)((u64)kstack - sizeof *mctx);
-
-    memset(mctx, 0, sizeof *mctx);
-
-    mctx->ss      = (SEG_UDATA64 << 3) | DPL_USR;
-    mctx->rbp     = mctx->rsp = (u64)ustack;
-    mctx->rfl     = LF_IF;
-    mctx->cs      = (SEG_UCODE64 << 3) | DPL_USR;
-    mctx->rip     = (u64)entry;
-    mctx->rdi     = (u64)arg;
-
-    mctx->fs      = (SEG_UDATA64 << 3) | DPL_USR;
-    mctx->ds      = (SEG_UDATA64 << 3) | DPL_USR;
-
-    kstack        = (u64 *)mctx;
-    *--kstack     = (u64)trapret;
-
-    context_t   *ctx = (context_t *)((u64)kstack - sizeof *ctx);
-    ctx->rip      = (u64)x86_64_thread_start;
-    ctx->rbp      = mctx->rsp;
-    ctx->link     = NULL; // starts with no link to old context.
-
-    thread->t_context   = ctx;
-    return 0;
-}
-
-int x86_64_thread_execve(arch_thread_t *thread, thread_entry_t entry, int argc, const char *argp[], const char *envp[]) {
-    int         err         = 0;
-    context_t   *ctx        = NULL;
-    mcontext_t  *mctx       = NULL;
-    u64         *ustack     = NULL;
-    u64         *kstack     = NULL;
-
-    if (!thread || !thread->t_thread || !entry)
-        return -EINVAL;
-
-    thread_assert_locked(thread->t_thread);
-
-    if ((ustack = (u64 *)ALIGN16(thread->t_ustack.ss_sp)) == NULL)
-        return -EINVAL;
-
-    if ((err = arch_map_n(((u64)ustack) - PGSZ, PGSZ, thread->t_ustack.ss_flags)))
-        return err;
-
-    kstack = (u64 *)thread->t_sstack.ss_sp;
-    
     assert(kstack, "Invalid Kernel stack.");
     
-    assert(is_aligned16(kstack), "Kernel stack is not 16bytes aligned!");
+    assert(is_aligned16(kstack), "Kernel stack is not aligned to 16 bytes!");
 
     *--kstack = (u64)x86_64_thread_stop;
     *--ustack = MAGIC_RETADDR; // push dummy return address.
 
-    mctx = (mcontext_t *)((u64)kstack - sizeof *mctx);
+    mcontext_t *mctx = (mcontext_t *)((u64)kstack - sizeof *mctx);
 
     memset(mctx, 0, sizeof *mctx);
 
@@ -159,22 +103,30 @@ int x86_64_thread_execve(arch_thread_t *thread, thread_entry_t entry, int argc, 
     mctx->rip     = (u64)entry;
 
     // pass paramenters to entry function.
-    mctx->rdi     = (u64)argc;
-    mctx->rsi     = (u64)argp;
-    mctx->rdx     = (u64)envp;
+    mctx->rdi     = (u64)arg0;
+    mctx->rsi     = (u64)arg1;
+    mctx->rdx     = (u64)arg2;
+    mctx->rcx     = (u64)arg3;
 
     mctx->fs      = (SEG_UDATA64 << 3) | DPL_USR;
     mctx->ds      = (SEG_UDATA64 << 3) | DPL_USR;
 
     kstack        = (u64 *)mctx;
     *--kstack     = (u64)trapret;
-    ctx           = (context_t *)((u64)kstack - sizeof *ctx);
+
+    context_t *ctx= (context_t *)((u64)kstack - sizeof *ctx);
     ctx->rip      = (u64)x86_64_thread_start;
     ctx->rbp      = mctx->rsp;
     ctx->link     = NULL; // starts with no link to old context.
     
     thread->t_context = ctx;
     return 0;
+}
+
+int x86_64_thread_execve(arch_thread_t *thread, thread_entry_t entry,
+    int argc, char *const argp[], char *const envp[]) {
+    return x86_64_thread_init(thread, entry,
+        (void *)(uintptr_t)argc, (void *)argp, (void *)envp, NULL);
 }
 
 int x86_64_thread_setkstack(arch_thread_t *thread) {
@@ -218,10 +170,12 @@ int x86_64_thread_fork(arch_thread_t *dst, arch_thread_t *src) {
 
     kstack      = (u64 *)mctx;
     *--kstack   = (u64)trapret;
+
     ctx         = (context_t *)(((u64)kstack) - sizeof *ctx);
     ctx->rip    = (u64)x86_64_thread_start;
     ctx->rbp    = (u64)dst->t_rsvd;
     ctx->link   = NULL;
+
     dst->t_context  = ctx;
     return 0;
 }

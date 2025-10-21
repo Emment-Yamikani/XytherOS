@@ -82,11 +82,12 @@ int open(const char *pathname, int oflags, mode_t mode) {
     file_t      *file   = NULL;
     dentry_t    *dentry = NULL;
 
-    if (pathname == NULL)
+    if (pathname == NULL) {
         return -EINVAL;
-
+    }
+    
     printk("%s:%d: %s(%s, %o, %o);\n", __FILE__, __LINE__, __func__, pathname, oflags, mode);
-
+    
     // open() must only be called by threads.
     current_assert();
 
@@ -140,20 +141,21 @@ int open(const char *pathname, int oflags, mode_t mode) {
 found:
     assert(path->directory == NULL, "On success, path has directory\n");
     assert(path->dentry, "On success, path has no dentry\n");
-
+    
     if ((err = file_alloc(&fd, &file))) {
-        dclose(path->dentry);
         goto error;
+        dclose(path->dentry);
     }
-
+    
     file->fops      = NULL;
     file->f_dentry  = path->dentry;
     file->f_oflags  = oflags;
     
     funlock(file);
     dunlock(path->dentry);
-
+    
     path_free(path);
+
     return fd;
 error:
     if (path)

@@ -3,13 +3,13 @@
 #include <ds/queue.h>
 #include <mm/kalloc.h>
 
-int iter_init(iter_t *iter, int (*init)(void *arg, iter_t *iter), void *arg) {
-    if (!iter || !init) {
+int iter_init(iter_t *iter, iter_init_cb_t init_cb, void *arg) {
+    if (!iter || !init_cb) {
         return -EINVAL;
     }
 
     queue_lock(&iter->queue);
-    int err = init(arg, iter);
+    int err = init_cb(arg, iter);
     queue_unlock(&iter->queue);
 
     return err;

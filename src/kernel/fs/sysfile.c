@@ -1,4 +1,5 @@
 #include <bits/errno.h>
+#include <core/debug.h>
 #include <dev/dev.h>
 #include <fs/file.h>
 #include <fs/fs.h>
@@ -230,22 +231,22 @@ int file_copy(file_ctx_t *dst, file_ctx_t *src) {
     }
 
 
-    if (src->fc_cwd != src->fc_root)
+    if (src->fc_cwd != src->fc_root) {
         dunlock(src->fc_root);
+    }
+
     dunlock(src->fc_cwd);
 
     dst->fc_files   = files;
     dst->fc_nfile   = src->fc_nfile;
 
     for (int fd = 0; fd < src->fc_nfile; ++fd) {
-        if (src->fc_files[fd] == NULL) {
-            continue;
+        if (src->fc_files[fd]) {
+            flock(src->fc_files[fd]);
+            src->fc_files[fd]->f_refcnt++;
+            dst->fc_files[fd] = src->fc_files[fd];
+            funlock(src->fc_files[fd]);
         }
-        
-        flock(src->fc_files[fd]);
-        src->fc_files[fd]->f_refcnt++;
-        dst->fc_files[fd] = src->fc_files[fd];
-        funlock(src->fc_files[fd]);
     }
 
     return 0;
@@ -400,15 +401,15 @@ ssize_t read(int fd, void *buf, size_t size) {
 }
 
 ssize_t write(int fd, const void *buf, size_t size) {
-    ssize_t err= 0;
-    file_t *file = NULL;
-    if ((err = file_get(fd, &file))) {
-        return err;
+    file_t *file;
+    ssize_t retval;
+    if ((retval = file_get(fd, &file))) {
+        return retval;
     }
 
-        err = fwrite(file, buf, size);
+    retval = fwrite(file, buf, size);
     funlock(file);
-    return err;
+    return retval;
 }
 
 int create(const char *pathname, mode_t mode) {

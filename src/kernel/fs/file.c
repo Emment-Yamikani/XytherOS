@@ -472,7 +472,7 @@ ssize_t fread(file_t *file, void *buf, size_t size) {
             break;
         } else { // Blocking mode, no data available
             if (inode->i_readers) {
-                cond_wait(inode->i_readers); // Wait for data to be written
+                cond_wait(inode->i_readers, NULL, NULL); // Wait for data to be written
             }
         }
     }
@@ -546,7 +546,7 @@ ssize_t fwrite(file_t *file, const void *buf, size_t size) {
 
                 if (remaining > 0) {
                     if (inode->i_writers) {
-                        cond_wait(inode->i_writers); // Wait for space to write
+                        cond_wait(inode->i_writers, NULL, NULL); // Wait for space to write
                     } else {
                         break; // No wait queue to sleep on, exit
                     }

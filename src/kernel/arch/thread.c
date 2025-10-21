@@ -13,9 +13,9 @@ void arch_thread_exit(uintptr_t status) {
 #endif
 }
 
-int arch_uthread_init(arch_thread_t *arch, thread_entry_t entry, void *arg) {
+int arch_thread_init(arch_thread_t *arch, thread_entry_t entry, void *a0, void *a1, void *a2, void *a3) {
 #if defined __x86_64__
-    return x86_64_uthread_init(arch, entry, arg);
+    return x86_64_thread_init(arch, entry, a0, a1, a2, a3);
 #endif
 }
 
@@ -31,7 +31,7 @@ int arch_kthread_init(arch_thread_t *arch, thread_entry_t entry, void *arg) {
 #endif
 }
 
-int arch_thread_execve(arch_thread_t *arch, thread_entry_t entry, int argc, const char *argp[], const char *envp[]) {
+int arch_thread_execve(arch_thread_t *arch, thread_entry_t entry, int argc, char *const argp[], char *const envp[]) {
 #if defined __x86_64__
     return x86_64_thread_execve(arch, entry, argc, argp, envp);
 #endif

@@ -12,9 +12,10 @@
 
 static QUEUE(event_readers);
 static QUEUE(event_writers);
-static ringbuf_t event_buffer;
-static thread_t *grabber = NULL;
+static ringbuf_t    event_buffer;
+static thread_t     *grabber = NULL;
 DECL_DEVOPS(static, event0);
+
 static DECL_DEVICE(event0, CHRDEV, KBDEV_DEV_MAJOR, 0);
 
 static int event0_init(void) {
@@ -23,13 +24,11 @@ static int event0_init(void) {
         return err;
     }
 
-    err = queue_init(event_writers);
-    if (err) {
+    if ((err = queue_init(event_writers))) {
         return err;
     }
 
-    err = queue_init(event_readers);
-    if (err) {
+    if ((err = queue_init(event_readers))) {
         return err;
     }
 
@@ -54,7 +53,7 @@ int kbd_get_event(kbd_event_t *ev) {
                 continue;
             }
 
-            err = sched_wait_whence(event_readers, T_SLEEP, QUEUE_TAIL, &event_buffer.lock);
+            err = sched_wait_whence(event_readers, T_SLEEP, QUEUE_TAIL, NULL, &event_buffer.lock);
             if (err == 0) {
                 continue;
             }
@@ -70,6 +69,7 @@ int kbd_get_event(kbd_event_t *ev) {
             break;
         }
     }
+
     ringbuf_unlock(&event_buffer);
     return err;
 }
@@ -89,7 +89,7 @@ int async_kbd_inject_event(kbd_event_t *ev) {
     err = ringbuf_write(&event_buffer, (void *)ev, sizeof(kbd_event_t));
     sched_wakeup_all(event_readers, WAKEUP_NORMAL, NULL);
 
-    err = err == sizeof *ev ? 0 : err < 0 ? err : -EFAULT;
+    err = (err == sizeof (kbd_event_t)) ? 0 : err < 0 ? err : -EFAULT;
     ringbuf_unlock(&event_buffer);
     return err;
 }
@@ -112,7 +112,7 @@ int kbd_inject_event(kbd_event_t *ev) {
                 continue;
             }
 
-            err = sched_wait_whence(event_writers, T_SLEEP, QUEUE_TAIL, &event_buffer.lock);
+            err = sched_wait_whence(event_writers, T_SLEEP, QUEUE_TAIL, NULL, &event_buffer.lock);
             if (err == 0) {
                 continue;
             }
@@ -167,18 +167,28 @@ static int event0_mmap(struct devid *, vmr_t *vmregion __unused) {
 static int event0_ioctl(struct devid *, int request, void *arg) {
     switch (request) {
         case EV_GRAB:
-            if (atomic_load(&grabber)) return -EBUSY;
+            if (atomic_load(&grabber)) {
+                return -EBUSY;
+            }
+
             atomic_store(&grabber, current);
             return 0;
         case EV_UNGRAB:
-            if (atomic_load(&grabber) != current) return -EPERM;
+            if (atomic_load(&grabber) != current) {
+                return -EPERM;
+            }
+
             atomic_store(&grabber, NULL);
             return 0;
         case EV_READ:
             thread_t *thread = atomic_load(&grabber);
-            if (thread && thread != current) return -EBUSY;
+            if (thread && thread != current) {
+                return -EBUSY;
+            }
+
             return kbd_get_event(arg);
         case EV_WRITE:
+
             return kbd_inject_event(arg);
         default:
             return -EINVAL;
@@ -194,9 +204,9 @@ static isize event0_read(struct devid *, off_t, void *buf, usize size) {
         return -EINVAL;
     }
 
-    usize events_read  = 0;
-    usize count = size / sizeof(kbd_event_t);
-    kbd_event_t *evbuf = (kbd_event_t *)buf;
+    usize       events_read = 0;
+    kbd_event_t *evbuf      = (kbd_event_t *)buf;
+    usize       count       = size / sizeof(kbd_event_t);
 
     for (; events_read < count; ++events_read) {
         int err = kbd_get_event(&evbuf[events_read]);
@@ -205,6 +215,7 @@ static isize event0_read(struct devid *, off_t, void *buf, usize size) {
                 // Return how many we read before error
                 return events_read * sizeof(kbd_event_t);
             }
+
             return err;
         }
     }
@@ -217,9 +228,9 @@ static isize event0_write(struct devid *, off_t, void *buf, usize size) {
         return -EINVAL;
     }
 
-    usize events_written = 0;
-    usize count = size / sizeof(kbd_event_t);
-    kbd_event_t *evbuf   = (kbd_event_t *)buf;
+    usize       events_written  = 0;
+    kbd_event_t *evbuf          = (kbd_event_t *)buf;
+    usize       count           = size / sizeof(kbd_event_t);
 
     for (; events_written < count; ++events_written) {
         int err = kbd_inject_event(&evbuf[events_written]);
@@ -227,6 +238,7 @@ static isize event0_write(struct devid *, off_t, void *buf, usize size) {
             if (events_written > 0) {
                 return events_written * sizeof(kbd_event_t);
             }
+
             return err;
         }
     }

@@ -373,7 +373,9 @@ static int hashMap_remove_internal_entry(hashMap *map, btree_key_t btkey, hashMa
         btree_unlock(&map->bucket_tree);
     }
 
-    if (!entry) return -ENOENT;
+    if (!entry) {
+        return -ENOENT;
+    }
 
     map->size--;
 
@@ -385,22 +387,27 @@ static int hashMap_remove_internal_entry(hashMap *map, btree_key_t btkey, hashMa
 }
 
 int hashMap_detach_entry(hashMap *map, hashEntry *target) {
-    if (!map || !target) return -EINVAL;
+    if (!map || !target) {
+        return -EINVAL;
+    }
 
     const hashKey hash_key = HASHCTX_GET_FUNC(&map->context, hash, default_hash)(map, target->key);
     return hashMap_remove_internal_entry(map, hash_key, hashMap_match_by_ptr, target, false);
 }
 
 int hashMap_remove_entry(hashMap *map, hashEntry *entry) {
-    if (!map || !entry)
+    if (!map || !entry) {
         return -EINVAL;
+    }
 
     const hashKey hash_key = HASHCTX_GET_FUNC(&map->context, hash, default_hash)(map, entry->key);
     return hashMap_remove_internal_entry(map, hash_key, hashMap_match_by_ptr, entry, true);
 }
 
 int hashMap_remove(hashMap *map, const void *key) {
-    if (!map || !key) return -EINVAL;
+    if (!map || !key) {
+        return -EINVAL;
+    }
 
     const hashKey hash_key = HASHCTX_GET_FUNC(&map->context, hash, default_hash)(map, key);
     return hashMap_remove_internal_entry(map, hash_key, hashMap_match_by_key, key, true);
@@ -481,10 +488,13 @@ static int hashMap_into_iter_internal(hashMap *map, void *target, hashMap_iter_c
         forlinked(entry, head, next) {
             next    = entry->next;
             int err = cb(map, entry, arg);
-            if (err != 0) return err;
+            if (err != 0) {
+                return err;
+            }
         }
         hashMap_into_iter_internal(map, right, cb, arg);
     }
+
     return 0;
 }
 

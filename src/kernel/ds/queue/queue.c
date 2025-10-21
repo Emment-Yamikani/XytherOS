@@ -109,8 +109,9 @@ int queue_peek(queue_t *queue, queue_relloc_t whence, void **pdp) {
     
     if (whence == QUEUE_TAIL) {
         *pdp = queue->tail->data;
+    } else {
+        *pdp = queue->head->data;
     }
-    else *pdp = queue->head->data;
     
     return 0;
 }

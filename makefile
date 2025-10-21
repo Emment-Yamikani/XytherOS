@@ -84,6 +84,10 @@ help:
 	@echo "  make debug      - Run QEMU with GDB stub"
 	@echo "  make clean      - Clean build artifacts"
 
+clean_usr:
+	@echo "Cleaning user-build artifacts..."
+	rm -f $(USR_LIB) $(APP_OBJ) $(USR_LIB_OBJS)
+
 # Clean Build Artifacts
 clean:
 	@echo "Cleaning build artifacts..."

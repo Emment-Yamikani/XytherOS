@@ -197,10 +197,18 @@ static inline void x86_64_unmap_pt(int i4, int i3, int i2) {
     pmman.free(l1);
 }
 
-void x86_64_swtchvm(uintptr_t pdbr, uintptr_t *old) {
+void x86_64_switchvm(uintptr_t pdbr, uintptr_t *old) {
     if (old) *old = rdcr3();
     // if PDBR is null, then switch to the kernel address space (_PML4_)
     wrcr3(pdbr ? pdbr : V2LO(_PML4_));
+}
+
+void x86_64_switchkvm(void) {
+    x86_64_switchvm(0, NULL);
+}
+
+bool x86_64_active_pdbr(uintptr_t pdbr) {
+    return rdcr3() == pdbr;
 }
 
 int x86_64_map(uintptr_t pa, int i4, int i3, int i2, int i1, int flags) {
@@ -298,7 +306,7 @@ done:
     /** Deallocate this page frame
      * if it was allocated at the time of mapping.*/
     if (_isalloc(pa)) {
-        debug("[NOTE]: Freeing frame{0x%p}...\n", PGROUND(pa));
+        // debug("[NOTE]: Freeing frame{0x%p}...\n", PGROUND(pa));
         pmman.free(PGROUND(pa));
     }
 }
@@ -433,12 +441,13 @@ void x86_64_unmap_full(void) {
 
 void x86_64_fullvm_unmap(uintptr_t pml4) {
     uintptr_t oldpml4 = 0;
-
-    if (pml4 == 0)
+    if (pml4 == 0) {
         return;
-    x86_64_swtchvm(pml4, &oldpml4);
+    }
+
+    x86_64_switchvm(pml4, &oldpml4);
     x86_64_unmap_full();
-    x86_64_swtchvm(oldpml4, NULL);
+    x86_64_switchvm(oldpml4, NULL);
 }
 
 static int x86_64_kvmcpy(uintptr_t dstp) {
@@ -479,7 +488,7 @@ int x86_64_lazycpy(uintptr_t dst, uintptr_t src) {
     if ((err = x86_64_mount(src, (void **)&pml4)))
         return err;
 
-    x86_64_swtchvm(dst, &oldpdbr);
+    x86_64_switchvm(dst, &oldpdbr);
 
     /**
      * Begin the process of copying the various table entries.
@@ -579,12 +588,12 @@ int x86_64_lazycpy(uintptr_t dst, uintptr_t src) {
         x86_64_unmount((uintptr_t)pdpt);
     }
 
-    x86_64_swtchvm(oldpdbr, NULL);
+    x86_64_switchvm(oldpdbr, NULL);
     x86_64_unmount((uintptr_t)pml4);
     return 0;
 error:
     x86_64_unmap_full();
-    x86_64_swtchvm(oldpdbr, NULL);
+    x86_64_switchvm(oldpdbr, NULL);
     x86_64_unmount((uintptr_t)pml4);
     return err;
 }
