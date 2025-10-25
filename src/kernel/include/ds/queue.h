@@ -355,7 +355,7 @@ typedef enum {
     QUEUE_DESCENDING,
 } queue_order_t;
 
-extern int enqueue_sorted(queue_t *queue, queue_node_t *qnode, queue_uniqueness_t uniqueness, queue_order_t order, int (*compare)());
+extern int embedded_enqueue_sorted(queue_t *queue, queue_node_t *qnode, queue_uniqueness_t uniqueness, queue_order_t order, int (*compare)());
 
 /**
  * @brief 

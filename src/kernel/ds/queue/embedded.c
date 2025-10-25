@@ -33,15 +33,23 @@ void embedded_queue_flush(queue_t *queue) {
         next = node->next;
         queue_node_t *prev = node->prev;
 
-        if (prev)
+        if (prev) {
             prev->next = next;
-        if (next)
-            next->prev = prev;
-        if (node == queue->head)
-            queue->head = next;
-        if (node == queue->tail)
-            queue->tail = prev;
+        }
 
+        if (next) {
+            next->prev = prev;
+        }
+
+        if (node == queue->head) {
+            queue->head = next;
+        }
+
+        if (node == queue->tail) {
+            queue->tail = prev;
+        }
+
+        
         queue->q_count--;
 
         node->next  = NULL;
@@ -452,33 +460,29 @@ int embedded_queue_migrate(queue_t *dst, queue_t *src, usize pos, usize n, queue
 }
 
 static inline int queue_cmp_nodes(queue_node_t *node0, queue_node_t *node1, queue_order_t order, int (*compare)()) {
-    int retval;
-
-    if (compare) {
-        if (order == QUEUE_ASCENDING) {
-            retval = compare(node0, node1);
-        } else if (order == QUEUE_DESCENDING) {
-            retval = compare(node1, node0);
-        } else { // prefer ascending order.
-            retval = compare(node0, node1);
-        }
-    } else {
-        if (!node0 || !node1) {
-            return -EINVAL;
-        }
-
-        if (node0 == node1) {
-            retval = QUEUE_EQUAL;
-        } else if (node0 < node1) {
-            retval = QUEUE_LESSER;
-        }
-        retval = QUEUE_GREATER;
+    if (!node0 || !node1) {
+        return -EINVAL;
     }
 
-    return retval;
+    if (compare) {
+        if (order == QUEUE_DESCENDING) {
+            return compare(node1, node0);
+        }
+        // prefer ascending order by default.
+        return compare(node0, node1);
+    }
+
+    // Default fallback: pointer comparison
+    if (node0 == node1) {
+        return QUEUE_EQUAL;
+    } else if (node0 < node1) {
+        return QUEUE_LESSER;
+    } else {
+        return QUEUE_GREATER;
+    }
 }
 
-int enqueue_sorted(queue_t *queue, queue_node_t *qnode, queue_uniqueness_t uniqueness, queue_order_t order, int (*compare)()) {
+int embedded_enqueue_sorted(queue_t *queue, queue_node_t *qnode, queue_uniqueness_t uniqueness, queue_order_t order, int (*compare)()) {
     if (!queue || !qnode) {
         return -EINVAL;
     }
@@ -487,19 +491,15 @@ int enqueue_sorted(queue_t *queue, queue_node_t *qnode, queue_uniqueness_t uniqu
 
     qnode->next = qnode->prev = NULL;
 
-    if (!queue->head) {
+    if (queue->head == NULL) {
         queue->head = queue->tail = qnode;
         queue->q_count++;
         return 0;
     }
 
-    if (uniqueness == QUEUE_UNIQUE) {
-        if (embedded_queue_contains(queue, qnode) == 0) {
-            return -EEXIST;
-        }
+    if ((uniqueness == QUEUE_UNIQUE) && (embedded_queue_contains(queue, qnode) == 0)) {
+        return -EEXIST;
     }
-
-    qnode->next = qnode->prev = NULL;
 
     queue_node_t *next;
     forlinked(node, queue->head, next) {
@@ -508,41 +508,53 @@ int enqueue_sorted(queue_t *queue, queue_node_t *qnode, queue_uniqueness_t uniqu
         int retval = queue_cmp_nodes(qnode, node, order, compare);
 
         if (retval == QUEUE_EQUAL) {
+            if (uniqueness == QUEUE_UNIQUE) {
+                return -EEXIST;
+            }
+
             qnode->prev = node;
             qnode->next = node->next;
-            node->next = qnode;
+            node->next  = qnode;
+
             if (qnode->next) {
                 qnode->next->prev = qnode;
             } else {
                 queue->tail = qnode;
             }
 
-            break;
-        } else if (retval == QUEUE_LESSER) {
+            goto done;
+        }
+
+        if (retval == QUEUE_LESSER) {
             qnode->next = node;
             qnode->prev = node->prev;
-            node->prev = qnode;
+            node->prev  = qnode;
+
             if (qnode->prev) {
                 qnode->prev->next = qnode;
             } else {
                 queue->head = qnode;
             }
-            break;
-        } else if (retval == QUEUE_GREATER) {
-            if (next == NULL) {
-                qnode->next = NULL;
-                queue->tail = qnode;
 
-                qnode->prev = node;
-                node->next = qnode;
+            goto done;
+        }
 
-                break;
-            }
-        } else {
+        if ((retval == QUEUE_GREATER) && !next) {
+            qnode->next = NULL;
+            queue->tail = qnode;
+    
+            qnode->prev = node;
+            node->next  = qnode;
+    
+            goto done;
+        }
+        
+        if (retval < 0) {
             return retval;
         }
     }
 
+done:
     queue->q_count++;
     return 0;
 }

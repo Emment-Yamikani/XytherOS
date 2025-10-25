@@ -44,7 +44,7 @@ int jiffies_create_clock(jiffies_t jiffy) {
     clock->tid      = gettid();
 
     queue_lock(jiffies_clocks);
-    int err = enqueue_sorted(
+    int err = embedded_enqueue_sorted(
         jiffies_clocks,
         &clock->node,
         QUEUE_UNIQUE,

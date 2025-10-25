@@ -19,7 +19,7 @@ static int compare_timer_expiry(queue_node_t *x, queue_node_t *y) {
 
     if (tx->expiry_time == ty->expiry_time)
         return QUEUE_EQUAL;
-    else if (tx->expiry_time > ty->expiry_time)
+    else if (tx->expiry_time < ty->expiry_time)
         return QUEUE_LESSER;
     return QUEUE_GREATER;
 }
@@ -27,7 +27,7 @@ static int compare_timer_expiry(queue_node_t *x, queue_node_t *y) {
 static void add_timer_to_kernel_queue(posix_timer_t *timer) {
     // Insert the timer into the queue in order of expiry time
     queue_lock(ktimer_queue);
-    enqueue_sorted(
+    embedded_enqueue_sorted(
         ktimer_queue,
         &timer->knode,
         QUEUE_UNIQUE, QUEUE_ASCENDING,
