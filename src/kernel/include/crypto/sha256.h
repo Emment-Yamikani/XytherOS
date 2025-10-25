@@ -2,7 +2,7 @@
 
 #include <core/types.h>
 #include <string.h>
-#include "../../crypto/SHA256/sha256.h"
+#include "../../crypto/sha256/sha256.h"
 
 static inline size_t sha256_index(const char *key, size_t limit) {
     uint8_t hash[SHA256_SIZE_BYTES];
