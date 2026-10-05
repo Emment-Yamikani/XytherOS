@@ -221,7 +221,9 @@ static int zone_enumerate(zone_t *zone, usize *memsz) {
 static void initialize_zone_struct(zone_t *zone) {
     memset(zone, 0, sizeof(*zone));
 
-    zone->queue     = QUEUE_INIT();
+    int err = embedded_queue_init(&zone->queue);
+    assert_eq(err, 0, "Failed to inialize zone->queue.\n");
+
     zone->bitmap    = BITMAP_INIT();
     zone->lock      = SPINLOCK_INIT();
 }

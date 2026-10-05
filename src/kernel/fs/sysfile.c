@@ -204,9 +204,8 @@ int file_copy(file_ctx_t *dst, file_ctx_t *src) {
     }
 
     if (src->fc_nfile != 0) {
-        if (!(files = (file_t **)kmalloc(src->fc_nfile * sizeof (file_t *)))) {
-            goto error;
-        }
+        files = (file_t **)kcalloc(src->fc_nfile, sizeof (file_t *));
+        if (files == NULL) { goto error; }
     }
 
     dlock(src->fc_cwd);
@@ -636,7 +635,7 @@ int pipe(int fds[2]) {
         goto error;
     }
 
-    if ((err = dalloc("dentry_pipe-r", &d0))) {
+    if ((err = dalloc("dentry-pipe-r", &d0))) {
         goto error;
     }
 

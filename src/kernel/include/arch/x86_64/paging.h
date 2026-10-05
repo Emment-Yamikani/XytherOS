@@ -20,12 +20,15 @@
 #define PTE_X        (PTE_P /*| BS(64)*/)// page is executable?
 #define PTE_WTCD     (PTE_WT | PTE_CD) // page level caching disabled and write through enabled.
 
+#define PTE_NONE     0
 #define PTE_R        (PTE_P)
 #define PTE_KR       (PTE_R)
 #define PTE_KW       (PTE_KR | PTE_W)
 #define PTE_KRW      (PTE_KR | PTE_KW)
 #define PTE_UR       (PTE_U  | PTE_R)
 #define PTE_URW      (PTE_UR | PTE_W)
+
+#define PTE_MASK     PGMASK
 
 #define _isP(f)                 ((f) & PTE_P)
 #define _isX(f)                 ((f) & PTE_X)

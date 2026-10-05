@@ -5,6 +5,7 @@
 #define loop() while (1)
 
 void main (int argc, char *argv[]) {
-    printf("Hello\n");
+    printf("Hello Gubriwel\n");
+
     loop();
 }

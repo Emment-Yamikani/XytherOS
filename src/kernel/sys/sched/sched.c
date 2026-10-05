@@ -4,7 +4,7 @@
 #include <sys/thread.h>
 
 // global sleep queue.
-static QUEUE(global_sleep_queue);
+QUEUE(PRIVATE, global_sleep_queue);
 
 
 void sched_promote_thread(thread_sched_t *tsched) {
@@ -14,9 +14,7 @@ void sched_promote_thread(thread_sched_t *tsched) {
         tsched->ts_priority   += 1;
         tsched->ts_short_holds = 0; // decay over time.
         tsched->ts_long_holds  = 0; // decay over time.
-    } else {
-        tsched->ts_short_holds++;
-    }
+    } else { tsched->ts_short_holds++; }
 }
 
 void sched_demote_thread(thread_sched_t *tsched) {
@@ -117,7 +115,7 @@ int sched_wait_whence(queue_t *wait_queue, tstate_t state, queue_relloc_t whence
     int err;
 
     if (wait_queue == NULL) {
-        wait_queue = global_sleep_queue;
+        wait_queue = &global_sleep_queue;
     }
 
     if ((err = sched_wait_validate_input(wait_queue, state))) {
@@ -187,7 +185,7 @@ int sched_detach_and_wakeup(queue_t *wait_queue, thread_t *thread, wakeup_t reas
     queue_assert_locked(wait_queue);
     thread_assert_locked(thread);
 
-    if ((err = embedded_queue_detach(wait_queue, &thread->t_wait_qnode))) {
+    if ((err = embedded_queue_remove(wait_queue, &thread->t_wait_qnode))) {
         return err;
     }
 
@@ -202,7 +200,6 @@ int sched_detach_and_wakeup(queue_t *wait_queue, thread_t *thread, wakeup_t reas
 }
 
 int sched_wakeup_whence(queue_t *wait_queue, wakeup_t reason, queue_relloc_t whence) {
-    int err;
     thread_t *thread;
 
     if (wait_queue == NULL) {
@@ -217,7 +214,7 @@ int sched_wakeup_whence(queue_t *wait_queue, wakeup_t reason, queue_relloc_t whe
             foreach_thread_reverse(wait_queue, thread, t_wait_qnode) {
                 thread_lock(thread);
 
-                err = sched_detach_and_wakeup(wait_queue, thread, reason);
+                int err = sched_detach_and_wakeup(wait_queue, thread, reason);
                 thread_unlock(thread);
                 queue_unlock(wait_queue);
                 return err;
@@ -228,7 +225,7 @@ int sched_wakeup_whence(queue_t *wait_queue, wakeup_t reason, queue_relloc_t whe
             foreach_thread(wait_queue, thread, t_wait_qnode) {
                 thread_lock(thread);
 
-                err = sched_detach_and_wakeup(wait_queue, thread, reason);
+                int err = sched_detach_and_wakeup(wait_queue, thread, reason);
                 thread_unlock(thread);
                 queue_unlock(wait_queue);
                 return err;
@@ -284,8 +281,9 @@ int sched_wakeup_all(queue_t *wait_queue, wakeup_t reason, size_t *pnt) {
 
     queue_lock(wait_queue);
 
-    thread_t *thread;
-    queue_foreach_entry(wait_queue, thread, t_wait_qnode) {
+    thread_t *thread, *next_thread;
+    foreach_thread_safe(wait_queue, thread, next_thread, t_wait_qnode) {
+    // queue_foreach_entry(wait_queue, thread, t_wait_qnode) {
         thread_lock(thread);
         if ((err = sched_detach_and_wakeup(wait_queue, thread, reason))) {
             thread_unlock(thread);

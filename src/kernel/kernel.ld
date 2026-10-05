@@ -32,6 +32,12 @@ SECTIONS {
         __rodata_section_end = .;
     }
 
+    .static_initializers ALIGN (4K) : AT(ADDR(.static_initializers) - KERNEL_VMA) {
+        static_initializers = .;
+        KEEP(*(.static_initializers*))
+        static_initializers_end = .;
+    }
+
     .__binary_loader ALIGN (4K) : AT(ADDR(.__binary_loader) - KERNEL_VMA) {
         __binary_loader = .;
         KEEP(*(.__binary_loader*))

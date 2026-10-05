@@ -4,8 +4,8 @@
 #include <mm/kalloc.h>
 #include <mm/mmap.h>
 #include <string.h>
-#include <sys/_elf.h>
 #include <sys/binary_loader.h>
+#include <sys/elf/elf.h>
 
 // Global symbol table for dynamic linking (can be extended with a hash map for efficiency).
 typedef struct symtab_entry {
@@ -16,6 +16,8 @@ typedef struct symtab_entry {
 #define MAX_SYMBOLS     1024
 static int              symb_cnt = 0;
 static symtab_entry_t   symb_tab[MAX_SYMBOLS];
+
+#define foreach_elf_segment(elf_phdr_table, phdr_num) for (Elf64_Phdr *phdr = &((elf_phdr_table)[0]); phdr < &((elf_phdr_table)[(phdr_num)]); phdr++)
 
 int elf_check(inode_t *binary) {
     Elf64_Ehdr h;
@@ -74,11 +76,10 @@ int elf_loader(inode_t *binary, mmap_t *mmap) {
     int         err         = 0;
     u64         memsz       = 0;
     u64         rela_count  = 0;
-    Elf64_Ehdr   elf        = {0};
-    Elf64_Dyn   *dyn        = NULL;
-    Elf64_Phdr  *phdr       = NULL;
-    Elf64_Rela  *rela       = NULL;
-    Elf64_Sym   *symtab     = NULL;
+    Elf64_Ehdr   elf_hdr    = {0};
+    Elf64_Dyn   *elf_dyn    = NULL;
+    Elf64_Rela  *elf_rela   = NULL;
+    Elf64_Sym   *elf_symtab = NULL;
     char        *strtab     = NULL;
 
     if (binary == NULL) {
@@ -89,61 +90,57 @@ int elf_loader(inode_t *binary, mmap_t *mmap) {
     mmap_assert_locked(mmap);
 
     // Read ELF Header.
-    if ((err = iread(binary, 0, &elf, sizeof elf)) != sizeof elf) {
+    if ((err = iread(binary, 0, &elf_hdr, sizeof elf_hdr)) != sizeof elf_hdr) {
         return err;
     }
 
     // Allocate and read program headers.
-    if (!(phdr = kmalloc(elf.e_phentsize * elf.e_phnum))) {
-        return -ENOMEM;
-    }
+    Elf64_Phdr *elf_phdr_table = (Elf64_Phdr *)kcalloc(elf_hdr.e_phnum, elf_hdr.e_phentsize);
+    if (elf_phdr_table == NULL) { return -ENOMEM; }
 
-    if ((err = iread(binary, elf.e_phoff, phdr, elf.e_phentsize * elf.e_phnum))
-        != (elf.e_phentsize * elf.e_phnum)) {
+    if ((err = iread(binary, elf_hdr.e_phoff, elf_phdr_table, elf_hdr.e_phentsize * elf_hdr.e_phnum))
+        != (elf_hdr.e_phentsize * elf_hdr.e_phnum)) {
         printk("%s:%d: Failed to read program headers.\n", __FILE__, __LINE__);
         goto error;
     }
 
     // Load segments.
-    for (u64 i = 0; i < elf.e_phnum; ++i) {
-        vmr_t       *vmr = NULL;
-        Elf64_Phdr  *hdr = &phdr[i];
+    // for (u64 i = 0; i < elf_hdr.e_phnum; ++i) {
+        // Elf64_Phdr  *phdr = &elf_phdr_table[i];
+    foreach_elf_segment(elf_phdr_table, elf_hdr.e_phnum) {
+        if (phdr->p_type == PT_LOAD) {
 
-        if (hdr->p_type == PT_LOAD) {
-
-            // printk("elf_phdr[%d]: [%s] addr: %p, off: %p, memsz: %ld, filesz: %ld\n",
-            //     hdr-phdr, (hdr->p_flags & 7) == 7 ? "rwx" :
-            //     (hdr->p_flags & 7) == 6 ? "rw_" : (hdr->p_flags & 7) == 5 ? "r_x" :
-            //     (hdr->p_flags & 7) == 4 ? "r__" : (hdr->p_flags & 7) == 3 ? "_wx" :
-            //     (hdr->p_flags & 7) == 2 ? "_w_" : (hdr->p_flags & 7) == 1 ? "__x" : "___",
-            //     hdr->p_vaddr, hdr->p_offset, hdr->p_memsz, hdr->p_filesz
+            // printk("elf_phdr_table[%d]: [%s] addr: %p, off: %p, memsz: %ld, file_size: %ld\n",
+            //     phdr-elf_phdr_table, (phdr->p_flags & 7) == 7 ? "rwx" :
+            //     (phdr->p_flags & 7) == 6 ? "rw_" : (phdr->p_flags & 7) == 5 ? "r_x" :
+            //     (phdr->p_flags & 7) == 4 ? "r__" : (phdr->p_flags & 7) == 3 ? "_wx" :
+            //     (phdr->p_flags & 7) == 2 ? "_w_" : (phdr->p_flags & 7) == 1 ? "__x" : "___",
+            //     phdr->p_vaddr, phdr->p_offset, phdr->p_memsz, phdr->p_filesz
             // );
 
-            memsz    = PGROUNDUP(hdr->p_memsz);
-            int prot =  (hdr->p_flags & PF_X ? PROT_X : 0) |
-                        (hdr->p_flags & PF_W ? PROT_W : 0) |
-                        (hdr->p_flags & PF_R ? PROT_R : 0);
+            memsz    = PGROUNDUP(phdr->p_memsz);
 
-            int flags = MAP_PRIVATE | MAP_DONTEXPAND | MAP_FIXED;
+            int prot =  (phdr->p_flags & PF_X ? PROT_X : 0) |
+                        (phdr->p_flags & PF_W ? PROT_W : 0) |
+                        (phdr->p_flags & PF_R ? PROT_R : 0);
 
-            if ((err = mmap_map_region(mmap, ALIGN4K(hdr->p_vaddr), memsz, prot, flags, &vmr))) {
-                printk("%s:%d: Failed to map region[%p: %d]. err: %d\n", __FILE__, __LINE__, hdr->p_vaddr, memsz, err);
+            vmregion_flags_t flags = __prot_to_vmregion_flags(prot);
+
+            flags |= VmregionFixed | VmregionDontExpand;
+
+            if ((err = elf_mmap_alloc_range(mmap, phdr, binary, phdr->p_vaddr, memsz, flags))) {
+                printk("%s:%d: Failed to map region[%p: %d]. err: %d\n", __FILE__, __LINE__, phdr->p_vaddr, memsz, err);
                 goto error;
             }
+        } else if (phdr->p_type == PT_DYNAMIC) { // Allocate and read the dynamic section.
+            u64 dyn_size = phdr->p_filesz;
 
-            vmr->file       = binary;
-            vmr->memsz      = hdr->p_memsz;
-            vmr->filesz     = hdr->p_filesz;
-            vmr->file_pos   = hdr->p_offset;
-        } else if (hdr->p_type == PT_DYNAMIC) { // Allocate and read the dynamic section.
-            u64 dyn_size = hdr->p_filesz;
-
-            if (!(dyn = kmalloc(dyn_size))) {
+            if (!(elf_dyn = kmalloc(dyn_size))) {
                 err = -ENOMEM;
                 goto error;
             }
 
-            if (iread(binary, hdr->p_offset, dyn, dyn_size) != (isize)dyn_size) {
+            if (iread(binary, phdr->p_offset, elf_dyn, dyn_size) != (isize)dyn_size) {
                 err = -EIO;
                 goto error;
             }
@@ -153,32 +150,32 @@ int elf_loader(inode_t *binary, mmap_t *mmap) {
     // mmap_dump_list(*proc->mmap);
 
     // Process dynamic section.
-    if (dyn) {
-        for (u64 i = 0; dyn[i].d_tag != DT_NULL; i++) {
-            switch (dyn[i].d_tag) {
+    if (elf_dyn) {
+        for (u64 i = 0; elf_dyn[i].d_tag != DT_NULL; i++) {
+            switch (elf_dyn[i].d_tag) {
             case DT_SYMTAB:
-                symtab      = (Elf64_Sym *)(elf.e_entry + dyn[i].d_un.d_ptr);
+                elf_symtab      = (Elf64_Sym *)(elf_hdr.e_entry + elf_dyn[i].d_un.d_ptr);
                 break;
             case DT_STRTAB:
-                strtab      = (char *)(elf.e_entry + dyn[i].d_un.d_ptr);
+                strtab      = (char *)(elf_hdr.e_entry + elf_dyn[i].d_un.d_ptr);
                 break;
             case DT_RELA:
-                rela        = (Elf64_Rela *)(elf.e_entry + dyn[i].d_un.d_ptr);
+                elf_rela        = (Elf64_Rela *)(elf_hdr.e_entry + elf_dyn[i].d_un.d_ptr);
                 break;
             case DT_RELASZ:
-                rela_count  = dyn[i].d_un.d_val / sizeof(Elf64_Rela);
+                rela_count  = elf_dyn[i].d_un.d_val / sizeof(Elf64_Rela);
                 break;
             }
         }
     }
 
     // Apply relocations.
-    if (rela && symtab && strtab) {
+    if (elf_rela && elf_symtab && strtab) {
         for (u64 i = 0; i < rela_count; i++) {
             void        *sym_addr   = NULL;
-            Elf64_Rela  *rel        = &rela[i];
-            Elf64_Sym   *sym        = &symtab[ELF64_R_SYM(rel->r_info)];
-            void        *rel_addr   = (void *)(elf.e_entry + rel->r_offset);
+            Elf64_Rela  *rel        = &elf_rela[i];
+            Elf64_Sym   *sym        = &elf_symtab[ELF64_R_SYM(rel->r_info)];
+            void        *rel_addr   = (void *)(elf_hdr.e_entry + rel->r_offset);
             const char  *sym_name   = strtab + sym->st_name;
 
             if (!(sym_addr = resolve_symbol(sym_name))) {
@@ -189,7 +186,7 @@ int elf_loader(inode_t *binary, mmap_t *mmap) {
 
             switch (ELF64_R_TYPE(rel->r_info)) {
             case R_X86_64_RELATIVE:
-                *(Elf64_Addr *)rel_addr = elf.e_entry + rel->r_addend;
+                *(Elf64_Addr *)rel_addr = elf_hdr.e_entry + rel->r_addend;
                 break;
             case R_X86_64_GLOB_DAT:
             case R_X86_64_JUMP_SLOT:
@@ -203,24 +200,23 @@ int elf_loader(inode_t *binary, mmap_t *mmap) {
         }
     }
 
-    kfree(dyn);
-    kfree(phdr);
+    kfree(elf_dyn);
+    kfree(elf_phdr_table);
 
-    mmap->entry = (thread_entry_t)elf.e_entry;
+    mmap->entry = (thread_entry_t)elf_hdr.e_entry;
 
     return 0;
 error:
-    if (phdr) {
-        kfree(phdr);
+    if (elf_phdr_table) {
+        kfree(elf_phdr_table);
     }
 
-    if (dyn) {
-        kfree(dyn);
+    if (elf_dyn) {
+        kfree(elf_dyn);
     }
 
-    mmap_clean(mmap);
     printk("error: %d occurred while trying to load ELF file\n", err);
     return err;
 }
 
-BINARY_LOADER(elf, elf_check, elf_loader);
+BINARY_LOADER(elf_hdr, elf_check, elf_loader);

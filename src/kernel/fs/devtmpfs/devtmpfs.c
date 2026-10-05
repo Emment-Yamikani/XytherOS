@@ -3,7 +3,7 @@
 #include <lib/printk.h>
 #include <string.h>
 
-static fs_t *devtmpfs = NULL;
+static filesystem_t *devtmpfs = NULL;
 
 static iops_t devtmpfs_iops = {
     .iopen      = tmpfs_iopen,
@@ -28,7 +28,7 @@ static iops_t devtmpfs_iops = {
     .itruncate  = tmpfs_itruncate,
 };
 
-static int devtmpfs_fill_sb(fs_t *, const char *target, devid_t *, sblock_t *sb) {
+static int devtmpfs_fill_sb(filesystem_t *, const char *target, devid_t *, sblock_t *sb) {
     int         err     = 0;
     inode_t     *iroot  = NULL;
     dentry_t    *droot  = NULL;
@@ -68,7 +68,7 @@ static int devtmpfs_fill_sb(fs_t *, const char *target, devid_t *, sblock_t *sb)
     return 0;
 }
 
-static int devtmpfs_getsb(fs_t *fs, const char *src __unused, const char *target,
+static int devtmpfs_getsb(filesystem_t *fs, const char *src __unused, const char *target,
     ulong flags, void *data, sblock_t **psbp) {
     return getsb_nodev(fs, target, flags, data, psbp, devtmpfs_fill_sb);
 }

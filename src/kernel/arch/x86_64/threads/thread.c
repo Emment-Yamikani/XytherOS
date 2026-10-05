@@ -125,8 +125,7 @@ int x86_64_thread_init(arch_thread_t *thread, thread_entry_t entry,
 
 int x86_64_thread_execve(arch_thread_t *thread, thread_entry_t entry,
     int argc, char *const argp[], char *const envp[]) {
-    return x86_64_thread_init(thread, entry,
-        (void *)(uintptr_t)argc, (void *)argp, (void *)envp, NULL);
+    return x86_64_thread_init(thread, entry, (void *)(uintptr_t)argc, (void *)argp, (void *)envp, NULL);
 }
 
 int x86_64_thread_setkstack(arch_thread_t *thread) {

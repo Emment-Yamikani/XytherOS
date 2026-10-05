@@ -7,7 +7,7 @@
 pid_t match_child_pid(pid_t pid, int *stat, int opt) {
     proc_t *child = NULL;
     queue_lock(&curproc->children);
-    queue_foreach_entry(&curproc->children, child, child_qnode) {
+    foreach_process(&curproc->children, child, child_qnode) {
         proc_lock(child);
         if (pid == child->pid) {
             break;
@@ -50,9 +50,11 @@ pid_t match_child_pid(pid_t pid, int *stat, int opt) {
 
 pid_t match_pid(int *stat, int opt) {
     loop() {
-        proc_t *child;
         queue_lock(&curproc->children);
-        queue_foreach_entry(&curproc->children, child, child_qnode) {
+
+        proc_t *child, *next_child;
+        foreach_process_safe(&curproc->children, child, next_child, child_qnode) {
+        // queue_foreach_entry(&curproc->children, child, child_qnode) {
             proc_lock(child);
             if (__proc_died(child) || __proc_stopped(child)) {
                 if (stat) {
@@ -61,6 +63,7 @@ pid_t match_pid(int *stat, int opt) {
 
                 pid_t pid = child->pid;
                 if (__proc_died(child)) {
+                    todo("Verify correctness: Shouldn't remove child from queue first?\n");
                     proc_free(child);
                 } else {
                     proc_unlock(child);
@@ -71,6 +74,7 @@ pid_t match_pid(int *stat, int opt) {
             }
             proc_unlock(child);
         }
+
         queue_unlock(&curproc->children);
 
         if (opt & WNOHANG) {
@@ -86,9 +90,10 @@ pid_t match_pid(int *stat, int opt) {
 
 pid_t match_pgid(pid_t pgid, int *stat, int opt) {
     loop() {
-        proc_t *child;
         queue_lock(&curproc->children);
-        queue_foreach_entry(&curproc->children, child, child_qnode) {
+
+        proc_t *child, *next_child;
+        foreach_process_safe(&curproc->children, child, next_child, child_qnode) {
             proc_lock(child);
             if (pgid == child->pgid) {
                 if (__proc_died(child) || __proc_stopped(child)) {
@@ -98,6 +103,7 @@ pid_t match_pgid(pid_t pgid, int *stat, int opt) {
 
                     pid_t pid = child->pid;
                     if (__proc_died(child)) {
+                        todo("Verify correctness: Shouldn't remove child from queue first?\n");
                         proc_free(child);
                     } else {
                         proc_unlock(child);
@@ -109,6 +115,7 @@ pid_t match_pgid(pid_t pgid, int *stat, int opt) {
             }
             proc_unlock(child);
         }
+
         queue_unlock(&curproc->children);
 
         if (opt & WNOHANG) {

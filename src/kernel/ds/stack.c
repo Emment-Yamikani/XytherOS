@@ -1,4 +1,5 @@
 #include <bits/errno.h>
+#include <core/debug.h>
 #include <ds/stack.h>
 #include <mm/kalloc.h>
 #include <core/assert.h>
@@ -8,7 +9,9 @@ int stack_init(stack_t *s) {
         return -EINVAL;
     }
 
-    s->s_queue = QUEUE_INIT();
+    int err = queue_init(&s->s_queue);
+    if (err != 0) { return err; }
+
     s->s_lock = SPINLOCK_INIT();
     return 0;
 }
@@ -25,6 +28,7 @@ int stack_push(stack_t *s, void *pd) {
     queue_lock(&s->s_queue);
     err = enqueue(&s->s_queue, pd, 0, NULL);
     queue_unlock(&s->s_queue);
+
     return err;
 }
 
@@ -95,23 +99,19 @@ int stack_flush(stack_t *s) {
 }
 
 int stack_alloc(stack_t **psp) {
-    int err = 0;
-    stack_t *s = NULL;
-    if (psp == NULL) {
-        return -EINVAL;
+    if (psp == NULL) { return -EINVAL; }
+
+    stack_t *s = (stack_t *)kzalloc(sizeof *s);
+    if (s == NULL) { return -ENOMEM; }
+
+    int err = stack_init(s);
+    if (err != 0) {
+        kfree(s);
+        return err;
     }
 
-    
-    if ((s = kmalloc(sizeof *s)) == NULL)
-        return -ENOMEM;
-
-    if ((err = stack_init(s)))
-        goto error;
     *psp = s;
     return 0;
-error:
-    if (s) kfree((void *)s);
-    return err;
 }
 
 void stack_free(stack_t *s) {

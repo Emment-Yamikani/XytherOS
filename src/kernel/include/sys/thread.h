@@ -7,7 +7,7 @@
 #include <dev/timer.h>
 #include <fs/fs.h>
 #include <fs/file.h>
-#include <mm/mmap.h>
+#include <mm/mmap/mmap.h>
 #include <sync/cond.h>
 #include <sync/event.h>
 #include <sync/spinlock.h>
@@ -142,11 +142,11 @@ typedef struct {
 
 extern void thread_info_dump(thread_info_t *info);
 
-typedef struct {
-    queue_t         *ts_wait_queue;
-    wakeup_t        ts_wakeup_reason;
-    queue_node_t    ts_wait_queue_node;
-}  thread_sleep_desc_t;
+// typedef struct {
+//     queue_t     *ts_wait_queue;
+//     wakeup_t    ts_wakeup_reason;
+//     qnode_t     ts_wait_queue_node;
+// }  thread_sleep_desc_t;
 
 /*=====================================================================
  *  Thread Structure and Flags
@@ -171,14 +171,14 @@ typedef struct thread_t {
     sigset_t        t_sigpending;   /**< Set of pending signals: this is a sticky set a signal is only reset if all pending instances are delivered. */
     queue_t         t_sigqueue[NSIG];/**< Per-thread signal queues */
 
-    queue_node_t    t_global_qnode; /**< Global Queue node for this thread */
-    queue_node_t    t_group_qnode;  /**< Queue node for this thread group */
+    qnode_t         t_global_qnode; /**< Global Queue node for this thread */
+    qnode_t         t_group_qnode;  /**< Queue node for this thread group */
 
     queue_t         *t_run_queue;
-    queue_node_t    t_run_qnode;    /**< Run Queue node for this thread */
+    qnode_t         t_run_qnode;    /**< Run Queue node for this thread */
 
     queue_t         *t_wait_queue;
-    queue_node_t    t_wait_qnode;   /**< Wait Queue node for this thread */
+    qnode_t         t_wait_qnode;   /**< Wait Queue node for this thread */
 
     spinlock_t      t_lock;         /**< Lock protecting the thread structure */
 
@@ -230,14 +230,20 @@ typedef struct thread_t {
  * @brief Assert that a thread is locked. */
 #define thread_assert_locked(t)     ({ thread_assert(t); spin_assert_locked(&(t)->t_lock); })
 
-#define foreach_thread(q, thread, member) \
-    queue_foreach_entry(q, thread, member)
+#define foreach_thread(queue, item, member) \
+    queue_foreach_entry(queue, item, member)
 
-#define foreach_thread_reverse(q, thread, member) \
-    queue_foreach_entry_reverse(q, thread, member)
+#define foreach_thread_reverse(queue, item, member) \
+    queue_foreach_entry_reverse(queue, item, member)
+
+#define foreach_thread_safe(queue, item, next, member) \
+    queue_foreach_entry_safe(queue, item, next, member)
+
+#define foreach_thread_reverse_safe(queue, item, prev, member) \
+    queue_foreach_entry_reverse_safe(queue, item, prev, member)
 
 /* Macros for the current thread (global variable `current` assumed */
-#define current_assert()            thread_assert(current)
+#define assert_current_thread()            thread_assert(current)
 #define current_lock()              thread_lock(current)
 #define current_unlock()            thread_unlock(current)
 #define current_islocked()          thread_islocked(current)

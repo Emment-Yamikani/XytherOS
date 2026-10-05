@@ -39,7 +39,7 @@ static int tmpfs_ialloc(itype_t type, tmpfs_inode_t **pip);
     data;                       \
 })
 
-static fs_t *tmpfs = NULL;
+static filesystem_t *tmpfs = NULL;
 
 static iops_t tmpfs_iops = {
     .iopen      = tmpfs_iopen,
@@ -93,7 +93,7 @@ static hashMapContext tmpfs_hashctx = {
     .dump       = tmpfs_dump_hash,
 };
 
-static int tmpfs_fill_sb(fs_t *, const char *target, struct devid *, sblock_t *sb) {
+static int tmpfs_fill_sb(filesystem_t *, const char *target, struct devid *, sblock_t *sb) {
     int         err    = 0;
     inode_t     *iroot = NULL;
     dentry_t    *droot = NULL;
@@ -132,7 +132,8 @@ static int tmpfs_fill_sb(fs_t *, const char *target, struct devid *, sblock_t *s
     return 0;
 }
 
-static int tmpfs_getsb(fs_t *fs, const char *, const char *target, ulong flags, void *data, sblock_t **psbp) {
+static int tmpfs_getsb(filesystem_t *fs, const char *, const char *target, ulong flags, void *data, sblock_t **psbp) {
+    // printk("This is a get super block function.\n");
     return getsb_nodev(fs, target, flags, data, psbp, tmpfs_fill_sb);
 }
 
@@ -152,13 +153,13 @@ static inline int tmpfs_validate_dir(inode_t *dir) {
 static inline int tmpfs_dirent_type(tmpfs_dirent_t *dirent) {
     int d_type = 0;
     switch (dirent->inode->type) {
-    case FS_DIR:  d_type = DT_DIR;  break;
-    case FS_RGL:  d_type = DT_REG;  break;
-    case FS_BLK:  d_type = DT_BLK;  break;
-    case FS_CHR:  d_type = DT_CHR;  break;
-    case FS_FIFO: d_type = DT_FIFO; break;
-    case FS_INV:
-    default:      d_type = 0;       break;
+        case FS_DIR:  d_type = DT_DIR;  break;
+        case FS_RGL:  d_type = DT_REG;  break;
+        case FS_BLK:  d_type = DT_BLK;  break;
+        case FS_CHR:  d_type = DT_CHR;  break;
+        case FS_FIFO: d_type = DT_FIFO; break;
+        case FS_INV:
+        default:      d_type = 0;       break;
     }
     return d_type;
 } 
@@ -173,10 +174,14 @@ int tmpfs_init(void) {
     tmpfs->get_sb = tmpfs_getsb;
     tmpfs->mount = NULL;
 
+    // debug("Registering tmpfs...\n");
+
     if ((err = vfs_register_fs(tmpfs))) {
         fsunlock(tmpfs);
         goto error;
     }
+
+    // debug("registered the tmpfs with vfs.\n");
 
     fsunlock(tmpfs);
     return 0;
@@ -282,7 +287,7 @@ static int tmpfs_dirent_alloc(const char *fname, tmpfs_inode_t *ip, tmpfs_dirent
         return -ENOMEM;
     }
 
-    tmpfs_dirent_t *tde = (tmpfs_dirent_t *)kmalloc(sizeof (tmpfs_dirent_t));
+    tmpfs_dirent_t *tde = (tmpfs_dirent_t *)kzalloc(sizeof (tmpfs_dirent_t));
     if (tde == NULL) {
         kfree(name);
         return -ENOMEM;
@@ -600,7 +605,11 @@ ssize_t tmpfs_ireaddir(inode_t *dir, off_t off, struct dirent *buf, size_t count
         return -EFAULT;
     }
 
-    ITER(iter);
+    iter_t *iter = NULL;
+    if ((err = iter_create(&iter))) {
+        hashMap_unlock(hmap);
+        return err;
+    }
 
     size_t pos = 0, ncount = 0;
 
@@ -629,6 +638,8 @@ ssize_t tmpfs_ireaddir(inode_t *dir, off_t off, struct dirent *buf, size_t count
 
         ncount++;  // Track number of successfully copied entries
     }
+
+    iter_destroy(iter);
 
     hashMap_unlock(hmap);
 

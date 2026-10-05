@@ -12,18 +12,24 @@ int btree_init(btree_t *btree) {
     btree->root = NULL;
     btree->nr_nodes = 0;
 
+    int err = queue_init(&btree->traversal_queue);
+    if (err != 0) { return err; }
+
     return 0;
 }
 
 int btree_alloc(btree_t **pbtree) {
-    int err = 0;
-    btree_t *btree = NULL;
     if (pbtree == NULL) {
         return -EINVAL;
     }
 
-    err = -ENOMEM;
-    if ((btree = kzalloc(sizeof *btree)) == NULL) {
+    btree_t *btree = (btree_t *)kzalloc(sizeof *btree);
+    if (btree == NULL) {
+        return -ENOMEM;;
+    }
+
+    int err = queue_init(&btree->traversal_queue);
+    if (err != 0) {
         goto error;
     }
 

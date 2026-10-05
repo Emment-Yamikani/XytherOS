@@ -22,7 +22,8 @@ char *itype_strings[] = {
 };
 
 static dentry_t *droot = NULL;
-static queue_t *fs_queue = &QUEUE_INIT();
+
+QUEUE(PRIVATE, fs_queue);
 
 dentry_t *vfs_getdroot(void) {
     if (droot) {
@@ -90,11 +91,9 @@ int vfs_init(void) {
         return err;
     }
 
-    
     if ((err = tmpfs_init())) {
         return err;
     }
-
     
     if ((err = devtmpfs_init())) {
         return err;
@@ -103,15 +102,15 @@ int vfs_init(void) {
     if ((err = pipefs_init())) {
         return err;
     }
-
+    
     if ((err = procfs_init())) {
         return err;
     }
-
+    
     if ((err = sysfs_init())) {
         return err;
     }
-
+    
     if ((err = vfs_mount(NULL, "/", "tmpfs", 0, NULL))) {
         return err;
     }
@@ -182,57 +181,54 @@ int vfs_alloc_vnode(const char *name, itype_t type, inode_t **pip, dentry_t **pd
     return 0;
 }
 
-int vfs_register_fs(fs_t *fs) {
-    int err = 0;
-
+int vfs_register_fs(filesystem_t *fs) {
     fsassert_locked(fs);
-    if (fs == NULL)
+    if (fs == NULL) {
         return -EINVAL;
+    }
 
-    queue_lock(fs_queue);
+    queue_lock(&fs_queue);
 
-    err = enqueue(fs_queue, fs, 1, NULL);
+    int err = embedded_enqueue(&fs_queue, &fs->fslist_node, QUEUE_UNIQUE);
 
-    queue_unlock(fs_queue);
-    
-    
+    queue_unlock(&fs_queue);
+
     return err;
 }
 
-int vfs_unregister_fs(fs_t *fs) {
+int vfs_unregister_fs(filesystem_t *fs) {
     fsassert_locked(fs);
-    if (fs == NULL)
-        return -EINVAL;
 
-    if (fs_count(fs) > 0)
+    if (fs == NULL) {
+        return -EINVAL;
+    }
+
+    if (fs_count(fs) > 0) {
         return -EBUSY;
-    
+    }
+
     return -EBUSY;
 }
 
-int vfs_getfs(const char *type, fs_t **pfs) {
-    fs_t *fs = NULL;
-    queue_node_t *next = NULL;
-
-    if (type == NULL || pfs == NULL)
+int vfs_getfs(const char *type, filesystem_t **pfs) {    
+    if (type == NULL || pfs == NULL) {
         return -EINVAL;
+    }
 
-    queue_lock(fs_queue);
+    queue_lock(&fs_queue);
 
-    forlinked(node, fs_queue->head, next) {
-        fs = node->data;
-        next = node->next;
-
+    filesystem_t *fs;
+    queue_foreach_entry(&fs_queue, fs, fslist_node) {
         fslock(fs);
         if (string_eq(type, fs->fs_name)) {
             *pfs = fs;
-            queue_unlock(fs_queue);
+            queue_unlock(&fs_queue);
             return 0;
         }
         fsunlock(fs);
     }
 
-    queue_unlock(fs_queue);
+    queue_unlock(&fs_queue);
     return -ENOENT;
 }
 

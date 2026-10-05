@@ -10,6 +10,7 @@
 #include <sys/thread.h>
 
 static HASHMAP(pci_device_hashMap);
+
 static HASHMAPCTX(pci_device_hashMap_ctx);
 
 static HASHMAP(pci_driver_hashMap);
@@ -19,22 +20,22 @@ static HASHMAP(pci_driver_hashMap);
 #define foreach_pci_function()  for (int func = 0; func < 8;  ++func)
 
 #define foreach_pci_device(item, iter) \
-    hashMap_foreach_item(pci_device_hashMap, item, iter) \
+    hashMap_foreach_item(&pci_device_hashMap, item, iter) \
 
 #define foreach_pci_driver(item, iter) \
-    hashMap_foreach_item(pci_driver_hashMap, item, iter)
+    hashMap_foreach_item(&pci_driver_hashMap, item, iter)
 
-#define device_hashMap_lock()           hashMap_lock(pci_device_hashMap);
-#define device_hashMap_unlock()         hashMap_unlock(pci_device_hashMap);
-#define device_hashMap_trylock()        hashMap_trylock(pci_device_hashMap);
-#define device_hashMap_assert_locked()  hashMap_assert_locked(pci_device_hashMap);
-#define device_hashMap_recursive_lock() hashMap_recursive_lock(pci_device_hashMap);
+#define device_hashMap_lock()           hashMap_lock(&pci_device_hashMap);
+#define device_hashMap_unlock()         hashMap_unlock(&pci_device_hashMap);
+#define device_hashMap_trylock()        hashMap_trylock(&pci_device_hashMap);
+#define device_hashMap_assert_locked()  hashMap_assert_locked(&pci_device_hashMap);
+#define device_hashMap_recursive_lock() hashMap_recursive_lock(&pci_device_hashMap);
 
-#define driver_hashMap_lock()           hashMap_lock(pci_driver_hashMap);
-#define driver_hashMap_unlock()         hashMap_unlock(pci_driver_hashMap);
-#define driver_hashMap_trylock()        hashMap_trylock(pci_driver_hashMap);
-#define driver_hashMap_assert_locked()  hashMap_assert_locked(pci_driver_hashMap);
-#define driver_hashMap_recursive_lock() hashMap_recursive_lock(pci_driver_hashMap);
+#define driver_hashMap_lock()           hashMap_lock(&pci_driver_hashMap);
+#define driver_hashMap_unlock()         hashMap_unlock(&pci_driver_hashMap);
+#define driver_hashMap_trylock()        hashMap_trylock(&pci_driver_hashMap);
+#define driver_hashMap_assert_locked()  hashMap_assert_locked(&pci_driver_hashMap);
+#define driver_hashMap_recursive_lock() hashMap_recursive_lock(&pci_driver_hashMap);
 
 
 #define VALIDATE_VENDOR(v)      ((v & 0xffff) != 0xffff)
@@ -130,23 +131,23 @@ static size_t pci_hashMap_capacity(hashMap *map) {
 /** ----------------------------------------------------- */
 
 int device_hashMap_insert(pci_device_t *device) {
-    return pci_hashMap_insert(pci_device_hashMap, &device->devid, device);
+    return pci_hashMap_insert(&pci_device_hashMap, &device->devid, device);
 }
 
 int device_hashMap_lookup(pci_devid_t *devid, pci_device_t **rdevice) {
-    return pci_hashMap_lookup(pci_device_hashMap, devid, (void **)rdevice);
+    return pci_hashMap_lookup(&pci_device_hashMap, devid, (void **)rdevice);
 }
 
 int device_hashMap_remove(pci_devid_t *devid) {
-    return pci_hashMap_remove(pci_device_hashMap, devid);
+    return pci_hashMap_remove(&pci_device_hashMap, devid);
 }
 
 size_t device_hashMap_size() {
-    return pci_hashMap_size(pci_device_hashMap);
+    return pci_hashMap_size(&pci_device_hashMap);
 }
 
 size_t device_hashMap_capacity() {
-    return pci_hashMap_capacity(pci_device_hashMap);
+    return pci_hashMap_capacity(&pci_device_hashMap);
 }
 
 int device_into_iter(hashMap *, hashEntry *entry, void *arg) {
@@ -184,23 +185,23 @@ int device_into_iter(hashMap *, hashEntry *entry, void *arg) {
 /** ----------------------------------------------------- */
 
 int driver_hashMap_insert(pci_driver_t *driver) {
-    return pci_hashMap_insert(pci_driver_hashMap, &driver->name, driver);
+    return pci_hashMap_insert(&pci_driver_hashMap, &driver->name, driver);
 }
 
 int driver_hashMap_lookup(const char *name, pci_driver_t **rdriver) {
-    return pci_hashMap_lookup(pci_driver_hashMap, (void *)name, (void **)rdriver);
+    return pci_hashMap_lookup(&pci_driver_hashMap, (void *)name, (void **)rdriver);
 }
 
 int driver_hashMap_remove(const char *name) {
-    return pci_hashMap_remove(pci_driver_hashMap, (void *)name);
+    return pci_hashMap_remove(&pci_driver_hashMap, (void *)name);
 }
 
 size_t driver_hashMap_size(void) {
-    return pci_hashMap_size(pci_driver_hashMap);
+    return pci_hashMap_size(&pci_driver_hashMap);
 }
 
 size_t driver_hashMap_capacity(void) {
-    return pci_hashMap_capacity(pci_driver_hashMap);
+    return pci_hashMap_capacity(&pci_driver_hashMap);
 }
 
 bool driver_hashMap_empty(void) {
@@ -218,7 +219,7 @@ int driver_into_iter(hashMap *, hashEntry *entry, void *) {
 
     device_hashMap_lock();
 
-    int err = hashMap_into_iter(pci_device_hashMap, device_into_iter, driver);
+    int err = hashMap_into_iter(&pci_device_hashMap, device_into_iter, driver);
 
     device_hashMap_unlock();
 
@@ -228,7 +229,7 @@ int driver_into_iter(hashMap *, hashEntry *entry, void *) {
 static int match_drivers() {
     driver_hashMap_lock();
 
-    int err = hashMap_into_iter(pci_driver_hashMap, driver_into_iter, NULL);
+    int err = hashMap_into_iter(&pci_driver_hashMap, driver_into_iter, NULL);
 
     driver_hashMap_unlock();
     return err;
@@ -289,12 +290,12 @@ static void pci_prober(void) {
     debug("Initializing PCI resources.\n");
 
     // Initialize PCI device HashMap.
-    int err = hashMap_init(pci_device_hashMap, pci_device_hashMap_ctx);
+    int err = hashMap_init(&pci_device_hashMap, pci_device_hashMap_ctx);
     assert_eq(err, 0, "%s, Failed to initialize pci_device_hashMap.\n", strerror(err));
 
     // Initialize PCI driver HashMap
-    err = hashMap_init(pci_driver_hashMap, NULL);
-    assert_eq(err, 0, "%s, Failed to initialize pci_driver_hashMap.\n", strerror(err));
+    err = hashMap_init(&pci_driver_hashMap, NULL);
+    assert_eq(err, 0, "%s, Failed to initialize &pci_driver_hashMap.\n", strerror(err));
 
     err = pci_scan_bus(); // Scan the PCI bus.
     assert_eq(err, 0, "%s, An error occured while scanning the PCI bus.\n", strerror(err));

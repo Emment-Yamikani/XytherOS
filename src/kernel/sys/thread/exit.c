@@ -20,8 +20,8 @@ int abandon_children(proc_t *target) {
     }
 
     int err = 0;
-    proc_t *child;
-    queue_foreach_entry(&curproc->children, child, child_qnode) {
+    proc_t *child, *next_child;
+    foreach_process_safe(&curproc->children, child, next_child, child_qnode) {
         proc_lock(child);
         err = embedded_queue_relloc(&target->children, &curproc->children,
             &child->child_qnode, QUEUE_UNIQUE, QUEUE_TAIL);
@@ -56,7 +56,7 @@ void signal_parent(void) {
 }
 
 __noreturn void exit(int status) {
-    assert_ne(curproc, initproc, "'init process' must not exit, (atleast for now).\n");
+    assert_ne(curproc, initproc, "'init process' must not exit, (atleast for now): error(%d).\n", status);
 
     // First all threads except 'current' MUST be killed.
     int err = thread_kill_others();
@@ -80,7 +80,9 @@ __noreturn void exit(int status) {
 
     // TODO: Maybe this should be done by the parent.
     mmap_lock(curproc->mmap);
-    err = mmap_clean(curproc->mmap);
+
+    // TODO: Do i need this: err = mmap_clear(curproc->mmap);
+
     mmap_unlock(curproc->mmap);
     assert_eq(err, 0, "Error[%s]: Failed to clean memory map.\n", strerror(err));
 

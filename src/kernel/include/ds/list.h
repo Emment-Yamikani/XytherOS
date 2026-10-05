@@ -26,7 +26,7 @@ struct list_head_t {
 
 /**
  * @def LIST_HEAD_INIT(head)
- * @brief Initializes a list head with itself as the previous and next node.
+ * @brief Initializes a list head with itself as the sentinel node.
  *
  * @param head The list head to initialize.
  */

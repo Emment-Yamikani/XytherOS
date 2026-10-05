@@ -4,25 +4,26 @@
 #include <sys/schedule.h>
 #include <sys/thread.h>
 
-static QUEUE(jiffies_clocks);
-static QUEUE(jiffies_waiters);
-static CONDITION_VARIABLE(jiffies_condvar);
+QUEUE(PRIVATE, jiffies_clocks);
+QUEUE(PRIVATE, jiffies_waiters);
+
+CONDITION_VARIABLE(PRIVATE, jiffies_condvar);
+
 static volatile _Atomic(jiffies_t) jiffies_now = 0;
 
 typedef struct {
-    tid_t     tid;
-    jiffies_t jiffies;
-    queue_node_t node;
+    tid_t       tid;
+    jiffies_t   jiffies;
+    qnode_t     node;
 } jiffies_clock_t;
 
-static int compare(queue_node_t *a, queue_node_t *b) {
+static int compare(qnode_t *a, qnode_t *b) {
     if (!a || !b) {
         return -EINVAL;
     }
 
-    jiffies_clock_t *aclock, *bclock;
-    aclock = queue_node_get_container(a, jiffies_clock_t, node);
-    bclock = queue_node_get_container(b, jiffies_clock_t, node);
+    jiffies_clock_t *aclock = qnode_container(a, jiffies_clock_t, node);
+    jiffies_clock_t *bclock = qnode_container(b, jiffies_clock_t, node);
 
     if (aclock->jiffies == bclock->jiffies) {
         return QUEUE_EQUAL;
@@ -34,8 +35,7 @@ static int compare(queue_node_t *a, queue_node_t *b) {
 }
 
 int jiffies_create_clock(jiffies_t jiffy) {
-    jiffies_clock_t *clock = kmalloc(sizeof *clock);
-
+    jiffies_clock_t *clock = (jiffies_clock_t *)kzalloc(sizeof *clock);
     if (clock == NULL) {
         return -ENOMEM;
     }
@@ -43,15 +43,15 @@ int jiffies_create_clock(jiffies_t jiffy) {
     clock->jiffies  = jiffy;
     clock->tid      = gettid();
 
-    queue_lock(jiffies_clocks);
-    int err = embedded_enqueue_sorted(
-        jiffies_clocks,
+    queue_lock(&jiffies_clocks);
+    int err = embedded_sorted_enqueue(
+        &jiffies_clocks,
         &clock->node,
         QUEUE_UNIQUE,
         QUEUE_ASCENDING,
         compare
     );
-    queue_unlock(jiffies_clocks);
+    queue_unlock(&jiffies_clocks);
 
     if (err) {
         kfree(clock);
@@ -63,17 +63,20 @@ int jiffies_create_clock(jiffies_t jiffy) {
 
 static void jiffies_worker(void) {
     loop_and_yield() {
-        cond_wait(jiffies_condvar, NULL, NULL);
-        queue_lock(jiffies_clocks);
-        jiffies_clock_t *clock;
-        queue_foreach_entry(jiffies_clocks, clock, node) {
+        cond_wait(&jiffies_condvar, NULL, NULL);
+
+        queue_lock(&jiffies_clocks);
+
+        jiffies_clock_t *clock, *clock_next;
+        queue_foreach_entry_safe(&jiffies_clocks, clock, clock_next, node) {
             if (time_after(jiffies_get(), clock->jiffies)) {
-                embedded_queue_detach(jiffies_clocks, clock_node);
-                sched_wakeup_specific(jiffies_waiters, WAKEUP_NORMAL, clock->tid);
+                embedded_queue_remove(&jiffies_clocks, &clock->node);
+                sched_wakeup_specific(&jiffies_waiters, WAKEUP_NORMAL, clock->tid);
                 kfree(clock);
             }
         }
-        queue_unlock(jiffies_clocks);
+
+        queue_unlock(&jiffies_clocks);
     }
 } BUILTIN_THREAD(jiffies_worker, jiffies_worker, NULL);
 
@@ -82,7 +85,7 @@ void jiffies_update(void) {
         epoch_update();
     }
 
-    cond_signal(jiffies_condvar);
+    cond_signal(&jiffies_condvar);
 }
 
 jiffies_t jiffies_get(void) {
@@ -129,7 +132,7 @@ int jiffies_sleep(jiffies_t jiffies, jiffies_t *rem) {
     jiffies_t expr = jiffies + jiffies_get(), now;
     while (time_before(now = jiffies_get(), expr)) {
         if (!jiffies_create_clock(expr)) {
-            if ((err = sched_wait_whence(jiffies_waiters, T_SLEEP, QUEUE_HEAD, NULL, NULL))) {
+            if ((err = sched_wait_whence(&jiffies_waiters, T_SLEEP, QUEUE_HEAD, NULL, NULL))) {
                 now = jiffies_get();
                 break;
             }

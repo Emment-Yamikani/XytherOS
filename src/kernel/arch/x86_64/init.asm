@@ -201,7 +201,8 @@ start64:
     ; Unmap lower-half identity mapping
     mov     rdi, _PML4_
     mov     qword [rdi], 0      ; Unmap PML4E0
-    invlpg  [0]                 ; Invalidate TLB entry for address 0
+    xor     rax, rax
+    invlpg  [rax]                 ; Invalidate TLB entry for address 0
 
     call    early_init
 

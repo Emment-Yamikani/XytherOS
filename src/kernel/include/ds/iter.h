@@ -20,7 +20,7 @@
  */
 typedef struct iter { queue_t queue; } iter_t;
 
-#define ITER(__name) iter_t *__name = &(iter_t){0}
+#define ITER(iter_name) iter_t iter_name = (iter_t){ QUEUE_INLINE_INIT((iter_name).queue) }
 
 /**
  * @typedef iter_init_cb_t

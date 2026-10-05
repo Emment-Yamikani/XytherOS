@@ -139,7 +139,7 @@ static int ramdisk_getinfo(devid_t *dd, void *info) {
     return ramdisk_ioctl(dd, RAMDISK_GETINFO, info);
 }
 
-static int ramdisk_mmap(devid_t *dd __unused, vmr_t *vmregion __unused) {
+static int ramdisk_mmap(devid_t *dd __unused, vmregion_t *vmregion __unused) {
     return -ENOSYS;
 }
 

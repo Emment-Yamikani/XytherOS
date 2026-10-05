@@ -46,7 +46,7 @@ static ssize_t ps2mouse_write(struct devid *dd __unused, off_t off __unused, voi
     return -ENOTSUP;
 }
 
-static int ps2mouse_mmap(struct devid *dd, vmr_t *region) {
+static int ps2mouse_mmap(struct devid *dd, vmregion_t *region) {
     if (dd == NULL || region == NULL)
         return -EINVAL;
     return -ENOTSUP;

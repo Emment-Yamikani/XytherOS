@@ -47,7 +47,7 @@ static ssize_t null_write(struct devid *dd __unused, off_t off __unused, void *b
     return sz;
 }
 
-static int null_mmap(struct devid *dd, vmr_t *region) {
+static int null_mmap(struct devid *dd, vmregion_t *region) {
     if (dd == NULL || region == NULL)
         return -EINVAL;
     

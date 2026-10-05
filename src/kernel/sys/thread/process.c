@@ -1,4 +1,5 @@
 #include <bits/errno.h>
+#include <core/debug.h>
 #include <fs/fs.h>
 #include <string.h>
 #include <mm/kalloc.h>
@@ -7,10 +8,11 @@
 #include <sys/binary_loader.h>
 
 proc_t *initproc = NULL;
-queue_t *procQ   = QUEUE_NEW();
+
+QUEUE(PUBLIC, procQ);
 
 // bucket to hold free'd PIDs.
-static queue_t *procIDs = QUEUE_NEW();
+QUEUE(PRIVATE, procIDs);
 
 /**
  * For process ID alocation.
@@ -25,9 +27,9 @@ static int proc_alloc_pid(pid_t *ref) {
     if (ref == NULL)
         return -EINVAL;
     
-    queue_lock(procIDs);
-    err = dequeue(procIDs, (void **)&pid);
-    queue_unlock(procIDs);
+    queue_lock(&procIDs);
+    err = dequeue(&procIDs, (void **)&pid);
+    queue_unlock(&procIDs);
 
     if (err == 0) goto done;
 
@@ -52,11 +54,11 @@ int procQ_remove(proc_t *proc) {
     
     proc_assert_locked(proc);
 
-    queue_lock(procQ);
-    if ((err = embedded_queue_remove(procQ, &proc->proc_qnode)) == 0) {
+    queue_lock(&procQ);
+    if ((err = embedded_queue_remove(&procQ, &proc->proc_qnode)) == 0) {
         proc_putref(proc);
     }
-    queue_unlock(procQ);
+    queue_unlock(&procQ);
 
     return err;
 }
@@ -67,20 +69,21 @@ int procQ_insert(proc_t *proc) {
     if (proc == NULL)
         return -EINVAL;
     
-    queue_lock(procQ);
-    if (0 == (err = embedded_enqueue(procQ, &proc->proc_qnode, QUEUE_UNIQUE))) {
+    queue_lock(&procQ);
+    if (0 == (err = embedded_enqueue(&procQ, &proc->proc_qnode, QUEUE_UNIQUE))) {
         proc_getref(proc);
     }
-    queue_unlock(procQ);
+    queue_unlock(&procQ);
 
     return err;
 }
 
 int procQ_search_bypid(pid_t pid, proc_t **ref) {
-    queue_lock(procQ);
-    
+    queue_lock(&procQ);
+
     proc_t *proc;
-    foreach_process(procQ, proc) {
+
+    foreach_process(&procQ, proc, proc_qnode) {
         proc_lock(proc);
         if (proc->pid == pid) {
             if (ref != NULL) {
@@ -89,22 +92,22 @@ int procQ_search_bypid(pid_t pid, proc_t **ref) {
                 proc_unlock(proc);
             }
 
-            queue_lock(procQ);
+            queue_lock(&procQ);
             return 0;
         }
         proc_unlock(proc);
     }
 
-    queue_lock(procQ);
+    queue_lock(&procQ);
 
     return -ESRCH;
 }
 
 int procQ_search_bypgid(pid_t pgid, proc_t **ref) {
-    queue_lock(procQ);
+    queue_lock(&procQ);
 
     proc_t *proc;
-    foreach_process(procQ, proc) {
+    foreach_process(&procQ, proc, proc_qnode) {
         proc_lock(proc);
         if (proc->pgid == pgid) {
             if (ref != NULL) {
@@ -113,20 +116,18 @@ int procQ_search_bypgid(pid_t pgid, proc_t **ref) {
                 proc_unlock(proc);
             }
 
-            queue_lock(procQ);
+            queue_lock(&procQ);
             return 0;
         }
         proc_unlock(proc);
     }
 
-    queue_lock(procQ);
+    queue_lock(&procQ);
 
     return -ESRCH;
 }
 
-int proc_alloc(const char *name, proc_t **pref) {
-    int         err     = 0;
-    proc_t     *proc    = NULL;
+int proc_alloc(const char *name, bool is_fork, proc_t **pref) {
     mmap_t     *mmap    = NULL;
     thread_t   *thread  = NULL;
 
@@ -134,12 +135,27 @@ int proc_alloc(const char *name, proc_t **pref) {
         return -EINVAL;
     }
 
-    if (NULL == (proc = kzalloc(sizeof *proc))) {
-        return -ENOMEM;
-    }
+    proc_t *proc = (proc_t *)kzalloc(sizeof *proc);
+    if (proc == NULL) { return -ENOMEM; }
 
-    if ((err = mmap_alloc(&mmap))) {
-        goto error;
+    int err = queue_init(&proc->children);
+    if (err != 0) { goto error; }
+
+    err = qnode_init(&proc->child_qnode, NULL);
+    if (err != 0) { goto error; }
+
+    err = qnode_init(&proc->proc_qnode, (void **)proc);
+    if (err != 0) { goto error; }
+
+    if (is_fork == true) { // fork the parent addrespace.
+        mmap_lock(current_mmap());
+        err = mmap_fork(current_mmap(), &mmap);
+        mmap_unlock(current_mmap());
+
+        if (err != 0) { goto error; }
+    } else { // this is not a fork.
+        err = mmap_create(MmapUser, &mmap);
+        if (err != 0) { goto error; }
     }
 
     if ((err = thread_alloc(KSTACK_SIZE, THREAD_CREATE_USER, &thread))) {
@@ -150,8 +166,8 @@ int proc_alloc(const char *name, proc_t **pref) {
         goto error;
     }
 
-    err = -ENOMEM;
     if (NULL == (proc->name = strdup(name))) {
+        err = -ENOMEM;
         goto error;
     }
 
@@ -159,18 +175,20 @@ int proc_alloc(const char *name, proc_t **pref) {
         goto error;
     }
 
+    if ((err = cond_init(&proc->child_event))) {
+        goto error;
+    }
+
     proc->refcnt        = 1;
     proc->mmap          = mmap;
     proc->pgid          = proc->pid;
     proc->sid           = proc->pid;
-    proc->child_event   = COND_INIT();
     proc->lock          = SPINLOCK_INIT();
+    proc->main_thread   = thread;
     proc->cred          = thread->t_cred;
     proc->fctx          = thread->t_fctx;
     proc->threads       = thread->t_group;
     proc->signals       = thread->t_signals;
-
-    proc->main_thread   = thread;
 
     thread->t_mmap      = mmap;
     proc_lock(proc);
@@ -192,7 +210,7 @@ error:
     }
 
     if (mmap) {
-        mmap_free(mmap);
+        mmap_drop(mmap);
     }
 
     if (proc) {
@@ -229,7 +247,7 @@ void proc_free(proc_t *proc) {
         queue_unlock(&proc->children);
 
         if (proc_mmap(proc)) {
-            mmap_free(proc_mmap(proc));
+            mmap_drop(proc_mmap(proc));
         }
 
         if (proc->name) {
@@ -254,13 +272,14 @@ int proc_init(const char *initpath) {
     int    err   = 0;
     proc_t *proc = NULL;
 
-    if ((err = proc_alloc(initpath, &proc))) {
+    if ((err = proc_alloc(initpath, false, &proc))) {
         goto error;
     }
 
+    debuglog();
     uintptr_t pdbr = 0;
     proc_mmap_lock(proc);
-    if ((err = mmap_set_focus(proc_mmap(proc), &pdbr))) {
+    if ((err = mmap_switch_to(proc_mmap(proc), &pdbr))) {
         proc_mmap_unlock(proc);
         goto error;
     }
@@ -321,7 +340,7 @@ error:
 }
 
 /********************************************************************************/
-/***********************    PROCESS QUEUE HELPERS    ****************************/
+/***********************         QUEUE HELPERS       ****************************/
 /********************************************************************************/
 
 int proc_add_child(proc_t *parent, proc_t *child) {
@@ -378,15 +397,15 @@ int proc_abandon_children(proc_t *new_parent, proc_t *old_parent) {
 
     queue_t *srcQ = &old_parent->children;
     queue_t *dstQ = &new_parent->children;
-    
+
     queue_lock(dstQ);
     queue_lock(srcQ);
-    
-    proc_t *child;
-    queue_foreach_entry(srcQ, child, child_qnode) {
+
+    int err = 0;
+    proc_t *child, *next_child;
+    foreach_process_safe(srcQ, child, next_child, child_qnode) {
         proc_lock(child);
-        int err = 0;
-        queue_node_t *node = &child->child_qnode;
+        qnode_t *node = &child->child_qnode;
         if ((err = embedded_queue_relloc(dstQ, srcQ, node, QUEUE_UNIQUE, QUEUE_TAIL))) {
             proc_unlock(child);
             break;
@@ -399,5 +418,5 @@ int proc_abandon_children(proc_t *new_parent, proc_t *old_parent) {
 
     queue_unlock(srcQ);
     queue_unlock(dstQ);
-    return 0;
+    return err;
 }

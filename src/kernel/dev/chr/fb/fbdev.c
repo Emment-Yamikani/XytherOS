@@ -11,15 +11,14 @@
 
 DECL_DEVOPS(static, fb);
 
-static int fb_vmr_fault_handler(vmr_t *region, pagefault_desc_t *fault);
+static int fb_vmr_fault_handler(vmregion_t *vmregion, pagefault_desc_t *fault);
 
 static device_t            fbdev;
 fb_fixinfo_t            fix_info       = {0};
 fb_varinfo_t            var_info       = {0};
 static framebuffer_t    fbs[NFBDEV]    = {0};
 
-static vmr_ops_t fb_vmrops = {
-    .io_handler = NULL,
+static vmregion_ops_t fb_vmrops = {
     .fault_handler = fb_vmr_fault_handler,
 };
 
@@ -212,24 +211,24 @@ static ssize_t fb_write(devid_t *dd, off_t off, void *buf, size_t sz) {
     return size;
 }
 
-static int fb_vmr_fault_handler(vmr_t *region, pagefault_desc_t *fault) {
+static int fb_vmr_fault_handler(vmregion_t *vmregion, pagefault_desc_t *fault) {
     uintptr_t   fbaddr = 0;
     framebuffer_t *fb  = NULL;
 
-    if (region == NULL || fault == NULL)
+    if (vmregion == NULL || fault == NULL)
         return -EINVAL;
 
-    if (__vmr_exec(region) || __vmr_dontexpand(region))
+    if (__vmregion_executable(vmregion) || __vmregion_dont_expand(vmregion))
         return -EINVAL;
 
-    if (!__vmr_read(region) && !__vmr_write(region))
+    if (!__vmregion_readable(vmregion) && !__vmregion_writable(vmregion))
         return -EACCES;
     
     /**
-     * @brief In a twist of fate, region->priv has a purpose.
+     * @brief In a twist of fate, vmregion->priv has a purpose.
      * I never imagened it would workout this way! ;).
      */
-    fb = (framebuffer_t *)region->priv;
+    fb = (framebuffer_t *)vmregion->priv;
 
     if (fb == NULL)
         return -EFAULT;
@@ -239,21 +238,22 @@ static int fb_vmr_fault_handler(vmr_t *region, pagefault_desc_t *fault) {
     if (fb->fixinfo == NULL)
         return -EFAULT;
 
-    if (__vmr_filepos(region) > fb->fixinfo->memsz)
+    if (__vmregion_file_offset(vmregion) > fb->fixinfo->memsz)
         return -ERANGE; // Out of range not allowed.
 
-    fbaddr = PGROUND(fb->fixinfo->addr + __vmr_filepos(region));
-    return arch_map_i(fault->addr, fbaddr, PGSZ, region->vflags);
+    unsigned pte_flags = __vmregion_to_pte_flags(vmregion);
+    fbaddr = PGROUND(fb->fixinfo->addr + __vmregion_file_offset(vmregion));
+    return arch_map_i(fault->addr, fbaddr, PGSZ, pte_flags);
 }
 
-static int fb_mmap(devid_t *dd, vmr_t *region) {
+static int fb_mmap(devid_t *dd, vmregion_t *vmregion) {
     framebuffer_t *fb = NULL;
 
     if (dd == NULL || dd->major != FB_DEV_MAJOR ||
         dd->minor >= NFBDEV || dd->type != FS_CHR)
         return -EINVAL;
 
-    if (region == NULL)
+    if (vmregion == NULL)
         return -EINVAL;
 
     /// TODO: may need an explicit locking mechanism here.
@@ -268,17 +268,17 @@ static int fb_mmap(devid_t *dd, vmr_t *region) {
     if (fb->fixinfo == NULL)
         return -EFAULT;
 
-    if (__vmr_filepos(region) > fb->fixinfo->memsz)
+    if (__vmregion_file_offset(vmregion) > fb->fixinfo->memsz)
         return -ERANGE; // Out of range not allowed.
 
-    if (__vmr_exec(region) || __vmr_dontexpand(region))
+    if (__vmregion_executable(vmregion) || __vmregion_dont_expand(vmregion))
         return -EINVAL;
     
-    if (!__vmr_read(region) && !__vmr_write(region))
+    if (!__vmregion_readable(vmregion) && !__vmregion_writable(vmregion))
         return -EINVAL;
 
-    region->priv  = fb;
-    region->vmops = &fb_vmrops;
+    vmregion->priv  = fb;
+    vmregion->vmops = &fb_vmrops;
     return 0;
 }
 

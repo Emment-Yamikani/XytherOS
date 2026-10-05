@@ -289,7 +289,7 @@ static int tty_open(devid_t *dd, inode_t **) {
     return 0;
 }
 
-static int tty_mmap(devid_t *, vmr_t *) {
+static int tty_mmap(devid_t *, vmregion_t *) {
     return -EINVAL;
 }
 

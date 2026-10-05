@@ -101,7 +101,7 @@ typedef struct devops {
     int     (*close)(struct devid *dd);
     int     (*open)(struct devid *dd, inode_t **pip);
     int     (*getinfo)(struct devid *dd, void *info);
-    int     (*mmap)(struct devid *dd, vmr_t *vmregion);
+    int     (*mmap)(struct devid *dd, vmregion_t *vmregion);
     int     (*ioctl)(struct devid *dd, int request, void *arg);
     off_t   (*lseek)(struct devid *dd, off_t offset, int whence);
     isize   (*read)(struct devid *dd, off_t off, void *buf, usize size);
@@ -129,7 +129,7 @@ __privacy__ int __prefix__##_fini(struct devid *dd);                            
 __privacy__ int __prefix__##_close(struct devid *dd);                                    \
 __privacy__ int __prefix__##_open(struct devid *dd, inode_t **pip);                      \
 __privacy__ int __prefix__##_getinfo(struct devid *dd, void *info);                      \
-__privacy__ int __prefix__##_mmap(struct devid *dd, vmr_t *vmregion);                    \
+__privacy__ int __prefix__##_mmap(struct devid *dd, vmregion_t *vmregion);                    \
 __privacy__ int __prefix__##_ioctl(struct devid *dd, int request, void *arg);            \
 __privacy__ off_t __prefix__##_lseek(struct devid *dd, off_t offset, int whence);        \
 __privacy__ isize __prefix__##_read(struct devid *dd, off_t off, void *buf, usize size); \
@@ -212,7 +212,7 @@ extern int      device_fini(struct devid *dd);
 extern int      device_close(struct devid *dd);
 extern int      device_open(struct devid *dd, inode_t **pip);
 extern int      device_getinfo(struct devid *dd, void *info);
-extern int      device_mmap(struct devid *dd, vmr_t *vmregion);
+extern int      device_mmap(struct devid *dd, vmregion_t *vmregion);
 extern int      device_ioctl(struct devid *dd, int request, void *arg);
 extern off_t    device_lseek(struct devid *dd, off_t offset, int whence);
 extern isize    device_read(struct devid *dd, off_t off, void *buf, usize size);

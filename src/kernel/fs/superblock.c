@@ -1,4 +1,5 @@
 #include <bits/errno.h>
+#include <core/debug.h>
 #include <fs/fs.h>
 #include <dev/dev.h>
 #include <mm/kalloc.h>
@@ -9,10 +10,8 @@ static atomic_t sbID = 0;
 #define NODEV_TMPFS 0
 #define NODEV_DEVFS 1
 
-int getsb(fs_t * fs, devid_t *devid, sblock_t **psb) {
+int getsb(filesystem_t * fs, devid_t *devid, sblock_t **psb) {
     int err = 0;
-    sblock_t *sb = NULL;
-    queue_node_t *next = NULL;
 
     fsassert_locked(fs);
 
@@ -20,19 +19,15 @@ int getsb(fs_t * fs, devid_t *devid, sblock_t **psb) {
         return -EINVAL;
     }
 
-    queue_lock(fs->fs_superblocks);
-    forlinked(node, fs->fs_superblocks->head, next) {
-        next = node->next;
-        sb = node->data;
+    sblock_t *sb, *next;
+    qnode_foreach_entry_safe(&fs->fs_superblocks, sb, next, sb_fsnode) {
         sblock(sb);
         if (DEVID_CMP(devid, &sb->sb_devid)) {
             *psb = sb;
-            queue_unlock(fs->fs_superblocks);
             return 0;
         }
         sbunlock(sb);
     }
-    queue_unlock(fs->fs_superblocks);
 
     if ((sb = kzalloc(sizeof *sb)) == NULL) {
         return -ENOMEM;
@@ -50,6 +45,12 @@ int getsb(fs_t * fs, devid_t *devid, sblock_t **psb) {
         .sb_id          = atomic_inc_fetch(&sbID),
     };
 
+    if ((err = qnode_init(&sb->sb_fsnode, sb))) {
+        sbunlock(sb);
+        kfree(sb);
+        return err;
+    }
+
     sblock(sb);
 
     if ((err = fs_add_superblock(fs, sb))) {
@@ -62,7 +63,7 @@ int getsb(fs_t * fs, devid_t *devid, sblock_t **psb) {
     return 0;
 }
 
-int getsb_bdev(fs_t *fs, const char *bdev_name, const char *target, usize flags,
+int getsb_bdev(filesystem_t *fs, const char *bdev_name, const char *target, usize flags,
     void *data __unused, sblock_t **psbp, sb_fill_fn_t sb_fill) {
     int             err     = 0;
     sblock_t    *sb     = NULL;
@@ -103,9 +104,11 @@ int getsb_bdev(fs_t *fs, const char *bdev_name, const char *target, usize flags,
     return 0;
 }
 
-int getsb_nodev(fs_t *fs, const char *target, usize flags __unused,
+int getsb_nodev(filesystem_t *fs, const char *target, usize flags __unused,
     void *data __unused, sblock_t **psbp, sb_fill_fn_t sb_fill) {
     int err = 0;
+
+    // debug("getsb_nodev() running...\n");
     
     if ((sb_fill == NULL)) {
         return -ENOSYS;
@@ -130,10 +133,14 @@ int getsb_nodev(fs_t *fs, const char *target, usize flags __unused,
         return -ENOMEM;
     }
 
+    // debug("Creating device [%s]\n", name);
+
     device_t *dev;
     if ((err = device_create(name, FS_BLK, 0, NULL, &dev))) {
         return err;
     }
+
+    // debug("Getting superblock of [%s]\n", name);
 
     sblock_t *sb;
     if ((err = getsb(fs, &dev->devid, &sb))) {
@@ -141,18 +148,22 @@ int getsb_nodev(fs_t *fs, const char *target, usize flags __unused,
         return err;
     }
 
+    // debug("superblock retrieved.\n");
+
     if ((err = sb_fill(fs, target, &dev->devid, sb))) {
         dev_unlock(dev);
         return err;
     }
+
+    // debug("superblock is filled.\n");
 
     dev_unlock(dev);
     *psbp = sb;
     return 0;
 }
 
-int getsb_pseudo(fs_t *fs, const char *target, usize flags,
+int getsb_pseudo(filesystem_t *fs, const char *target, usize flags,
     void *data, sblock_t **psbp, sb_fill_fn_t sb_fill);
 
-int getsb_single(fs_t *fs, const char *target, usize flags,
+int getsb_single(filesystem_t *fs, const char *target, usize flags,
     void *data, sblock_t **psbp, sb_fill_fn_t sb_fill);

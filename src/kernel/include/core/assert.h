@@ -31,3 +31,7 @@ extern thread_t *cpu_getthread(void);
         panic("\e[34mPANIC(#EQ: lhs=\e[33m%p\e[0m : rhs=\e[33m%p\e[0m)\e[0m: %s(): %s:%d: cpu[%d] tid[%d:%d]:%p: ret[\e[32m%p\e[0m]: " fmt, \
               (lhs), (rhs), __func__, __FILE__, __LINE__, getcpuid(), getpid(), gettid(), cpu_getthread(), __retaddr(0), ##__VA_ARGS__);      \
 })
+
+#define assert_nz(v, fmt, ...) ({ assert_ne(v, 0, fmt, ##__VA_ARGS__) })
+
+#define assert_ze(v, fmt, ...) ({ assert_eq(v, 0, fmt, ##__VA_ARGS__) })

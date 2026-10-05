@@ -124,7 +124,7 @@ static ssize_t ptmx_write(struct devid *dd, off_t off __unused, void *buf, size_
     return sz;
 }
 
-static int ptmx_mmap(struct devid *dd, vmr_t *region) {
+static int ptmx_mmap(struct devid *dd, vmregion_t *region) {
     if (dd == NULL || region == NULL)
         return -EINVAL;
     return -ENOSYS;

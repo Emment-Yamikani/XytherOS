@@ -5,8 +5,6 @@
 
 int copy_proc(proc_t *child, proc_t *parent) {
     int         err     = 0;
-    file_ctx_t *fctx    = NULL;
-    cred_t      *cred   = NULL;
 
     if (child == NULL || parent == NULL) {
         return -EINVAL;
@@ -19,18 +17,18 @@ int copy_proc(proc_t *child, proc_t *parent) {
         return err;
     }
 
-    mmap_lock(parent->mmap);
-    mmap_lock(child->mmap);
+    // mmap_lock(parent->mmap);
+    // mmap_lock(child->mmap);
 
-    err = mmap_copy(child->mmap, parent->mmap);
+    // err = mmap_copy(child->mmap, parent->mmap);
 
-    mmap_unlock(child->mmap);
-    mmap_unlock(parent->mmap);
+    // mmap_unlock(child->mmap);
+    // mmap_unlock(parent->mmap);
 
-    if (err) goto error;
+    // if (err) goto error;
 
-    fctx = current->t_fctx;
-    cred = current->t_cred;
+    file_ctx_t  *fctx = current->t_fctx;
+    cred_t      *cred = current->t_cred;
 
     fctx_lock(fctx);
     fctx_lock(child->fctx);
@@ -82,8 +80,8 @@ pid_t fork(void) {
 
     proc_t *child;
     proc_lock(curproc);
-    int err = proc_alloc(curproc->name, &child);
-    if (err) {
+    int err = proc_alloc(curproc->name, true, &child);
+    if (err != 0) {
         proc_unlock(curproc);
         return err;
     }

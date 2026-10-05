@@ -6,8 +6,7 @@
 #include <sync/preempt.h>
 #include <sync/atomic.h>
 
-typedef struct spinlock_t_t
-{
+typedef struct spinlock_t_t {
     arch_raw_lock_t guard;
     uint locked;
     void *owner;

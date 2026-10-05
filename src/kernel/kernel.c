@@ -1,11 +1,11 @@
 #include <core/debug.h>
-#include <sys/thread.h>
 #include <dev/dev.h>
 #include <dev/bus/pci.h>
 #include <ds/hashMap.h>
 #include <ds/iter.h>
 #include <fs/filename.h>
 #include <fs/file.h>
+#include <sys/thread.h>
 
 int init_kernel_logger(void) {
     mode_t mode = S_IFCHR | 0660;
@@ -19,6 +19,9 @@ int init_kernel_logger(void) {
 }
 
 #define INIT_PATH "/ramfs/init"
+
+extern void rust_main_thread(void);
+BUILTIN_THREAD(rust_main_thread, rust_main_thread, NULL);
 
 __noreturn void kthread_main(void) {
     int err = builtin_thread_init();

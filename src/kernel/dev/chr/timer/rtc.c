@@ -34,12 +34,12 @@ static DECL_DEVICE(rtc, FS_CHR, RTC0_DEV_MAJOR, 0);
 
 #define CURRENT_YEAR    2023
 
-static device_t        rtcdev;
+CONDITION_VARIABLE(PRIVATE, rtc_event);
+static device_t     rtcdev;
 static size_t       rtc_secs    = 0;
 static size_t       rtc_ticks   = 0;
 static uint16_t     RTC_CENT    = 0;
 static rtc_time_t   rtc_tm      = {0};
-static cond_t       *rtc_event  = COND_NEW();
 static SPINLOCK(rtclk);
 
 static int rtc_updating(void) {
@@ -223,7 +223,7 @@ static ssize_t rtc_write(struct devid *dd, off_t off, void *buf, size_t sz) {
     return -ENOTSUP;
 }
 
-static int rtc_mmap(struct devid *dd __unused, vmr_t *r __unused) {
+static int rtc_mmap(struct devid *dd __unused, vmregion_t *r __unused) {
     if (dd == NULL)
         return -EINVAL;
 
@@ -300,7 +300,7 @@ void rtc_intr(void) {
         ++rtc_secs;
         if ((rtc_secs % 60) == 0)
             rtc_retrieve_time(&rtc_tm);
-        cond_broadcast(rtc_event);
+        cond_broadcast(&rtc_event);
     }
 
     outb(RTC_CMD, 0x0C);

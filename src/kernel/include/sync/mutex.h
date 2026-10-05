@@ -12,7 +12,17 @@ typedef struct mtx_t {
     spinlock_t  m_guard;
 } mtx_t;
 
-#define MTX(name)   mtx_t *name = {&(mtx_t){0}}
+#define MTX_INLINE_INIT(mtx_name)                        \
+    (mtx_t)                                              \
+    {                                                    \
+        .m_guard = SPINLOCK_INIT(),                      \
+        .m_locked = false,                               \
+        .m_recurs = 0,                                   \
+        .m_owner = NULL,                                 \
+        .m_waitQ = QUEUE_INLINE_INIT((mtx_name).m_waitQ) \
+    }
+
+#define MTX(mtx_name) mtx_t mtx_name = MTX_INLINE_INIT(mtx_name)
 
 #define mtx_assert(mtx) ({ assert(mtx, "Invalid mtx.\n"); })
 

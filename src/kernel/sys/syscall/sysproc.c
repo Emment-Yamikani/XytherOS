@@ -146,22 +146,26 @@ int   setpgid(pid_t pid, pid_t pgid) {
         return -EPERM;
     }
     
-    queue_lock(procQ);
-    forlinked (node, procQ->head, node->next) {
-        leader = node->data;
+    queue_lock(&procQ);
+
+    foreach_process(&procQ, leader, proc_qnode) {
         if (leader == proc) {
             leader = NULL;
             continue;
         }
+
         proc_lock(leader);
+
         if (leader->pgid == pgid) {
             proc_getref(leader);
             break;
         }
+
         proc_unlock(leader);
         leader = NULL;
     }
-    queue_unlock(procQ);
+
+    queue_unlock(&procQ);
 
     /**The value of the pgid argument is valid
      * but does not match the process ID of the

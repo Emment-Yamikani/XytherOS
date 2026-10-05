@@ -27,8 +27,8 @@ typedef struct posix_timer {
     jiffies_t       interval;   // Periodic interval (0 for one-shot)
     sigevent_t      event;      // Signal/event to deliver on expiry
     thread_t        *owner;     // Process that owns this timer
-    queue_node_t    node;       // Timer queue node
-    queue_node_t    knode;      // Timer queue node in kernel timers list.
+    qnode_t         node;       // Timer queue node
+    qnode_t         knode;      // Timer queue node in kernel timers list.
     spinlock_t      lock;
 } posix_timer_t;
 

@@ -296,7 +296,7 @@ static int ps2kbd_open(struct devid *dd __unused, inode_t **pip __unused) {
     return 0;
 }
 
-static int ps2kbd_mmap(struct devid *dd __unused, vmr_t *region __unused) {
+static int ps2kbd_mmap(struct devid *dd __unused, vmregion_t *region __unused) {
     return -ENOTSUP;
 }
 

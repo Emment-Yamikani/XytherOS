@@ -13,8 +13,10 @@ typedef struct stack {
 #define stack_islocked(s)       ({stack_assert(s); spin_islocked(&(s)->s_lock); })
 #define stack_assert_locked(s)  ({stack_assert(s); spin_assert_locked(&(s)->s_lock); })
 
-#define STACK_INIT()            ((stack_t){0})
-#define STACK_NEW()             (&(stack_t){0})
+
+#define STATCK_INLINE_INIT(stack_name) (stack_t) { .s_queue = QUEUE_INLINE_INIT((stack_name).s_qeueu), .s_lock = SPINLOCK_INIT() }
+
+#define STACK(stack_name) stack_t stack_name = STATCK_INLINE_INIT(stack_name)
 
 int stack_init(stack_t *s);
 int stack_push(stack_t *s, void *pd);

@@ -16,9 +16,6 @@ typedef struct icache_t {
     spinlock_t  pc_lock;
 } icache_t;
 
-#define BTREE_INIT()    ((btree_t){0})
-#define BTREE_NEW()     (&BTREE_INIT())
-
 #define icache_assert(icache)               ({assert(icache, "No page cache"); })
 #define icache_lock(icache)                 ({icache_assert(icache); spin_lock(&(icache)->pc_lock); })
 #define icache_unlock(icache)               ({icache_assert(icache); spin_unlock(&(icache)->pc_lock); })

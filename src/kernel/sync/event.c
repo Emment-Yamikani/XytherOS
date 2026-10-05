@@ -14,7 +14,12 @@ int await_event_init(await_event_t *ev) {
     ev->ev_triggered = false;
     ev->ev_broadcast = false;
     spinlock_init(&ev->ev_lock);
-    queue_init(&ev->ev_waitqueue);
+    
+    int err = queue_init(&ev->ev_waitqueue);
+    if (err != 0) {
+        return err;
+    }
+
     return 0;
 }
 

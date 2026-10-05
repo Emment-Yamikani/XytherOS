@@ -32,7 +32,7 @@ extern void dump_tf(mcontext_t *tf, int halt);
  *
  * @return 0 on success and otherwise on error. 
  */
-int default_pgf_handler(vmr_t *vmr, pagefault_desc_t *fault);
+int default_pgf_handler(vmregion_t *vmr, pagefault_desc_t *fault);
 
 /**
  * @brief unmap the entire address space of current;y active PDBR.

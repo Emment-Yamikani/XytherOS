@@ -55,8 +55,8 @@ int bitmap_alloc(usize bm_size, bitmap_t **ppbm) {
         return -1; // Allocation failed
     }
 
-    bitmap_t *bitmap = (bitmap_t *)kmalloc(sizeof(bitmap_t));
-    if (!bitmap) {
+    bitmap_t *bitmap = (bitmap_t *)kzalloc(sizeof(bitmap_t));
+    if (bitmap == NULL) {
         kfree(bm_array);
         return -ENOMEM; // Allocation failed
     }
@@ -568,8 +568,8 @@ int bitmap_copy(bitmap_t *src, bitmap_t *dest) {
 
     dest->bm_size = src->bm_size;
     usize num_units = (src->bm_size + BITS_PER_USIZE - 1) / BITS_PER_USIZE;
-    dest->bm_map = kmalloc(num_units * sizeof(usize));
-    if (!dest->bm_map) {
+    dest->bm_map = kzalloc(num_units * sizeof(usize));
+    if (dest->bm_map == NULL) {
         bitmap_unlock(src);
         return -EINVAL; // Memory allocation failed
     }

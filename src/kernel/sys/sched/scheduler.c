@@ -1,5 +1,6 @@
 #include "metrics.h"
 #include <core/debug.h>
+#include <lib/printk.h>
 #include <limits.h>
 #include <string.h>
 #include <sys/schedule.h>
@@ -18,18 +19,21 @@ MLFQ_t MLFQ[NCPU];
 static void MLFQ_init(void) {
     usize   t = 0;
     MLFQ_t  *mlfq   = MLFQ_get();
+    
+    memset(mlfq, 0, sizeof *mlfq);
 
     for (int i = 0; i < ncpu(); ++i) {
         sched_metrics_t *metrics = get_cpu_metrics(i);
         memset(metrics, 0, sizeof *metrics);
     }
 
-    memset(mlfq, 0, sizeof *mlfq);
-
     t = jiffies_from_ms(10);
     int l = 0; // implicit level: 0 is highest
 
     foreach_level(mlfq) {
+        int err = queue_init(&level->run_queue);
+        assert_eq(err, 0, "Error initializing MLFQ: error[%s].\n", strerror(err));
+
         // Q = t + (5 * 2^n), Q is the allocated quantum,
         // t is the base quantum where n is the level index.
         level->quantum = t  + (5 * (1 < l++));
@@ -141,7 +145,7 @@ static thread_t *MLFQ_get_next_thread(void) {
 
             /// Remove thread from run queue.
             /// panic is this fails. What could possibly go run?
-            assert_eq(err = embedded_queue_detach(&level->run_queue, thread_node), 0,
+            assert_eq(err = embedded_queue_remove(&level->run_queue, &thread->t_run_qnode), 0,
                 "Failed to remove thread[%d:%d] at priority level: %s: Error: %s\n",
                 thread_getpid(thread), thread_gettid(thread), MLFQ_PRIORITY[level - mlfq->level], strerror(err)
             );
@@ -203,7 +207,7 @@ static void hanlde_thread_state(thread_t *thread) {
 
 // this is the per-cpu scheduler's idle thread, well, somewhat.
 __noreturn void scheduler(void) {
-    thread_t *thread;
+    thread_t *thread = NULL;
     MLFQ_t   *my_mlfq = MLFQ_get();
     sched_metrics_t *metrics = get_metrics();
 
@@ -217,6 +221,7 @@ __noreturn void scheduler(void) {
 
         loop() {
             thread = MLFQ_get_next_thread();
+
             if (thread && cpu_set_thread(thread)) {
                 /// set cpu->intena == false,
                 /// might need a better way of preventing undefined behavior
@@ -238,12 +243,14 @@ __noreturn void scheduler(void) {
 
         atomic_set(&metrics->last_active_time, jiffies_get());
 
-        int err;
-        uintptr_t kern_pgdir;
-        if (current_mmap() && (err = thread_switch_to_userspace(current, &kern_pgdir))) {
-            current_enter_state(T_ZOMBIE);
-            hanlde_thread_state(current);
-            continue;
+        uintptr_t kern_pgdir = 0;
+        if (current_mmap()) {
+            int err = thread_switch_to_userspace(current, &kern_pgdir);
+            if (err != 0) {
+                current_enter_state(T_ZOMBIE);
+                hanlde_thread_state(current);
+                continue;
+            }
         }
 
         // jmp to thread.
@@ -253,7 +260,7 @@ __noreturn void scheduler(void) {
 
         thread_assert_locked(thread);
         sched_update_thread_metrics(thread);
-    
+
         if (current_mmap()) {
             arch_switch_pgdir(kern_pgdir, NULL);
         }

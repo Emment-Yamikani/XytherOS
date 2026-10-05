@@ -47,7 +47,7 @@ static void exec_free_tmp_arglist(char *const argv[], char *const envp[]) {
 
 /* Assumptions:
  * - tokens_free(char **vec) frees each strdup'd element and the vector itself; NULL-safe.
- * - mmap_set_focus(new, &old_pgdir) activates 'new' address space and returns previous pgdir in *old_pgdir.
+ * - mmap_switch_to(new, &old_pgdir) activates 'new' address space and returns previous pgdir in *old_pgdir.
  * - Kernel is globally mapped so switching CR3 while in kernel is safe.
  * - thread_exit() is noreturn.
  */
@@ -103,12 +103,12 @@ static int exec_verify_image(inode_t *image_inode) {
 static int exec_get_new_mmap(mmap_t **pmm) {
     int err;
     mmap_t *mmap;
-    if ((err = mmap_alloc(&mmap))) {
+    if ((err = mmap_create(MmapUser, &mmap))) {
         return err;
     }
 
-    if ((err = mmap_set_focus(mmap, NULL))) {
-        mmap_free(mmap);
+    if ((err = mmap_switch_to(mmap, NULL))) {
+        mmap_drop(mmap);
         return err;
     }
 
@@ -119,7 +119,7 @@ static int exec_get_new_mmap(mmap_t **pmm) {
 static int exec_spawn_thread(mmap_t *mmap, char *const argv[], char *const envp[], thread_t **pthread) {
     int err;
 
-    if (!mmap) {
+    if (mmap == NULL) {
         return -EINVAL;
     }
 
@@ -177,22 +177,25 @@ int exec_load_image(const char *path, mmap_t *mmap) {
 
     mmap_assert_locked(mmap);
 
-    if (!arch_active_pdbr(mmap->pgdir)) {
+    if (!arch_active_pdbr(mmap->pdbr)) {
         return -EACCES;
     }
 
-    dentry_t *dentry;
+    // debuglog();
+    dentry_t *dentry = NULL;
     int err = vfs_lookup(path, NULL, O_EXEC, &dentry);
-    if (err) {
+    if (err != 0) {
         return err;
     }
 
+    // debug("Opened %s\n", path);
     inode_t *binary = dentry->d_inode;
     if (binary == NULL) {
         dclose(dentry);
         return -EINVAL;
     }
 
+    // debuglog();
     ilock(binary);
     if ((err = exec_verify_image(binary))) {
         iunlock(binary);
@@ -201,7 +204,8 @@ int exec_load_image(const char *path, mmap_t *mmap) {
         return err;
     }
 
-    // Iterate over all installed binary loaders. trying to load the file.
+    // debuglog();
+    // Iterate over all installed binary loaders, trying to load the file.
     foreach_binary_loader() {
         /// check the binary image to make sure it is a valid program file.
         if ((err = loader->check(binary))) {
@@ -224,6 +228,7 @@ int exec_load_image(const char *path, mmap_t *mmap) {
         }
     }
 
+    // debuglog();
     /// binary file not loaded ???.
     iunlock(binary);
     dclose(dentry);
@@ -242,21 +247,26 @@ int execve(const char *path, char *const argv[], char *const envp[]) {
         return err;
     }
 
+    // debuglog();
     mmap_t *mmap;
     if ((err = exec_get_new_mmap(&mmap))) {
         goto mmap_error;
     }
     
+    // debuglog();
     if ((err = exec_load_image(path, mmap))) {
         goto load_error;
     }
     
+    // debuglog();
     thread_t *thread;
     if ((err = exec_spawn_thread(mmap, tmpargv, tmpenvp, &thread))) {
         goto spawn_error;
     }
 
     thread_unlock(thread);
+
+    // debuglog();
     
     proc_lock(curproc);
     // thread_entry_t entry = curproc->entry;
@@ -266,14 +276,18 @@ int execve(const char *path, char *const argv[], char *const envp[]) {
     
     proc_unlock(curproc);
     
+    // mmap_display(mmap);
     mmap_unlock(mmap);
 
+    // debug("Thread resigning...\n");
     exec_thread_resign(thread);
+    // debug("Thread resigned.\nFreeing tmp arglist...\n");
 
     exec_free_tmp_arglist(tmpargv, tmpenvp);
 
+    // debug("Tmp arglist freed.\nDropping old mmap.\n");
     current_lock();
-    mmap_free(current->t_mmap);
+    mmap_drop(current->t_mmap);
     current->t_mmap = mmap;
     current_unlock();
 
@@ -282,7 +296,7 @@ int execve(const char *path, char *const argv[], char *const envp[]) {
     __builtin_unreachable(); // This code SHOULD NEVER be reached.
 spawn_error:
 load_error:
-    mmap_free(mmap);
+    mmap_drop(mmap);
 
 mmap_error:
     exec_free_tmp_arglist(tmpargv, tmpenvp);

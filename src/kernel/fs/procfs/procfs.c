@@ -6,7 +6,7 @@
 #include <mm/kalloc.h>
 #include <string.h>
 
-static fs_t *procfs = NULL;
+static filesystem_t *procfs = NULL;
 
 static iops_t procfs_iops = {
     .iopen      = procfs_iopen,
@@ -31,8 +31,7 @@ static iops_t procfs_iops = {
     .irename    = procfs_irename,
 };
 
-static int procfs_fill_sb(fs_t *fs __unused, const char *target,
-                         struct devid *devid __unused, sblock_t *sb) {
+static int procfs_fill_sb(filesystem_t *, const char *target, struct devid *, sblock_t *sb) {
     int         err    = 0;
     inode_t     *iroot = NULL;
     dentry_t    *droot = NULL;
@@ -71,7 +70,7 @@ static int procfs_fill_sb(fs_t *fs __unused, const char *target,
     return 0;
 }
 
-static int procfs_getsb(fs_t *fs, const char *src __unused, const char *target,
+static int procfs_getsb(filesystem_t *fs, const char *src __unused, const char *target,
                        unsigned long flags, void *data, sblock_t **psbp) {
     return getsb_nodev(fs, target, flags, data, psbp, procfs_fill_sb);
 }

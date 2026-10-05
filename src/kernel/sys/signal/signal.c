@@ -144,19 +144,26 @@ int signal_alloc(signal_t **psp) {
         return -EINVAL;
     }
     
-    signal_t   *signals;
-    if (NULL == (signals = kzalloc(sizeof *signals))) {
+    signal_t *signals = (signal_t *)kzalloc(sizeof *signals);
+    if (signals == NULL) {
         return -ENOMEM;
+    }
+
+    int err = queue_init(&signals->sig_waiters);
+    if (err != 0) {
+        kfree(signals);
+        return err;
     }
 
     sigsetempty(&signals->sig_mask);
     
     for (usize signo = 0; signo < NSIG; ++signo) {
-        int err;
-        if ((err = queue_init(&signals->sig_queue[signo]))) {
+        err = queue_init(&signals->sig_queue[signo]);
+        if (err != 0) {
             kfree(signals);
             return err;
         }
+
         signals->sig_action[signo].sa_handler = SIG_DFL;
     }
 
@@ -261,8 +268,8 @@ int signal_enqueue(signal_t *signals, siginfo_t *siginfo) {
 
     signal_assert_locked(signals);
 
-    int err;
-    if ((err = sigsetadd(&signals->sigpending, siginfo->si_signo))) {
+    int err = sigsetadd(&signals->sigpending, siginfo->si_signo);
+    if (err != 0) {
         return err;
     }
 
@@ -290,16 +297,9 @@ int signal_enqueue(signal_t *signals, siginfo_t *siginfo) {
  * @return 0 on success, or an error code (e.g. -ENOENT if not eligible).
  */
 static int try_dequeue_signal(thread_t *thread, bool proc_level, sigaction_t *oact, siginfo_t **psiginfo) {
-    queue_t  *queue = NULL;
-    int      err = 0, signo = 0;
-    sigset_t *src_pending = NULL, pending;
+    sigset_t *src_pending = proc_level ? &thread->t_signals->sigpending : &thread->t_sigpending;
 
-    if (proc_level) {
-        src_pending = &thread->t_signals->sigpending;
-    } else {
-        src_pending = &thread->t_sigpending;
-    }
-
+    sigset_t pending;
     sigsetempty(&pending);
 
     // get the pending set of signals.
@@ -308,24 +308,24 @@ static int try_dequeue_signal(thread_t *thread, bool proc_level, sigaction_t *oa
     // mask out blocked signals from the set.
     sigmask(&pending, SIG_UNBLOCK, &thread->t_sigmask, NULL);
 
-    if ((signo = sigset_first(&pending)) == 0) {
+    int signo = sigset_first(&pending);
+    if (signo == 0) {
         return -ENOENT;
     }
 
-    if (proc_level) {
-        queue = &thread->t_signals->sig_queue[signo - 1];
-    } else {
-        queue = &thread->t_sigqueue[signo - 1];
-    }
+    queue_t  *queue = proc_level ? &thread->t_signals->sig_queue[signo - 1] : &thread->t_sigqueue[signo - 1];
 
     queue_lock(queue);
-    err = sigqueue_dequeue(queue, psiginfo);
+
+    int err = sigqueue_dequeue(queue, psiginfo);
     if (err == 0) {
         if (!queue_length(queue))
             sigsetdel(src_pending, signo);
         memcpy(oact, &thread->t_signals->sig_action[signo - 1], sizeof *oact);
     }
+
     queue_unlock(queue);
+
     return err;
 }
 
@@ -392,19 +392,26 @@ int sigqueue_dequeue(queue_t *sigqueue, siginfo_t **psiginfo) {
     return dequeue(sigqueue, (void **)psiginfo);
 }
 
+static int sigqueue_remove_qnode(qnode_t *node) {
+    siginfo_t *siginfo = node->data;
+    if (siginfo == NULL) {
+        return -EINVAL;
+    }
+    siginfo_free(siginfo);
+    return 0;
+}
+
 void sigqueue_flush_locked(queue_t *sigqueue) {
     queue_assert_locked(sigqueue);
-    queue_foreach(sigqueue, siginfo_t *, siginfo) {
-        queue_remove_node(sigqueue, siginfo_node);
-        siginfo_free(siginfo);
-    }
+    // queue_foreach(sigqueue, siginfo_t *, siginfo) {
+    //     queue_remove_node(sigqueue, siginfo_node);
+    //     siginfo_free(siginfo);
+    // }
+    embedded_queue_drain(sigqueue, sigqueue_remove_qnode);
 }
 
 void sigqueue_flush(queue_t *sigqueue) {
     queue_lock(sigqueue);
-    queue_foreach(sigqueue, siginfo_t *, siginfo) {
-        queue_remove_node(sigqueue, siginfo_node);
-        siginfo_free(siginfo);
-    }
+    embedded_queue_drain(sigqueue, sigqueue_remove_qnode);
     queue_unlock(sigqueue);
 }

@@ -80,3 +80,5 @@ static inline void user_access_begin(void) {
 static inline void user_access_end(void) {
     // Re-enable protection if needed
 }
+
+#include <mm/page.h>

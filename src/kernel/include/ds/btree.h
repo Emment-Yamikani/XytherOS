@@ -36,10 +36,17 @@ typedef struct btree {
     spinlock_t      lock;
 } btree_t;
 
-#define BTREE_INIT() ((btree_t){0})
+/// This is an inline 'bree_t struct' initializer.
+#define BTREE_INLINE_INIT(name)                                        \
+    (btree_t)                                                          \
+    {                                                                  \
+        .lock = SPINLOCK_INIT(),                                       \
+        .nr_nodes = 0,                                                 \
+        .root = NULL,                                                  \
+        .traversal_queue = QUEUE_INLINE_INIT((name).traversal_queue) \
+    }
 
-#define BTREE_NEW()                 (&BTREE_INIT())
-#define BTREE(name)                 btree_t *name = BTREE_NEW()
+#define BTREE(name) btree_t name = BTREE_INLINE_INIT(name)
 
 #define btree_assert(btree)         ({ assert(btree, "No Btree"); })
 #define btree_lock(btree)           ({ btree_assert(btree); spin_lock(&(btree)->lock); })

@@ -3,7 +3,7 @@
 #include <sys/schedule.h>
 #include <sys/thread.h>
 
-QUEUE(sigwaiters_queue);
+QUEUE(PUBLIC, sigwaiters_queue);
 
 int sigsuspend(const sigset_t *mask) {
     int err;
@@ -21,7 +21,7 @@ int sigsuspend(const sigset_t *mask) {
 
     
     while (signal_dispatch()) {
-        if ((err = sched_wait_whence(sigwaiters_queue, T_SLEEP, QUEUE_TAIL, NULL, NULL))) {
+        if ((err = sched_wait_whence(&sigwaiters_queue, T_SLEEP, QUEUE_TAIL, NULL, NULL))) {
             break;
         }
     }

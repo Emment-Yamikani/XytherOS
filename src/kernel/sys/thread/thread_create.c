@@ -76,6 +76,7 @@ int thread_alloc(usize kstack_size, int flags, thread_t **ptp) {
 
     /* Initialize architecture-specific thread context */
     arch_thread_t *arch = &thread->t_arch;
+
     arch->t_thread          = thread;
     arch->t_kstack.ss_size  = kstack_size;
     arch->t_kstack.ss_sp    = (void *)stack;
@@ -90,6 +91,7 @@ int thread_alloc(usize kstack_size, int flags, thread_t **ptp) {
 
     /* Initialize thread information */
     thread_info_t   *tinfo = &thread->t_info;
+
     tinfo->ti_tid   = alloc_tid();
     /* Combine flags for user and detached threads */
     tinfo->ti_flags = ((flags & THREAD_CREATE_USER) ? OsThreadUser : 0) |
@@ -97,15 +99,21 @@ int thread_alloc(usize kstack_size, int flags, thread_t **ptp) {
 
     /* Initialize scheduling information */
     thread_sched_t *sched = &tinfo->ti_sched;
+
     sched->ts_ctime         = epoch_get();
     sched->ts_affin.cpu_set = -1; /* -1 means all CPUs allowed */
     sched->ts_affin.type    = SOFT_AFFINITY;
 
+    err = cond_init(&thread->t_event);
+    if (err != 0) {
+        // TODO: free the thread kernel stack.
+    }
+
     /* Initialize thread qnodes */
-    thread->t_run_qnode.data    = (void *)thread;
-    thread->t_wait_qnode.data   = (void *)thread;
-    thread->t_group_qnode.data  = (void *)thread;
-    thread->t_global_qnode.data = (void *)thread;
+    qnode_init(&thread->t_run_qnode, (void **)thread);
+    qnode_init(&thread->t_wait_qnode, (void **)thread);
+    qnode_init(&thread->t_group_qnode, (void **)thread);
+    qnode_init(&thread->t_global_qnode, (void **)thread);
 
     /* Initialize signal queues */
     for (usize i = 0; i < NELEM(thread->t_sigqueue); ++i) {
@@ -138,22 +146,25 @@ static int create_user_thread(thread_attr_t *attr, thread_entry_t entry, void *a
     mmap_t *mmap = current->t_mmap;
     mmap_lock(mmap);
 
-    int (*get_stack)(mmap_t *, uintptr_t, vmr_t **);
+    int (*get_stack)(mmap_t *, uintptr_t, vmregion_node_t **);
 
-    get_stack = !attr->stackaddr ? mmap_alloc_stack : mmap_find_stack;
+    /// allocate or get the exeisting stack vmregion node.
+    get_stack = !attr->stackaddr ? mmap_alloc_stack : mmap_get_stack_containing_address;
     uintptr_t addr_or_sz = !attr->stackaddr ? attr->stacksz : attr->stackaddr;
     addr_or_sz = !addr_or_sz ? USTACK_SIZE : addr_or_sz;
 
-    vmr_t *ustack_vmr;
-    if ((err = get_stack(current->t_mmap, addr_or_sz, &ustack_vmr))) {
+    vmregion_node_t *ustack_vmregion_node;
+    if ((err = get_stack(current->t_mmap, addr_or_sz, &ustack_vmregion_node))) {
         mmap_unlock(mmap);
         goto error;
     }
 
+    vmregion_t *ustack_vmregion = vmregion_from_vmregion_node(ustack_vmregion_node);
+
     uc_stack_t uc_stack = {0};
-    uc_stack.ss_size    = __vmr_size(ustack_vmr);
-    uc_stack.ss_flags   = __vmr_vflags(ustack_vmr);
-    uc_stack.ss_sp      = (void *)__vmr_upper_bound(ustack_vmr);
+    uc_stack.ss_size    = __vmregion_size(ustack_vmregion);
+    uc_stack.ss_flags   = __vmregion_to_pte_flags(ustack_vmregion);
+    uc_stack.ss_sp      = (void *)__vmregion_upper_bound(ustack_vmregion);
 
     mmap_unlock(mmap);
 
@@ -216,6 +227,8 @@ error:
     return err;
 }
 
+typedef int (*create_thread_fn_t)(thread_attr_t *attr, thread_entry_t entry, void *arg, int cflags, thread_t **ptp);
+
 /**
  * @brief Create a new thread.
  *
@@ -240,35 +253,36 @@ error:
  * @return 0 on success, or a negative error code on failure.
  */
 int thread_create(thread_attr_t *attr, thread_entry_t entry, void *arg, int cflags, thread_t **ptp) {
-    int             err;
-    thread_attr_t   t_attr;
     thread_t        *thread = NULL;
     bool            user_thread = (cflags & THREAD_CREATE_USER) ? true : false;
-    int             (*create_thread)() = user_thread ? create_user_thread : create_kernel_thread;
+    create_thread_fn_t create_thread = user_thread ? create_user_thread : create_kernel_thread;
 
     if (entry == NULL) {
         return -EINVAL;
     }
 
     /* Set default attributes if none provided */
-    t_attr = attr ? *attr : user_thread ? UTHREAD_ATTR_DEFAULT : KTHREAD_ATTR_DEFAULT;
+    thread_attr_t t_attr = attr ? *attr : user_thread ? UTHREAD_ATTR_DEFAULT : KTHREAD_ATTR_DEFAULT;
 
     cflags |= current == NULL  ? THREAD_CREATE_GROUP : 0;
 
     // create a self detatching thread.
     cflags |= t_attr.detachstate ? THREAD_CREATE_DETACHED : 0;
 
-    if ((err = create_thread(&t_attr, entry, arg, cflags, &thread))) {
-        return err;
-    }
+    int err = create_thread(&t_attr, entry, arg, cflags, &thread);
+    if (err != 0) { return err; }
 
     // set the thread's entry point.
     thread->t_info.ti_entry  = entry;
+
+    // debug("Inserting newly created thread into the global-thread-queue.\n");
 
     // Insert this new thread in the global thread queue.
     if ((err = enqueue_global_thread(thread))) {
         goto error;
     }
+
+    // debug("Done Inserting the thread.\n");
 
     // schedule the newly created thread?
     if (cflags & THREAD_CREATE_SCHED) {
@@ -291,10 +305,6 @@ error:
 }
 
 void thread_free(thread_t *thread) {
-    int             err     = 0;
-    arch_thread_t   *arch   = NULL;
-    queue_t         *queue  = NULL;
-
     if (thread == NULL) {
         return;
     }
@@ -307,34 +317,44 @@ void thread_free(thread_t *thread) {
     queue_unlock(global_thread_queue);
 
     if (thread->t_group) {
-        queue_lock(thread->t_group);
-        embedded_queue_remove(queue, &thread->t_group_qnode);
-        queue_unlock(thread->t_group);
+        queue_t *group_queue = thread->t_group;
+        assert(group_queue, "t_group->Queue is not supposed to be null.");
+
+        queue_lock(group_queue);
+        embedded_queue_remove(group_queue, &thread->t_group_qnode);
+        queue_unlock(group_queue);
     }
 
     if (thread->t_run_queue) {
-        queue_lock(thread->t_run_queue);
-        embedded_queue_remove(queue, &thread->t_run_qnode);
-        queue_unlock(thread->t_run_queue);
+        queue_t *run_queue = thread->t_run_queue;
+        assert(run_queue, "t_run_queue->Queue is not supposed to be null.");
+
+        queue_lock(run_queue);
+        embedded_queue_remove(run_queue, &thread->t_run_qnode);
+        queue_unlock(run_queue);
     }
 
     if (thread->t_wait_queue) {
-        queue = thread->t_wait_queue;
-        queue_lock(queue);
-        embedded_queue_remove(queue, &thread->t_wait_qnode);
-        queue_unlock(queue);
+        queue_t *wait_queue = thread->t_wait_queue;
+        assert(wait_queue, "t_wait_queue->Queue is not supposed to be null.");
+
+        queue_lock(wait_queue);
+        embedded_queue_remove(wait_queue, &thread->t_wait_qnode);
+        queue_unlock(wait_queue);
     }
 
-    arch = &thread->t_arch;
+    arch_thread_t *arch = &thread->t_arch;
 
     arch_thread_free(arch);
 
     if (thread_is_user(thread)) {
         mmap_lock(thread->t_mmap);
-        assert_eq(err = mmap_unmap(thread->t_mmap,
-            (uintptr_t)(arch->t_ustack.ss_sp - arch->t_ustack.ss_size),
-            arch->t_ustack.ss_size), 0, "Error[%s]: Unmapping vmr.\n", strerror(err)
-        );
+        const size_t    stack_size = arch->t_ustack.ss_size;
+        const uintptr_t stack_start = (uintptr_t)(arch->t_ustack.ss_sp - stack_size);
+
+        int err = mmap_free_range(thread->t_mmap, stack_start, stack_size);
+        assert_eq(err , 0, "Error[%s]: Unmapping vmr.\n", strerror(err));
+
         mmap_unlock(thread->t_mmap);
     }
 

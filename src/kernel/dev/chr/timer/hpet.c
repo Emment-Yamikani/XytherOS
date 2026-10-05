@@ -136,7 +136,7 @@ int hpet_init(void) {
     HPET = (atomic_u64 *)V2HI(hpet->blk_addr);
 
     hpet_disable(); // halt the main counter.
-    if ((err = hpet_tmr_init(0)))
+    if ((err = hpet_tmr_init()))
         return err;
 
     HPET_COUNTER = 0;          // Reset the main counter.

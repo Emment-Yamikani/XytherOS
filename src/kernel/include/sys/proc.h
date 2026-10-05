@@ -33,7 +33,7 @@ typedef struct __proc_t {
 
     proc_state_t    state;          // process' status.
     proc_flags_t    flags;          // process' flags.
-    long            status;      // process' exit status
+    long            status;         // process' exit status
     thread_entry_t  entry;          // process' entry point.
 
     long            refcnt;         // process' reference count.
@@ -48,9 +48,9 @@ typedef struct __proc_t {
 
     thread_t        *main_thread;
 
-    queue_node_t    proc_qnode;
+    qnode_t         proc_qnode;
 
-    queue_node_t    child_qnode;
+    qnode_t         child_qnode;
     queue_t         children;       // process' children queue.
 
     cond_t          child_event;    // process' child wait-event condition.
@@ -68,7 +68,7 @@ typedef struct __proc_t {
 
 #define curproc                 ({ current ? current->t_proc : (proc_t *)NULL; })                //
 
-extern queue_t *procQ;
+extern queue_t procQ;
 
 /// INIT process of the system.
 extern proc_t *initproc;
@@ -204,7 +204,7 @@ extern int procQ_search_bypgid(pid_t pgid, proc_t **ref);
 extern void proc_free(proc_t *proc);
 extern int proc_init(const char *initpath);
 extern int do_fork(proc_t *child, proc_t *parent);
-extern int proc_alloc(const char *name, proc_t **pref);
+extern int proc_alloc(const char *name, bool is_fork, proc_t **pref);
 extern int exec_load_image(const char *pathname, mmap_t *mmap);
 
 /**
@@ -246,7 +246,16 @@ extern int proc_remove_child(proc_t *parent, proc_t *child);
 extern int proc_get_child(proc_t *parent, proc_desc_t *desc);
 extern int proc_abandon_children(proc_t *new_parent, proc_t *old_parent);
 
-#define foreach_process(queue, item) \
-    queue_foreach_entry(queue, item, proc_qnode)
+#define foreach_process(queue, item, member) \
+    queue_foreach_entry(queue, item, member)
+
+#define foreach_process_reverse(queue, item, member) \
+    queue_foreach_entry_reverse(queue, item, member)
+
+#define foreach_process_safe(queue, item, next, member) \
+    queue_foreach_entry_safe(queue, item, next, member)
+
+#define foreach_process_reverse_safe(queue, item, prev, member) \
+    queue_foreach_entry_reverse_safe(queue, item, prev, member)
 
 extern int procQ_insert(proc_t *proc);

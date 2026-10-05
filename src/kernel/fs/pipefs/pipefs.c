@@ -9,7 +9,7 @@
 #include <sys/thread.h>
 #include <sys/_signal.h>
 
-static fs_t *pipefs = NULL;
+static filesystem_t *pipefs = NULL;
 __unused static sblock_t *pipefs_sb = NULL;
 
 static iops_t pipefs_iops = {
@@ -35,14 +35,13 @@ static iops_t pipefs_iops = {
     .irename    = pipefs_irename,
 };
 
-static int pipefs_fill_sb(fs_t *fs __unused, const char *target,
+static int pipefs_fill_sb(filesystem_t *fs __unused, const char *target,
                          struct devid *devid __unused, sblock_t *sb) {
-    int         err    = 0;
     inode_t     *iroot = NULL;
     dentry_t    *droot = NULL;
 
-    if ((err = tmpfs_new_inode(FS_DIR, &iroot)))
-        return err;
+    int err = tmpfs_new_inode(FS_DIR, &iroot);
+    if (err != 0) { return err; }
 
     if ((err = dalloc(target, &droot))) {
         irelease(iroot);
@@ -75,7 +74,7 @@ static int pipefs_fill_sb(fs_t *fs __unused, const char *target,
     return 0;
 }
 
-static int pipefs_getsb(fs_t *fs, const char *src __unused, const char *target,
+static int pipefs_getsb(filesystem_t *fs, const char *src __unused, const char *target,
                        unsigned long flags, void *data, sblock_t **psbp) {
     return getsb_nodev(fs, target, flags, data, psbp, pipefs_fill_sb);
 }
@@ -104,14 +103,13 @@ error:
 
 int pipe_mkpipe(pipe_t **pref) {
     int     err     = 0;
-    pipe_t  *pipe   = NULL;
 
     if (pref == NULL) {
         return -EINVAL;
     }
-    
-    if (NULL == (pipe = (pipe_t *)kzalloc(sizeof *pipe)))
-        return -ENOMEM;
+
+    pipe_t *pipe = (pipe_t *)kzalloc(sizeof *pipe);
+    if (pipe == NULL) { return -ENOMEM; }
 
     pipe_lock(pipe);
 
@@ -126,6 +124,9 @@ int pipe_mkpipe(pipe_t **pref) {
     if ((err = ialloc(FS_PIPE, I_NORWQUEUES, &pipe->p_iwrite))) {
         goto error;
     }
+
+    cond_init(&pipe->p_readers);
+    cond_init(&pipe->p_writers);
 
     pipe->p_iread->i_priv   = pipe;
     pipe->p_iread->i_mode   = 0444;

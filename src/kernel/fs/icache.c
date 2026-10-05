@@ -7,21 +7,24 @@
 #include <string.h>
 
 int icache_alloc(icache_t **ppcp) {
-    icache_t *icache = NULL;
-
     if (ppcp == NULL) {
         return -EINVAL;
     }
 
-    if ((icache = kzalloc(sizeof *icache)) == NULL) {
-        return -ENOMEM;
+    icache_t *icache = (icache_t *)kzalloc(sizeof *icache);
+    if (icache == NULL) { return -ENOMEM; }
+
+    int err = btree_init(&icache->pc_btree);
+    if (err != 0) {
+        kfree(icache);
+        return err;
     }
 
     icache->pc_flags    = 0;
     icache->pc_refcnt   = 1;
     icache->pc_nrpages  = 0;
-    icache->pc_btree    = BTREE_INIT();
-    icache->pc_queue    = QUEUE_INIT();
+
+    icache->pc_queue    = QUEUE_INLINE_INIT(icache->pc_queue);
     icache->pc_lock     = SPINLOCK_INIT();
 
     *ppcp               = icache;

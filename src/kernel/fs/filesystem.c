@@ -1,5 +1,6 @@
 #include <fs/fs.h>
 #include <bits/errno.h>
+#include <core/assert.h>
 #include <mm/kalloc.h>
 #include <string.h>
 #include <sync/atomic.h>
@@ -14,43 +15,34 @@ static u64 fsIDalloc(void) {
     return id;
 }
 
-int fsalloc(fs_t **pfs) {
-    int err = 0;
-    queue_t *queue = NULL;
-    fs_t *fs = NULL;
-
+int fsalloc(filesystem_t **pfs) {
     if (pfs == NULL) {
         return -EINVAL;
     }
 
+    filesystem_t *fs = kzalloc(sizeof *fs);
+    if (fs == NULL) {
+        return -ENOMEM;
+    }
 
-    if ((err = queue_alloc(&queue))) {
+    int err = qnode_init(&fs->fs_superblocks, (void *)fs);
+    if (err) {
+        kfree(fs);
         return err;
     }
 
-
-    if ((fs = kzalloc(sizeof *fs)) == NULL) {
-        err = -ENOMEM;
-        goto error;
-    }
-
-    fs->fs_count        = 1;
-    fs->fs_superblocks  = queue;
-    fs->fs_id           = fsIDalloc();
-    fs->fs_lock         = SPINLOCK_INIT();
+    fs->fs_count= 1;
+    fs->fs_id   = fsIDalloc();
+    fs->fs_lock = SPINLOCK_INIT();
 
     fslock(fs);
-    *pfs = fs;
-    return 0;
-error:
-    if (queue) {
-        queue_free(queue);
-    }
 
-    return err;
+    *pfs = fs;
+
+    return 0;
 }
 
-void fs_free(fs_t *fs) {
+void fs_free(filesystem_t *fs) {
     if (!fsislocked(fs)) {
         fslock(fs);
     }
@@ -63,9 +55,8 @@ void fs_free(fs_t *fs) {
             fs_unsetname(fs);
         }
 
-        if (fs->fs_superblocks) {
-            queue_free(fs->fs_superblocks);
-        }
+        int err = qnode_drain(&fs->fs_superblocks);
+        assert_eq(err, 0, "Failed to drain FS->superblock_head.\n");
 
         fsunlock(fs);
         kfree(fs);
@@ -75,23 +66,28 @@ void fs_free(fs_t *fs) {
     fsunlock(fs);
 }
 
-int fs_create(const char *name, iops_t *iops, fs_t **pfs) {
+int fs_create(const char *name, iops_t *iops, filesystem_t **pfs) {
     int err = 0;
-    fs_t *fs = NULL;
+    filesystem_t *fs = NULL;
     if (name == NULL || iops == NULL || pfs == NULL) {
         return -EINVAL;
     }
 
-    
     if ((err = fsalloc(&fs))) {
         return err;
     }
 
-    
     if ((err = fs_setname(fs, name))) {
         goto error;
     }
 
+    if ((err = qnode_init(&fs->fs_superblocks, NULL))) {
+        goto error;
+    }
+
+    if ((err = qnode_init(&fs->fslist_node, fs))) {
+        goto error;
+    }
 
     fs->fs_iops = iops;
 
@@ -106,23 +102,22 @@ error:
     return err;
 }
 
-
-void fs_dup(fs_t *fs) {
+void fs_dup(filesystem_t *fs) {
     fsassert_locked(fs);
     fs->fs_count++;
 }
 
-void fs_put(fs_t *fs) {
+void fs_put(filesystem_t *fs) {
     fsassert_locked(fs);
     fs->fs_count--;
 }
 
-long fs_count(fs_t *fs) {
+long fs_count(filesystem_t *fs) {
     fsassert_locked(fs);
     return fs->fs_count;
 }
 
-int fs_setname(fs_t *fs, const char *fsname) {
+int fs_setname(filesystem_t *fs, const char *fsname) {
     char *name = NULL;
 
     fsassert_locked(fs);
@@ -131,18 +126,16 @@ int fs_setname(fs_t *fs, const char *fsname) {
         return -EINVAL;
     }
 
-
     if ((name = strdup(fsname)) == NULL) {
         return -ENOMEM;
     }
 
-    
     fs->fs_name = name;
 
     return 0;
 }
 
-void fs_unsetname(fs_t *fs) {
+void fs_unsetname(filesystem_t *fs) {
     fsassert_locked(fs);
     if (fs == NULL) {
         return;
@@ -151,10 +144,9 @@ void fs_unsetname(fs_t *fs) {
     if (fs->fs_name) {
         kfree(fs->fs_name);
     }
-
 }
 
-int fs_set_iops(fs_t *fs, iops_t *iops) {
+int fs_set_iops(filesystem_t *fs, iops_t *iops) {
     fsassert_locked(fs);
     if (fs == NULL || iops == NULL) {
         return -EINVAL;
@@ -164,36 +156,26 @@ int fs_set_iops(fs_t *fs, iops_t *iops) {
     return 0;
 }
 
-int fs_add_superblock(fs_t *fs, sblock_t *sb) {
-    int err = 0;
-
-    fsassert_locked(fs);
+int fs_add_superblock(filesystem_t *fs, sblock_t *sb) {
     if (fs == NULL || sb == NULL) {
         return -EINVAL;
     }
 
-    
-    queue_lock(fs->fs_superblocks);
-    if ((err =  enqueue(fs->fs_superblocks, sb, 1, NULL))) {
-        queue_unlock(fs->fs_superblocks);
-        return -ENOMEM;
-    }
-    queue_unlock(fs->fs_superblocks);
+    fsassert_locked(fs);
+
+    int err = qnode_enqueue(&fs->fs_superblocks, &sb->sb_fsnode, QUEUE_UNIQUE);
+    if (err) { return err; }
 
     sb->sb_iops = fs->fs_iops;
 
     return 0;
 }
 
-int fs_del_superblock(fs_t *fs, sblock_t *sb) {
-    int err = 0;
-    fsassert_locked(fs);
+int fs_del_superblock(filesystem_t *fs, sblock_t *sb) {
     if (fs == NULL || sb == NULL) {
         return -EINVAL;
     }
 
-    queue_lock(fs->fs_superblocks);
-    err = queue_remove(fs->fs_superblocks, sb);
-    queue_unlock(fs->fs_superblocks);
-    return err;
+    fsassert_locked(fs);
+    return qnode_list_remove(&fs->fs_superblocks, &sb->sb_fsnode);
 }

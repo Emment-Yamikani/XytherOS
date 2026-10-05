@@ -13,7 +13,7 @@ int vfs_openat(dentry_t *dir, const char *pathname, int oflags, mode_t mode, den
     vfspath_t   *path   = NULL;
 
     // openat() must only be called by threads.
-    current_assert();
+    assert_current_thread();
     if (dir)
         dassert_locked(dir);
 
@@ -82,14 +82,16 @@ int open(const char *pathname, int oflags, mode_t mode) {
     file_t      *file   = NULL;
     dentry_t    *dentry = NULL;
 
+    // debuglog();
+
     if (pathname == NULL) {
         return -EINVAL;
     }
-    
-    printk("%s:%d: %s(%s, %o, %o);\n", __FILE__, __LINE__, __func__, pathname, oflags, mode);
-    
+
+    // printk("%s:%d: %s(%s, %d, %d);\n", __FILE__, __LINE__, __func__, pathname, oflags, mode);
+
     // open() must only be called by threads.
-    current_assert();
+    assert_current_thread();
 
     if ((err = vfs_resolve_path(pathname, dentry, current_cred(), oflags, &path))) {
         if ((err == -ENOENT) && (oflags & O_CREAT)) {
@@ -156,6 +158,7 @@ found:
     
     path_free(path);
 
+    // debuglog();
     return fd;
 error:
     if (path)
@@ -167,13 +170,13 @@ int openat(int fd, const char *pathname, int oflags, mode_t mode) {
     int         err     = 0;
     vfspath_t   *path   = NULL;
     file_t      *file   = NULL;
-    dentry_t    *dentry = NULL;
 
     // openat() must only be called by threads.
-    current_assert();
+    assert_current_thread();
 
-    if ((err = file_get(fd, &file)))
+    if ((err = file_get(fd, &file))) {
         return err;
+    }
     
     dlock(file->f_dentry);
     if ((err = dopen(file->f_dentry))) {
@@ -182,7 +185,7 @@ int openat(int fd, const char *pathname, int oflags, mode_t mode) {
         return err;
     }
 
-    dentry = file->f_dentry;
+    dentry_t *dentry = file->f_dentry;
     funlock(file);
 
     if ((err = vfs_resolve_path(pathname, dentry, current_cred(), oflags, &path))) {

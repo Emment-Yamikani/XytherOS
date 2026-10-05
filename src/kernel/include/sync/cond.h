@@ -1,5 +1,6 @@
 #pragma once
 
+#include <core/misc.h>
 #include <ds/queue.h>
 #include <sync/spinlock.h>
 #include <sys/sched/sched_wait.h>
@@ -10,10 +11,11 @@ typedef struct cond {
     spinlock_t  lock;
 } cond_t;
 
-#define COND_INIT()              ((cond_t){0})
-#define COND_NEW()               (&COND_INIT())
-#define COND_VAR(name)           cond_t *name = COND_NEW()
-#define CONDITION_VARIABLE(name) cond_t *name = COND_NEW()
+// #define CONDITION_VARIABLE(ownership, name) ownership cond_t name __used_section(.static_condition_variable) = {0}
+
+#define COND_INLINE_INIT(cond_name) (cond_t){ .count = 0, .lock = SPINLOCK_INIT(), .waiters = QUEUE_INLINE_INIT((cond_name).waiters) }
+
+#define CONDITION_VARIABLE(ownership, cond_name) ownership cond_t cond_name = COND_INLINE_INIT(cond_name)
 
 #define cond_assert(c)           ({ assert(c, "Invalid condition variable.\n"); })
 #define cond_lock(c)             ({ cond_assert(c); spin_lock(&(c)->lock); })

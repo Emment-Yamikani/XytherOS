@@ -125,13 +125,17 @@ typedef struct hashMap {
     spinlock_t      lock;       /**< Lock to ensure thread-safe operations. */
 } hashMap;
 
-#define HASHMAP(name) hashMap *name = &(hashMap) { \
-    .size           = 0,                           \
-    .capacity       = HASHMAP_SIZE,                \
-    .bucket_tree    = BTREE_INIT(),                \
-    .lock           = SPINLOCK_INIT(),             \
-    .context        = HASHMAPCTX_INIT()            \
-}
+#define HASHMAP_INLINE_INIT(hashMap_name)                             \
+    (hashMap)                                                         \
+    {                                                                 \
+        .size = 0,                                                    \
+        .capacity = HASHMAP_SIZE,                                     \
+        .lock = SPINLOCK_INIT(),                                      \
+        .context = HASHMAPCTX_INIT(),                                 \
+        .bucket_tree = BTREE_INLINE_INIT((hashMap_name).bucket_tree), \
+    }
+
+#define HASHMAP(hashMap_name) hashMap hashMap_name = HASHMAP_INLINE_INIT(hashMap_name)
 
 /** @brief Asserts the validity of the hash map pointer. */
 #define hashMap_assert(map)         ({ assert(map, "Invalid HashMap.\n"); })

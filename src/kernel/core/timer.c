@@ -3,19 +3,31 @@
 #include <mm/kalloc.h>
 #include <sys/thread.h>
 
-static QUEUE(ktimer_queue);
+QUEUE(__global, ktimer_queue);
 
-static int compare_timer_expiry(queue_node_t *x, queue_node_t *y) {
+#define foreach_ktimer(item) \
+    queue_foreach_entry(&ktimer_queue, item, knode)
+
+#define foreach_ktimer_reverse(item) \
+    queue_foreach_entry_reverse(&ktimer_queue, item, knode)
+
+#define foreach_ktimer_safe(item, next) \
+    queue_foreach_entry_safe(&ktimer_queue, item, next, knode)
+
+#define foreach_ktimer_reverse_safe(item, prev) \
+    queue_foreach_entry_reverse_safe(&ktimer_queue, item, prev, knode)
+
+static int compare_timer_expiry(qnode_t *x, qnode_t *y) {
     posix_timer_t *tx, *ty;
 
     if (!x || !y) {
         return -EINVAL;
     }
 
-    queue_assert_locked(ktimer_queue);
+    queue_assert_locked(&ktimer_queue);
 
-    tx = queue_node_get_container(x, posix_timer_t, knode);
-    ty = queue_node_get_container(y, posix_timer_t, knode);
+    tx = qnode_container(x, posix_timer_t, knode);
+    ty = qnode_container(y, posix_timer_t, knode);
 
     if (tx->expiry_time == ty->expiry_time)
         return QUEUE_EQUAL;
@@ -26,24 +38,24 @@ static int compare_timer_expiry(queue_node_t *x, queue_node_t *y) {
 
 static void add_timer_to_kernel_queue(posix_timer_t *timer) {
     // Insert the timer into the queue in order of expiry time
-    queue_lock(ktimer_queue);
-    embedded_enqueue_sorted(
-        ktimer_queue,
+    queue_lock(&ktimer_queue);
+    embedded_sorted_enqueue(
+        &ktimer_queue,
         &timer->knode,
         QUEUE_UNIQUE, QUEUE_ASCENDING,
         compare_timer_expiry
     );
-    queue_unlock(ktimer_queue);
+    queue_unlock(&ktimer_queue);
 }
 
 static void remove_timer_from_kernel_queue(posix_timer_t *timer) {
-    queue_lock(ktimer_queue);
-    embedded_queue_detach(ktimer_queue, &timer->knode);
-    queue_unlock(ktimer_queue);
+    queue_lock(&ktimer_queue);
+    embedded_queue_remove(&ktimer_queue, &timer->knode);
+    queue_unlock(&ktimer_queue);
 }
 
 static int add_timer_to_process(thread_t *thread, posix_timer_t *timer) {
-    if (!thread || !timer) {
+    if (!thread || timer == NULL) {
         return -EINVAL;
     }
 
@@ -55,7 +67,7 @@ static int add_timer_to_process(thread_t *thread, posix_timer_t *timer) {
 
 static void remove_timer_from_process(thread_t *thread, posix_timer_t *timer) {
     queue_lock(thread->t_timers);
-    embedded_queue_detach(thread->t_timers, &timer->node);
+    embedded_queue_remove(thread->t_timers, &timer->node);
     queue_unlock(thread->t_timers);
 }
 
@@ -76,19 +88,19 @@ static posix_timer_t *find_timer_by_id(timer_t timerid) {
 }
 
 static posix_timer_t *get_expired_timer(void) {
-    posix_timer_t *timer;
+    posix_timer_t *timer, *next_timer;
 
-    queue_lock(ktimer_queue);
-    queue_foreach_entry(ktimer_queue, timer, knode) {
+    queue_lock(&ktimer_queue);
+    foreach_ktimer_safe(timer, next_timer) {
         spin_lock(&timer->lock);
         if (timer->expiry_time <= jiffies_get()) {
-            embedded_queue_detach(ktimer_queue, timer_node);
-            queue_unlock(ktimer_queue);
+            embedded_queue_remove(&ktimer_queue, &timer->knode);
+            queue_unlock(&ktimer_queue);
             return timer;
         }
         spin_unlock(&timer->lock);
     }
-    queue_unlock(ktimer_queue);
+    queue_unlock(&ktimer_queue);
     return NULL;
 }
 
@@ -114,7 +126,7 @@ static void deliver_signal_or_event(thread_t *thread, sigevent_t *event) {
 static void timer_worker(void) {
     loop_and_yield() {
         posix_timer_t *timer = get_expired_timer();
-        if (!timer) {
+        if (timer == NULL) {
             sched_yield();
             continue;
         }
@@ -142,13 +154,13 @@ int timer_create_r(thread_t *owner, clockid_t clockid, sigevent_t *sevp, timer_t
         return ret;
     }
 
-    if (!owner) {
+    if (owner == NULL) {
         return -EINVAL;
     }
 
     // Allocate a new timer structure
-    posix_timer_t *timer = kmalloc(sizeof(posix_timer_t));
-    if (!timer) {
+    posix_timer_t *timer = (posix_timer_t *)kzalloc(sizeof(posix_timer_t));
+    if (timer == NULL) {
         return -ENOMEM;
     }
 
@@ -157,13 +169,17 @@ int timer_create_r(thread_t *owner, clockid_t clockid, sigevent_t *sevp, timer_t
     timer->expiry_time  = 0;
     timer->owner        = owner;
     timer->clockid      = clockid;
-    timer->event = sevp ? *sevp : (sigevent_t) {
+
+    timer->event        = sevp ? *sevp : (sigevent_t) {
         .sigev_signo    = SIGALRM,
         .sigev_notify   = SIGEV_SIGNAL,
         .sigev_value    = (sigval_t){0},
         .sigev_function = NULL,
         .sigev_attribute= NULL
     };
+
+    qnode_init(&timer->node, &timer->node);
+    qnode_init(&timer->knode, &timer->knode);
 
     if (timer->event.sigev_notify == SIGEV_CALLBACK || timer->event.sigev_notify == SIGEV_THREAD) {
         if (timer->event.sigev_function == NULL) {
@@ -198,7 +214,7 @@ int timer_settime(timer_t timerid, int flags, const struct itimerspec *new_value
     }
 
     posix_timer_t *timer = find_timer_by_id(timerid);
-    if (!timer) {
+    if (timer == NULL) {
         return -EINVAL;
     }
 
@@ -209,9 +225,9 @@ int timer_settime(timer_t timerid, int flags, const struct itimerspec *new_value
     }
 
     // Set the new timer settings
-    timer->expiry_time = jiffies_from_timespec(&new_value->it_value);
-    timer->expiry_time += flags & POSIX_TIMER_ABSTIME ? 0 : jiffies_get();
-    timer->interval = jiffies_from_timespec(&new_value->it_interval);
+    timer->expiry_time  = jiffies_from_timespec(&new_value->it_value);
+    timer->expiry_time  += flags & POSIX_TIMER_ABSTIME ? 0 : jiffies_get();
+    timer->interval     = jiffies_from_timespec(&new_value->it_interval);
 
     // Add the timer to the kernel's timer queue
     add_timer_to_kernel_queue(timer);
@@ -226,7 +242,7 @@ int timer_gettime(timer_t timerid, struct itimerspec *curr_value) {
     }
 
     posix_timer_t *timer = find_timer_by_id(timerid);
-    if (!timer) {
+    if (timer == NULL) {
         return -EINVAL;
     }
 
@@ -239,7 +255,7 @@ int timer_gettime(timer_t timerid, struct itimerspec *curr_value) {
 
 int timer_delete(timer_t timerid) {
     posix_timer_t *timer = find_timer_by_id(timerid);
-    if (!timer) {
+    if (timer == NULL) {
         return -EINVAL;
     }
 

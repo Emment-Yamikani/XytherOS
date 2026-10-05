@@ -4,7 +4,8 @@
 #include <sys/thread.h>
 #include <sys/proc.h>
 
-QUEUE(global_thread_queue);
+QUEUE(PRIVATE, static_global_thread_queue);
+queue_t *global_thread_queue = &static_global_thread_queue;
 
 const char *tget_state(tstate_t state) {
     static const char *states[] = {
@@ -149,10 +150,10 @@ int thread_create_group(thread_t *thread) {
         return -EALREADY;
     }
 
-    if ((err = queue_alloc(&queue)))
+    if ((err = queue_create(&queue)))
         return err;
 
-    if ((err = queue_alloc(&timers))) {
+    if ((err = queue_create(&timers))) {
         goto error;
     }
 
@@ -191,11 +192,11 @@ int thread_create_group(thread_t *thread) {
     return 0;
 error:
     if (queue) {
-        queue_free(queue);
+        queue_destroy(queue);
     }
 
     if (timers) {
-        queue_free(timers);
+        queue_destroy(timers);
     }
 
     if (cred) {
@@ -270,7 +271,11 @@ int thread_queue_find_by_tid(queue_t *thread_queue, tid_t tid, thread_t **ptp) {
         return -EINVAL;
     }
 
-    queue_foreach(thread_queue, thread_t *, thread) {
+
+    qnode_t *node;
+    thread_t *thread;
+    queue_foreach_node(thread_queue, node) {
+        thread = node->data;
         thread_lock(thread);
         if (thread_gettid(thread) == tid) {
             if (ptp == NULL) {
@@ -361,7 +366,7 @@ int thread_switch_to_userspace(thread_t *thread, uintptr_t *rpdbr) {
     int err;
     uintptr_t pdbr;
     mmap_lock(thread_mmap(thread));
-    if ((err = mmap_set_focus(thread_mmap(thread), &pdbr))) {
+    if ((err = mmap_switch_to(thread_mmap(thread), &pdbr))) {
         mmap_unlock(thread_mmap(thread));
         return err;
     }

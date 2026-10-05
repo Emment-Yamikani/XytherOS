@@ -295,7 +295,7 @@ int device_register(device_t *dev) {
     table_unlock(table);
 
     const bool chardev = DEVICE_TYPE(dev) == CHRDEV;
-    printk("[\033[32mOK\033[m] registered %sdev [%3d:%d] \e[033m%s\e[0m.\n",
+    printk("[  \033[32mOK\033[m  ] Registered %sdev [%3d:%d] \e[033m%s\e[0m.\n",
         chardev ? "chr" : "blk", major, minor, dev->name);
 
     return 0;
@@ -398,7 +398,7 @@ int device_getinfo(struct devid *dd, void *info) {
     return dev->devops.getinfo(dd, info);
 }
 
-int device_mmap(struct devid *dd, vmr_t *vmregion) {
+int device_mmap(struct devid *dd, vmregion_t *vmregion) {
     device_t *dev = get_device_by_devid(dd);
     if (dev == NULL) {
         return -ENXIO;

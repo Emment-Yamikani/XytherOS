@@ -734,7 +734,7 @@ int fmknodat(file_t *dir, const char *pathname, mode_t mode, int devid) {
     return err;
 }
 
-int fmmap(file_t *file, vmr_t *region) {
+int fmmap(file_t *file, vmregion_t *region) {
     int     err     = 0;
     inode_t *inode  = NULL;
 
@@ -743,19 +743,19 @@ int fmmap(file_t *file, vmr_t *region) {
     
     fassert_locked(file);
 
-    if (__vmr_read(region)) {
+    if (__vmregion_readable(region)) {
         if (((file->f_oflags & O_ACCMODE) != O_RDONLY)
             && ((file->f_oflags & O_ACCMODE) != O_RDWR))
             return -EACCES;
     }
 
-    if (__vmr_write(region)) {
+    if (__vmregion_writable(region)) {
         if (((file->f_oflags & O_ACCMODE) != O_WRONLY)
             && ((file->f_oflags & O_ACCMODE) != O_RDWR))
             return -EACCES;
     }
 
-    if (__vmr_exec(region)) {
+    if (__vmregion_executable(region)) {
         if (!(file->f_oflags & O_EXCL))
             return -EACCES;
     }

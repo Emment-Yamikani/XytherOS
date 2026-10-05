@@ -5,7 +5,7 @@
 #include <fs/fcntl.h>
 #include <fs/inode.h>
 #include <fs/cred.h>
-#include <mm/mmap.h>
+#include <mm/mmap/vmregion.h>
 #include <sync/spinlock.h>
 #include <sys/_utsname.h>
 
@@ -29,7 +29,7 @@ typedef struct fops_t {
     ssize_t (*freaddir)(file_t *dir, off_t off, void *buf, size_t count);
     int     (*flinkat)(file_t *dir, const char *oldname, const char *newname);
     int     (*fmknodat)(file_t *dir, const char *filename, mode_t mode, int devid);
-    int     (*fmmap)(file_t *file, vmr_t *region);
+    int     (*fmmap)(file_t *file, vmregion_t *region);
     int     (*fstat)(file_t *file, struct stat *buf);
     int     (*fchown)(file_t *file, uid_t owner, gid_t group);
 } fops_t;
@@ -76,7 +76,7 @@ extern int      fmkdirat(file_t *dir, const char *filename, mode_t mode);
 extern ssize_t  freaddir(file_t *dir, off_t off, void *buf, size_t count);
 extern int      flinkat(file_t *dir, const char *oldname, const char *newname);
 extern int      fmknodat(file_t *dir, const char *filename, mode_t mode, int devid);
-extern int      fmmap(file_t *file, vmr_t *region);
+extern int      fmmap(file_t *file, vmregion_t *region);
 
 extern int      fsymlink(file_t *file, file_t *atdir, const char *symname);
 extern int      fbind(file_t *dir, struct dentry *dentry, inode_t *file);

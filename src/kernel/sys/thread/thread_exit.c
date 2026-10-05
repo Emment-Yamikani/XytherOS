@@ -3,21 +3,17 @@
 #include <sys/thread.h>
 
 void thread_exit(uintptr_t status) {
-    current_assert();
+    assert_current_thread();
     arch_thread_exit(status);
 }
 
 int thread_reap(thread_t *thread, thread_info_t *info, void **retval) {
-    if (thread == NULL) {
-        return -EINVAL;
-    }
+    if (thread == NULL) { return -EINVAL; }
 
     thread_assert_locked(thread);
 
-    int err = 0;
-    if ((err = thread_wait(thread))) {
-        return err;
-    }
+    int err = thread_wait(thread);
+    if (err != 0) { return err; }
 
     if (info != NULL) { // copy the thread info.
         info->ti_exit   = thread->t_info.ti_exit;

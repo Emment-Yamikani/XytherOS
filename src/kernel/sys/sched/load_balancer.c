@@ -237,8 +237,9 @@ static void MLFQ_aging(void) {
             queue_t *sourceQ = &level->run_queue;
             queue_lock(sourceQ);
 
-            thread_t *thread;
-            queue_foreach_entry(sourceQ, thread, t_run_qnode) {
+            thread_t *thread, *next_thread;
+            foreach_thread_safe(sourceQ, thread, next_thread, t_run_qnode) {
+            // queue_foreach_entry(sourceQ, thread, t_run_qnode) {
                 thread_lock(thread);
 
                 if (++thread->t_info.ti_sched.ts_age > AGING_THRESHOLD) {
@@ -259,7 +260,7 @@ static void MLFQ_aging(void) {
                     }
 
                     int err = embedded_queue_relloc(
-                        targetQ, sourceQ, thread_node,
+                        targetQ, sourceQ, &thread->t_run_qnode,
                         QUEUE_UNIQUE, QUEUE_TAIL
                     );
 

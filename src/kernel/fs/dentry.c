@@ -34,28 +34,31 @@ int dinit(const char *name, dentry_t *dentry) {
 
     spinlock_init(&dentry->d_spinlock);
 
-    if (NULL == (dentry->d_name = strdup(name))) {
+
+    char *d_name = strdup(name);
+    if (d_name == NULL) { return -ENOMEM; }
+
+    int err = stack_init(&dentry->d_mnt_stack);
+    if (err != 0) {
+        kfree(d_name);
         return -ENOMEM;
     }
+
+    dentry->d_name = d_name;
 
     return 0;
 }
 
 int dalloc(const char *name, dentry_t **pdp) {
-    int         err     = 0;
-    dentry_t    *dentry = NULL;
-
     if (name == NULL || pdp == NULL) {
         return -EINVAL;
     }
 
-    if (NULL == (dentry = (dentry_t *)kzalloc(sizeof *dentry))) {
-        return -ENOMEM;
-    }
+    dentry_t *dentry = (dentry_t *)kzalloc(sizeof *dentry);
+    if (dentry == NULL) { return -ENOMEM; }
 
-    if ((err = dinit(name, dentry))) {
-        goto error;
-    }
+    int err = dinit(name, dentry);
+    if (err != 0) { goto error; }
 
     dlock(dentry);
 
@@ -63,7 +66,7 @@ int dalloc(const char *name, dentry_t **pdp) {
 
     return 0;
 error:
-    if (dentry) ddestroy(dentry);
+    if (dentry) { ddestroy(dentry); }
 
     return err;
 }

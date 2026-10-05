@@ -4,12 +4,13 @@
 #include <sys/thread.h>
 
 int mtx_init(mtx_t *mtx) {
-    if (mtx == NULL)
+    if (mtx == NULL) {
         return -EINVAL;
+    }
     
     mtx->m_locked   = 0;
-    mtx->m_owner    = NULL;
     mtx->m_recurs   = 0;
+    mtx->m_owner    = NULL;
     spinlock_init(&mtx->m_guard);
     return queue_init(&mtx->m_waitQ);
 }

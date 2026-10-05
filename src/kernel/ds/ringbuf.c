@@ -4,15 +4,10 @@
 #include <mm/kalloc.h>
 
 int ringbuf_init(isize size, ringbuf_t *ring) {
-    u8 *buf = NULL;
+    if (ring == NULL) { return -EINVAL; }
 
-    if (ring == NULL)
-        return -EINVAL;
-
-    if (!(buf = (u8 *)kmalloc(size))) {
-        kfree(ring);
-        return -ENOMEM;
-    }
+    u8 *buf = kzalloc(size);
+    if (buf == NULL) { return -ENOMEM; }
 
     *ring = (ringbuf_t) {
         .head = 0,
@@ -26,23 +21,19 @@ int ringbuf_init(isize size, ringbuf_t *ring) {
 }
 
 int ringbuf_new(size_t size, ringbuf_t **rref) {
-    int       err   = 0;
-    ringbuf_t *ring = NULL;
-
     assert(rref, "no reference");
 
-    if ((ring = kmalloc(sizeof(ringbuf_t))) == NULL)
-        return -ENOMEM;
+    ringbuf_t *ring = (ringbuf_t *)kzalloc(sizeof *ring);
+    if (ring == NULL) { return -ENOMEM; }
 
-    if ((err = ringbuf_init(size, ring)))
-        goto error;
+    int err = ringbuf_init(size, ring);
+    if (err != 0) {
+        kfree(ring);
+        return err;
+    }
 
     *rref = ring;
     return 0;
-error:
-    if (ring != NULL)
-        kfree(ring);
-    return err;
 }
 
 void ringbuf_free_buffer(ringbuf_t *r) {

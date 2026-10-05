@@ -114,7 +114,7 @@ static ssize_t pts_write(struct devid *dd, off_t off __unused, void *buf, size_t
     return sz;
 }
 
-static int pts_mmap(struct devid *dd, vmr_t *region) {
+static int pts_mmap(struct devid *dd, vmregion_t *region) {
     if (dd == NULL || region == NULL)
         return -EINVAL;
     return -ENOSYS;

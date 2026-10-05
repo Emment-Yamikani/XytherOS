@@ -10,8 +10,9 @@
 
 #define KBD_BUFFSZ (16834 * sizeof(kbd_event_t)) // size of keyboard buffer.
 
-static QUEUE(event_readers);
-static QUEUE(event_writers);
+QUEUE(PRIVATE, event_readers);
+QUEUE(PRIVATE, event_writers);
+
 static ringbuf_t    event_buffer;
 static thread_t     *grabber = NULL;
 DECL_DEVOPS(static, event0);
@@ -20,15 +21,15 @@ static DECL_DEVICE(event0, CHRDEV, KBDEV_DEV_MAJOR, 0);
 
 static int event0_init(void) {
     int err = ringbuf_init(KBD_BUFFSZ, &event_buffer);
-    if (err) {
+    if (err != 0) {
         return err;
     }
 
-    if ((err = queue_init(event_writers))) {
+    if ((err = queue_init(&event_writers))) {
         return err;
     }
 
-    if ((err = queue_init(event_readers))) {
+    if ((err = queue_init(&event_readers))) {
         return err;
     }
 
@@ -47,13 +48,13 @@ int kbd_get_event(kbd_event_t *ev) {
     loop() {
         err = ringbuf_read(&event_buffer, (void *)ev, sizeof(kbd_event_t));
 
-        sched_wakeup_all(event_writers, WAKEUP_NORMAL, NULL);
+        sched_wakeup_all(&event_writers, WAKEUP_NORMAL, NULL);
         if (err == 0) {
             if (current == NULL) {
                 continue;
             }
 
-            err = sched_wait_whence(event_readers, T_SLEEP, QUEUE_TAIL, NULL, &event_buffer.lock);
+            err = sched_wait_whence(&event_readers, T_SLEEP, QUEUE_TAIL, NULL, &event_buffer.lock);
             if (err == 0) {
                 continue;
             }
@@ -87,7 +88,7 @@ int async_kbd_inject_event(kbd_event_t *ev) {
 
     ringbuf_lock(&event_buffer);
     err = ringbuf_write(&event_buffer, (void *)ev, sizeof(kbd_event_t));
-    sched_wakeup_all(event_readers, WAKEUP_NORMAL, NULL);
+    sched_wakeup_all(&event_readers, WAKEUP_NORMAL, NULL);
 
     err = (err == sizeof (kbd_event_t)) ? 0 : err < 0 ? err : -EFAULT;
     ringbuf_unlock(&event_buffer);
@@ -106,13 +107,13 @@ int kbd_inject_event(kbd_event_t *ev) {
     loop() {
         err = ringbuf_write(&event_buffer, (void *)ev, sizeof(kbd_event_t));
 
-        sched_wakeup_all(event_readers, WAKEUP_NORMAL, NULL);
+        sched_wakeup_all(&event_readers, WAKEUP_NORMAL, NULL);
         if (err == 0) {
             if (current == NULL) {
                 continue;
             }
 
-            err = sched_wait_whence(event_writers, T_SLEEP, QUEUE_TAIL, NULL, &event_buffer.lock);
+            err = sched_wait_whence(&event_writers, T_SLEEP, QUEUE_TAIL, NULL, &event_buffer.lock);
             if (err == 0) {
                 continue;
             }
@@ -160,7 +161,7 @@ static int event0_getinfo(struct devid *, void *info __unused) {
     return -ENOSYS;
 }
 
-static int event0_mmap(struct devid *, vmr_t *vmregion __unused) {
+static int event0_mmap(struct devid *, vmregion_t *vmregion __unused) {
     return -EOPNOTSUPP;
 }
 

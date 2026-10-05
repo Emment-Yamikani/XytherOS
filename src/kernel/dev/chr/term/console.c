@@ -60,13 +60,13 @@ int rgb_to_ansi16(RGBColor rgb) {
 int convert_color_to_ansi(int color) {
     switch (color) {
         case  0  ...  15: return color;
-        case  16 ...  21: return 1;  // Blue.
+        case  16 ...  21: return 4;  // Blue.
         case  22 ...  51: return 2;  // Cyan/Green.
         case  52 ...  87: return 3;  // Green/Yellow.
-        case  88 ... 123: return 4;  // Yellow/Red.
+        case  88 ... 123: return 1;  // Yellow/Red.
         case 124 ... 159: return 5;  // Red/Magenta.
-        case 160 ... 195: return 6;  // Magenta/Red.
-        case 196 ... 231: return 7;  // Red.
+        case 160 ... 195: return 5;  // Magenta/Red.
+        case 196 ... 231: return 8;  // Red.
         case 232 ... 243: return 0;  // Black/Dark Gray.
         case 244 ... 249: return 7;  // Light Gray/White.
         case 250 ... 255: return 7;  // Bright White.
@@ -611,7 +611,7 @@ static int console_open(tty_t *tp) {
 
     if (!tp->t_char_buffer) {
         size = tp->t_winsize.ws_row * tp->t_winsize.ws_col;
-        tp->t_char_buffer = kmalloc(size);
+        tp->t_char_buffer = (char *)kzalloc(size);
         if (!tp->t_char_buffer) {
             ringbuf_free_buffer(&tp->t_scroll.upbuf);
             ringbuf_free_buffer(&tp->t_scroll.downbuf);
@@ -623,7 +623,7 @@ static int console_open(tty_t *tp) {
 
     if (!tp->t_shadow_buffer) {
         size = tp->t_winsize.ws_row * tp->t_winsize.ws_col;
-        tp->t_shadow_buffer = kmalloc(size * 2);
+        tp->t_shadow_buffer = (void *)kzalloc(size * 2);
         if (!tp->t_shadow_buffer) {
             ringbuf_free_buffer(&tp->t_scroll.upbuf);
             ringbuf_free_buffer(&tp->t_scroll.downbuf);

@@ -51,7 +51,7 @@ static ssize_t full_write(struct devid *dd __unused, off_t off __unused, void *b
     return -ENOSPC;
 }
 
-static int full_mmap(struct devid *dd, vmr_t *region) {
+static int full_mmap(struct devid *dd, vmregion_t *region) {
     if (dd == NULL || region == NULL)
         return -EINVAL;
     

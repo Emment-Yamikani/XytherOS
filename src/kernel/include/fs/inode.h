@@ -14,7 +14,7 @@ struct  dentry;
 struct  superblock;
 typedef struct superblock sblock_t;
 struct  filesystem;
-typedef struct filesystem fs_t;
+typedef struct filesystem filesystem_t;
 struct  dirent;
 
 typedef enum {

@@ -5,6 +5,9 @@
 
 #define __CAT(a, b)                     a##b
 
+#define __static    static
+#define __global    
+
 #define __unused                        __attribute__((unused))
 #define __packed                        __attribute__((packed))
 #define __noreturn                      __attribute__((noreturn))
@@ -93,6 +96,7 @@
 #define PGSZ                    (0x1000ull)
 #define PAGESZ                  (PGSZ)
 #define PGMASK                  (PGSZ - 1)
+#define PGMSK                   (PGSZ - 1)
 #define PAGEMASK                (PGMASK)
 #define PGSZ2M                  (0x200000ull)
 #define PGSZ2MASK               (PGSZ2M -1)
@@ -114,7 +118,7 @@
 #define is_aligned64(p)         ((((uint64_t)(p)) & 0x3f) == 0)
 #define is_aligned4k(p)         ((((uint64_t)(p)) & 0xfff) == 0)
 
-#define MAGIC_RETADDR           (-1ul)
+#define MAGIC_RETADDR           (-1ull)
 #define MEMMDEV                 ((uintptr_t)0xFE000000ull)
 #define ismmio_addr(x)          ((((uintptr_t)(x)) >= MEMMDEV) && (((uintptr_t)(x)) < GiB(4)))
 
@@ -162,6 +166,12 @@
 #define N2MPAGE(p)              (((size_t)(p) / PGSZ2M) + (PG2MOFF(p) ? 1 : 0))
 
 #define NELEM(x)                ((size_t)(sizeof ((x)) / sizeof ((x)[0])))
+
+// private denotes something is only accessible from within the file it is declared.
+#define PRIVATE static
+
+// public denotes something is accessible from anywhere in the codebase.
+#define PUBLIC
 
 extern uintptr_t __kernel_start[];
 extern uintptr_t __kernel_readonly_end[];
